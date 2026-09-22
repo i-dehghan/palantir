@@ -1,0 +1,114 @@
+<div class="form-card">
+  <h2>تعریف قانون تطبیق جدید</h2>
+  <p class="form-desc">تعیین شروط نگاشت بین سامانه‌ها جهت تحلیل خودکار موتور انطباق</p>
+
+  <form (ngSubmit)="createRule()" class="rules-form">
+    <div class="form-row full-width">
+      <label>عنوان قانون</label>
+      <input type="text" [(ngModel)]="newRule.ruleName" name="ruleName" placeholder="مثال: مغایرت بیش از ۵٪ ارزش کل دلاری" required />
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>جدول سامانه اول (مبدأ)</label>
+        <select [(ngModel)]="newRule.sourceTableA" name="sourceTableA">
+          <option value="ntsw_orders">سامانه جامع تجارت (ntsw_orders)</option>
+          <option value="cbi_allocations">بانک مرکزی (cbi_allocations)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>فیلد مبدأ</label>
+        <select [(ngModel)]="newRule.sourceFieldA" name="sourceFieldA">
+          <option value="hs_code">کد تعرفه (hs_code)</option>
+          <option value="goods_description">شرح تجاری کالا (goods_description)</option>
+          <option value="total_usd">ارزش دلاری (total_usd)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>جدول سامانه دوم (مقصد)</label>
+        <select [(ngModel)]="newRule.sourceTableB" name="sourceTableB">
+          <option value="epl_declarations">گمرک EPL (epl_declarations)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>فیلد مقصد</label>
+        <select [(ngModel)]="newRule.sourceFieldB" name="sourceFieldB">
+          <option value="declared_hs_code">کد تعرفه ترخیص (declared_hs_code)</option>
+          <option value="declared_goods_description">شرح ترخیص (declared_goods_description)</option>
+          <option value="declared_value_usd">ارزش گمرکی (declared_value_usd)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>استراتژی ارزیابی</label>
+        <select [(ngModel)]="newRule.strategy" name="strategy">
+          <option [value]="0">تطبیق قطعی (Exact Match)</option>
+          <option [value]="1">تلورانس عددی (Numeric Tolerance)</option>
+          <option [value]="2">تطبیق فازی/هوشمند پایتون (Fuzzy/NLP)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>آستانه / تلورانس (%)</label>
+        <input type="number" [(ngModel)]="newRule.toleranceOrThreshold" name="toleranceOrThreshold" step="0.1" />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="submit-btn" [disabled]="saving">
+        {{ saving ? 'در حال ثبت...' : '➕ افزودن و فعال‌سازی قانون' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="table-card mt-6">
+  <div class="table-header">
+    <h2>قوانین فعال در پایگاه داده</h2>
+    <button class="refresh-btn" (click)="fetchRules()">بروزرسانی قوانین</button>
+  </div>
+
+  <div *ngIf="loading" class="empty-state">در حال دریافت قوانین...</div>
+
+  <div *ngIf="!loading && rules.length > 0" class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>عنوان قانون</th>
+          <th>نگاشت فیلدها</th>
+          <th>الگوریتم ارزیابی</th>
+          <th>آستانه</th>
+          <th class="text-center">وضعیت</th>
+          <th class="text-center">عملیات</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rules">
+          <td class="font-medium text-slate-100">{{ r.ruleName }}</td>
+          <td>
+            <span class="field-pill">{{ r.sourceTableA }}.{{ r.sourceFieldA }}</span>
+            <span class="arrow-icon">➔</span>
+            <span class="field-pill">{{ r.sourceTableB }}.{{ r.sourceFieldB }}</span>
+          </td>
+          <td>{{ getStrategyTitle(r.strategy) }}</td>
+          <td class="font-mono">{{ r.toleranceOrThreshold }}%</td>
+          <td class="text-center">
+            <button 
+              (click)="toggleRule(r.id)"
+              class="toggle-badge" 
+              [class.active-badge]="r.isActive"
+              [class.inactive-badge]="!r.isActive">
+              {{ r.isActive ? 'فعال' : 'غیرفعال' }}
+            </button>
+          </td>
+          <td class="text-center">
+            <button (click)="deleteRule(r.id)" class="delete-btn">حذف</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

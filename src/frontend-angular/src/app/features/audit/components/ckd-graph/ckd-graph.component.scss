@@ -1,0 +1,301 @@
+/* گراف شبکه ارتباطی CKD */
+.graph-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  overflow: hidden;
+
+  .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #334155;
+
+    h3 {
+      font-size: 1.05rem;
+      color: #f8fafc;
+      margin-bottom: 0.25rem;
+    }
+
+    p {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  }
+
+  .graph-canvas {
+    position: relative;
+    padding: 3rem 1.5rem;
+    background: #0b1329;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3.5rem;
+    min-height: 480px;
+
+    .graph-svg-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .level {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      width: 100%;
+
+      &.level-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        gap: 2rem;
+        max-width: 950px;
+      }
+    }
+
+    .node-card {
+      background: #1e293b;
+      padding: 1.2rem 1.5rem;
+      border-radius: 12px;
+      border: 1px solid #475569;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      text-align: center;
+
+      h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #f8fafc;
+      }
+
+      &.node-importer {
+        border-top: 4px solid #3b82f6;
+        min-width: 300px;
+      }
+
+      &.node-target {
+        border-top: 4px solid #10b981;
+        background: rgba(16, 185, 129, 0.08);
+        min-width: 360px;
+      }
+
+      &.node-part {
+        border-top: 4px solid #ef4444;
+        text-align: right;
+      }
+    }
+
+    .node-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      align-self: center;
+      background: #334155;
+      color: #94a3b8;
+
+      &.target-badge {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+      }
+
+      &.part-badge {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        align-self: flex-start;
+      }
+    }
+
+    .part-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 0.25rem;
+    }
+
+    .part-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 0.5rem;
+      border-top: 1px solid #334155;
+      padding-top: 0.4rem;
+    }
+  }
+}
+
+.tree-container {
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  background: #0b1329;
+  overflow-x: auto;
+}
+
+.tree-node, .tree-branch, .tree-leaf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+
+
+
+/* خط عمودی از شرکت واردکننده به محصول هدف */
+.single-branch {
+  position: relative;
+  padding-top: 40px;
+  width: 100%;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 40px;
+    background: #3b82f6;
+  }
+}
+
+/* بخش زیرمجموعه ۳ قطعه */
+.tree-children {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding-top: 45px;
+  position: relative;
+  width: 100%;
+
+  /* خط عمودی متصل‌کننده به زیر محصول هدف */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 25px;
+    background: #ef4444;
+  }
+}
+
+/* اتصال افقی و عمودی روی هر قطعه */
+.tree-leaf {
+  position: relative;
+  flex: 1;
+  max-width: 300px;
+  padding-top: 20px;
+
+  /* خطوط افقی متصل‌کننده به همدیگر */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #ef4444;
+  }
+
+  /* شاخ خط عمودی که به خود کارت می‌رسد */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 20px;
+    background: #ef4444;
+  }
+
+  /* حذف اضافات خط افقی از دو طرف */
+  &:first-child::before {
+    left: 50%;
+    width: 50%;
+  }
+
+  &:last-child::before {
+    width: 50%;
+  }
+}
+
+/* کارت‌های گراف */
+.node-card {
+  background: #1e293b;
+  padding: 1.2rem 1.4rem;
+  border-radius: 12px;
+  border: 1px solid #475569;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+
+  h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #f8fafc;
+  }
+
+  &.node-importer {
+    border-top: 4px solid #3b82f6;
+    min-width: 280px;
+    max-width: 320px;
+  }
+
+  &.node-target {
+    border-top: 4px solid #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    min-width: 380px;
+    max-width: 440px;
+  }
+
+  &.node-part {
+    border-top: 4px solid #ef4444;
+    text-align: right;
+  }
+}
+
+.inspect-ckd-btn {
+  background: #1e293b;
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
+  }
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+
+  // وقتی گراف فعال است، صفحه دو ستونه می‌شود
+  &.graph-active {
+    grid-template-columns: 1.1fr 1fr;
+    align-items: start;
+  }
+}

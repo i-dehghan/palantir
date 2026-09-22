@@ -1,0 +1,77 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <span [ngClass]="getRiskClass(log.riskScore)" class="risk-badge">
+          ریسک: {{ log.riskScore }}%
+        </span>
+        <h3>جزئیات کارشناسی پرونده تخلف</h3>
+      </div>
+      <button class="close-btn" (click)="close.emit()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="label">شناسه سند / سفارش:</span>
+          <span class="value font-mono text-blue-400">{{ log.orderRegNumber }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">شماره کوتاژ گمرکی:</span>
+          <span class="value font-mono">{{ log.cottageNumber }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">شناسه ملی واردکننده:</span>
+          <span class="value font-mono">{{ log.importerNationalId }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">تاریخ کشف:</span>
+          <span class="value font-mono">{{ log.detectedAt | date:'yyyy/MM/dd - HH:mm' }}</span>
+        </div>
+      </div>
+
+      <div class="rule-violation-box">
+        <span class="box-tag">قانون نقض‌شده:</span>
+        <h4>{{ log.ruleName }}</h4>
+        <p>{{ log.description }}</p>
+      </div>
+
+      <div class="comparison-container">
+        <div class="doc-panel">
+          <span class="panel-header">📄 سامانه جامع تجارت (ثبت سفارش)</span>
+          <div class="panel-content">
+            <label>شرح ثبت‌شده کالا:</label>
+            <p *ngIf="log.orderRegNumber.includes('FRAUD-001')">روان‌نویس فوق روان اداری و مهندسی نوک ساچمه‌ای (تعرفه: 96081000)</p>
+            <p *ngIf="log.orderRegNumber.includes('SPLIT')">مجموعه قطعات منفصله و کمپرسور برودتی با تعرفه تفکیکی قطعه</p>
+            <p *ngIf="!log.orderRegNumber.includes('FRAUD') && !log.orderRegNumber.includes('SPLIT')">کالای استاندارد تجاری طبق اسناد بازرگانی</p>
+          </div>
+        </div>
+
+        <div class="doc-panel">
+          <span class="panel-header">🛃 سامانه گمرک EPL (اظهارنامه ترخیص)</span>
+          <div class="panel-content">
+            <label>شرح اظهارشده در گمرک:</label>
+            <p *ngIf="log.orderRegNumber.includes('FRAUD-001')">مداد گرافیتی مشکی و رنگی بسته‌ای اداری (تعرفه: 96091000)</p>
+            <p *ngIf="log.orderRegNumber.includes('SPLIT')">بدنه، اواپراتور و متعلقات مونتاژ یخچال فریزر خانگی</p>
+            <p *ngIf="!log.orderRegNumber.includes('FRAUD') && !log.orderRegNumber.includes('SPLIT')">کالای ترخیص‌شده در گمرک اجرایی</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-verdict-box" *ngIf="log.ruleName.includes('شرح کالا')">
+        <div class="verdict-title">🤖 نتیجه ارزیابی هوش مصنوعی (FastAPI + SentenceTransformers):</div>
+        <div class="metrics-row">
+          <div class="metric-pill">ضریب تطابق حروف (Fuzzy): <strong>۲۸.۶٪</strong></div>
+          <div class="metric-pill">ضریب تطابق معنایی (Semantic): <strong>۳۱.۲٪</strong></div>
+          <div class="metric-pill danger">نمره تلفیقی نهایی: <strong>۳۰.۴٪ (CRITICAL)</strong></div>
+        </div>
+        <p class="verdict-desc">عدم تطابق ماهوی شرح کالا جهت دور زدن ضوابط ارزی و اولویت کالایی احراز گردید.</p>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="action-secondary" (click)="close.emit()">بستن</button>
+      <button class="action-primary" (click)="close.emit()">ارجاع پرونده به بازرسی گمرک</button>
+    </div>
+  </div>
+</div>

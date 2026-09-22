@@ -1,0 +1,46 @@
+<div class="graph-card">
+  <div class="ckd-header">
+  <h3 *ngIf="currentDomain === 'BANKING'">
+    💳 شبکه چندلایه شستشوی وجوه و حساب‌های واسط (Mule Layering Graph)
+  </h3>
+  <h3 *ngIf="currentDomain === 'TELECOM'">
+    📡 خوشه دکل‌های بحرانی و شبکه سیم‌باکس (SIM-Box Cluster)
+  </h3>
+  <h3 *ngIf="currentDomain === 'CUSTOMS' || !currentDomain">
+    ❄️ شبکه ارتباطی پرونده تفکیک قطعات (CKD Assembly Graph)
+  </h3>
+  <p *ngIf="currentDomain === 'BANKING'">ردیابی واریزهای مکرر زیر سقف نظارتی به حساب‌های تجمیع‌کننده</p>
+  <p *ngIf="currentDomain === 'CUSTOMS'">کشف تجمیعی ثبت‌سفارش‌های منفصل با هدف فرار از تعرفه کالای کامل</p>
+</div>
+
+  <div class="tree-container">
+    <div class="tree-node root-node">
+      <div class="node-card node-importer">
+        <span class="node-badge">شرکت واردکننده</span>
+        <h4>{{ ckdCase.importerName }}</h4>
+        <span class="font-mono text-xs">شناسه ملی: {{ ckdCase.importerId }}</span>
+      </div>
+
+      <div class="tree-branch single-branch">
+        <div class="node-card node-target">
+          <span class="node-badge target-badge">محصول نهایی شناسایی‌شده (BOM Target)</span>
+          <h4>{{ ckdCase.targetProduct }}</h4>
+          <span class="font-mono text-xs text-emerald-400">تطبیق ۱۰۰٪ اجزا • ارزش کل: ${{ ckdCase.totalValue | number }}</span>
+        </div>
+
+        <div class="tree-children">
+          <div *ngFor="let part of ckdCase.parts" class="tree-leaf">
+            <div class="node-card node-part">
+              <span class="node-badge part-badge">{{ part.orderNo }}</span>
+              <div class="part-title">{{ part.partName }}</div>
+              <div class="part-meta">
+                <span class="font-mono">HS: {{ part.hsCode }}</span>
+                <span class="font-bold text-slate-200">${{ part.valUsd | number }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

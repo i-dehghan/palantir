@@ -1,0 +1,6 @@
+@Dideban.Api_HostAddress = http://localhost:5191
+
+GET {{Dideban.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

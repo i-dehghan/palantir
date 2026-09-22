@@ -1,0 +1,349 @@
+<div class="palantir-app-shell">
+  <!-- سایدبار باریک ابزارها -->
+  <aside class="palantir-sidebar">
+    <div class="brand-box">
+      <span class="palantir-icon">⬡</span>
+      <span class="brand-text">DIDEBAN</span>
+    </div>
+
+    <nav class="nav-links">
+      <button class="nav-item" [class.active]="currentDomain() === 'CUSTOMS'" (click)="switchDomain('CUSTOMS')" title="پایش گمرک و تجارت">
+        <span class="icon">🛃</span>
+      </button>
+      <button class="nav-item" [class.active]="currentDomain() === 'BANKING'" (click)="switchDomain('BANKING')" title="نظارت بانکی و AML">
+        <span class="icon">💳</span>
+      </button>
+      <button class="nav-item" [class.active]="currentDomain() === 'TELECOM'" (click)="switchDomain('TELECOM')" title="ترافیک مخابرات CDR">
+        <span class="icon">📡</span>
+      </button>
+      <button class="nav-item" title="هشدارهای تهدید">
+        <span class="icon">⚠️</span>
+      </button>
+    </nav>
+
+    <div class="user-profile">
+      <div class="avatar">AN</div>
+    </div>
+  </aside>
+
+  <!-- بدنه اصلی فضای کار -->
+  <main class="palantir-workspace">
+    
+    <!-- هدر متادیتا و ابزار پرونده -->
+    <header class="workspace-header">
+      <div class="breadcrumb-area">
+        <span class="workspace-tag">INTELLIGENCE SUITE</span>
+        <span class="sep">/</span>
+        <span class="case-id">CASE-2026-{{ focusedOrderInGalaxy() || 'NTSW-9994' }}</span>
+        <span class="status-pill pulse">LIVE CASE</span>
+      </div>
+
+      <div class="header-actions">
+        <span class="target-badge">
+          سوژه‌های فعال: <strong class="font-mono">{{ focusedNationalId()  }}</strong>
+        </span>
+
+        <button *ngIf="inspectedItem()" class="action-btn secondary" (click)="clearInspection()">
+          🌐 بازنشانی شبکه
+        </button>
+        <button class="action-btn secondary" (click)="exportToExcel()">
+          📥 خروجی اکسل
+        </button>
+        <button class="forensic-dossier-btn" (click)="openForensicReport()">
+          📑 پرونده جرم‌شناسی (Dossier)
+        </button>
+      </div>
+    </header>
+
+    <!-- نوار استعلام تقاطعی چندسوژه‌ای (بازطراحی شده به صورت یکپارچه و مدرن) -->
+    <section class="tactical-query-toolbar">
+      <div class="toolbar-title-badge">
+        <span class="icon">🕸️</span>
+        <span>استعلام تقاطعی پیوندها</span>
+      </div>
+
+      <div class="target-chips-container">
+        <div 
+          class="target-chip-input" 
+          *ngFor="let target of investigationTargets(); let i = index; trackBy: trackByTargetId">
+          <span class="chip-idx">سوژه {{ i + 1 }}</span>
+       <input 
+        type="text" 
+        class="chip-field" 
+        placeholder="کد ملی یا تلفن..."
+        [value]="target.value"
+        (input)="updateTargetInput(i, $event)"
+        (keyup.enter)="runMultiTargetInvestigation()" />
+          <button 
+            *ngIf="investigationTargets().length > 2" 
+            class="chip-del" 
+            (click)="removeTargetInput(i)">×</button>
+        </div>
+
+        <button class="add-chip-btn" (click)="addTargetInput()" title="افزودن سوژه جدید">
+          + افزودن سوژه
+        </button>
+      </div>
+
+      <div class="filter-pills-group">
+        <label class="pill-check banking" [class.checked]="selectedRelationTypes().banking">
+          <input type="checkbox" [(ngModel)]="selectedRelationTypes().banking" />
+          <span>تراکنش مالی</span>
+        </label>
+        <label class="pill-check telecom" [class.checked]="selectedRelationTypes().telecom">
+          <input type="checkbox" [(ngModel)]="selectedRelationTypes().telecom" />
+          <span>تماس و CDR</span>
+        </label>
+        <label class="pill-check customs" [class.checked]="selectedRelationTypes().customs">
+          <input type="checkbox" [(ngModel)]="selectedRelationTypes().customs" />
+          <span>کوتاژ و گمرک</span>
+        </label>
+      </div>
+
+      <button class="execute-query-btn" [disabled]="isDossierLoading()" (click)="runMultiTargetInvestigation()">
+          <span *ngIf="isDossierLoading()" class="micro-spin-inline"></span>
+        <span *ngIf="!isDossierLoading()">⚡ کشف حلقه پیوند</span>
+        <span *ngIf="isDossierLoading()">در حال پردازش...</span>
+      </button>
+    </section>
+
+    <!-- نوار شاخص‌های پرونده -->
+    <section class="case-meta-banner">
+      <div class="metric-block">
+        <span class="label">INVESTIGATION STAGE</span>
+        <div class="val">Multi-Hop Traversal <span class="sub">Phase 2</span></div>
+      </div>
+      <div class="metric-block">
+        <span class="label">IDENTIFIED NODES</span>
+        <div class="val font-mono text-cyan">{{ currentDossierData()?.nodes?.length || 12 }} <span class="sub">Entities</span></div>
+      </div>
+      <div class="metric-block">
+        <span class="label">DISCOVERED EDGES</span>
+        <div class="val font-mono text-amber">{{ currentDossierData()?.edges?.length || 12 }} <span class="sub">Relations</span></div>
+      </div>
+      <div class="metric-block">
+        <span class="label">AGGREGATED RISK</span>
+        <div class="val danger font-mono">{{ inspectedItem()?.riskScore || 95 }}% <span class="sub">Critical Anomaly</span></div>
+      </div>
+    </section>
+
+    <!-- بدنه تقسیم‌بندی شده داشبورد -->
+    <section class="dashboard-workspace-grid">
+      
+      <!-- پنل چپ: تایم‌لاین و جدول مدارک -->
+      <div class="left-panels-container">
+        
+        <!-- ستون تایم‌لاین رویدادها (با عرض بهینه و متون خوانا) -->
+        <div class="timeline-column relative-panel">
+          <div class="panel-head">
+            <span class="head-title">CASE TIMELINE</span>
+            <span class="live-pill">LIVE FEED</span>
+          </div>
+          <div *ngIf="isTimelineLoading()" class="timeline-skeleton">
+            <div class="sk-card" *ngFor="let s of [1,2,3,4,5]">
+              <div class="sk-dot"></div>
+              <div class="sk-body">
+                <div class="sk-line w-40"></div>
+                <div class="sk-line w-80"></div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="isTimelineLoading()" class="timeline-skeleton">
+            <div class="sk-bar" *ngFor="let s of [1,2,3,4]"></div>
+          </div>
+
+          <div *ngIf="!isTimelineLoading()" class="timeline-items-scroll">
+            <div 
+              class="event-card" 
+              *ngFor="let ev of timelineFeedEvents()"
+              (click)="onTimelineEventClick(ev)"
+              [class.active]="highlightedTimelineId() === ev.id">
+              <div class="event-indicator" [ngClass]="ev.domain.toLowerCase()"></div>
+              <div class="event-body">
+                <div class="time-score-row">
+                  <span class="time font-mono">{{ ev.time }}</span>
+                  <span class="score-badge">{{ ev.risk }}%</span>
+                </div>
+                <div class="title-text">{{ ev.title }}</div>
+                <div class="sub-desc">{{ ev.statusDesc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- جدول اسناد (Document Viewer) -->
+        <div class="documents-column relative-panel">
+          <div *ngIf="loading()" class="table-loading-overlay">
+            <div class="tactical-spinner"></div>
+            <span class="loading-label font-mono">در حال دریافت و فیلتر اسناد پایگاه داده...</span>
+          </div>
+          <div class="panel-head">
+            <div class="head-left">
+              <span class="head-title">DOCUMENT & EVIDENCE VIEWER</span>
+              <span class="count-chip">{{ filteredLogs().length | number }} ردیف</span>
+            </div>
+            <div class="pagination-indicator font-mono">
+              {{ currentPage() }} / {{ totalPages() }}
+            </div>
+          </div>
+
+          <div class="table-scroll-wrapper">
+            <table class="palantir-table">
+              <thead>
+                <tr>
+                  <th>شناسه سند / کوتاژ</th>
+                  <th>شناسه ملی سوژه</th>
+                  <th>شرح پیوند و الگوی تخلف</th>
+                  <th>ریسک</th>
+                  <th>عملیات</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr 
+                  *ngFor="let item of paginatedLogs()" 
+                  [class.selected]="(selectedTableItem()?.orderRegNumber === item.orderRegNumber) || (inspectedItem()?.orderRegNumber === item.orderRegNumber)">
+                  <td class="font-mono accent">{{ item.orderRegNumber || item.cottageNumber }}</td>
+                  <td class="font-mono">{{ item.importerNationalId }}</td>
+                  <td class="rule-cell">
+                    <span class="rule-badge">{{ item.ruleName }}</span>
+                  </td>
+                  <td>
+                    <span class="risk-pill" [class.high]="(item.riskScore ?? 0) >= 90">
+                      {{ item.riskScore }}%
+                    </span>
+                  </td>
+                  <td>
+                    <button 
+                      class="inspect-action-btn"
+                      [class.loading]="inspectingRowId() === (item.orderRegNumber || item.cottageNumber)"
+                      (click)="inspectCase(item, $event)">
+                      <span *ngIf="inspectingRowId() === (item.orderRegNumber || item.cottageNumber)" class="micro-spin"></span>
+                      <span *ngIf="inspectingRowId() !== (item.orderRegNumber || item.cottageNumber)">Inspect ⬡</span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- فوتر پیجینیشن -->
+          <div class="pagination-footer">
+            <span class="summary-text font-mono">
+              سطر {{ ((currentPage() - 1) * pageSize()) + 1 }} تا {{ Math.min(currentPage() * pageSize(), filteredLogs().length) }} از {{ filteredLogs().length }}
+            </span>
+            <div class="page-buttons">
+              <button class="p-btn" [disabled]="currentPage() === 1" (click)="goToPage(1)">««</button>
+              <button class="p-btn" [disabled]="currentPage() === 1" (click)="prevPage()">قبلی</button>
+              <span class="current-page font-mono">{{ currentPage() }}</span>
+              <button class="p-btn" [disabled]="currentPage() >= totalPages()" (click)="nextPage()">بعدی</button>
+              <button class="p-btn" [disabled]="currentPage() >= totalPages()" (click)="goToPage(totalPages())">»»</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- پنل راست: گراف و نقشه -->
+      <div class="right-panel-container">
+        <div class="stage-tabs-bar">
+          <div class="stage-tabs-left">
+            <span class="stage-title">TACTICAL OBSERVABILITY STUDIO</span>
+          </div>
+
+          <div class="tab-buttons-group">
+            <button 
+              class="tab-btn" 
+              [class.active]="activeRightView() === 'GRAPH'" 
+              (click)="switchRightView('GRAPH')">
+              🕸️ استودیو گراف (Link Graph)
+            </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="activeRightView() === 'CKD'" 
+              (click)="switchRightView('CKD')">
+              ❄️ درخت قطعات منفصله (CKD)
+            </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="activeRightView() === 'MAP'" 
+              (click)="switchRightView('MAP')">
+              🗺️ نقشه جغرافیایی (GIS)
+            </button>
+          </div>
+        </div>
+
+        <div class="stage-content-body">
+          <div *ngIf="isDossierLoading()" class="tactical-stage-loader">
+            <div class="radar-scan-box">
+              <div class="radar-circle"></div>
+              <div class="radar-sweep"></div>
+            </div>
+            <div class="loader-status-text">
+              <span class="title">استخراج پیوندهای چندمرحله‌ای (Ontology Multi-Hop Traversal)</span>
+              <span class="sub font-mono">انطباق الگوهای مشکوک در بانک، گمرک و مخابرات...</span>
+            </div>
+          </div>
+<div *ngIf="isDossierLoading()" class="tactical-stage-loader">
+            <div class="radar-scan-box">
+              <div class="radar-circle"></div>
+              <div class="radar-sweep"></div>
+            </div>
+            <div class="loader-status-text">
+              <span class="title">استخراج پیوندهای چندمرحله‌ای (Ontology Multi-Hop)</span>
+              <span class="sub font-mono">در حال واکشی روابط و چیدمان نودهای گراف...</span>
+            </div>
+          </div>    
+          <app-palantir-dossier-studio
+            *ngIf="activeRightView() === 'GRAPH'"
+            [dossierData]="currentDossierData()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [currentLogs]="filteredLogs()"
+            [activePlaybackHour]="activePlaybackHour()"
+            [highlightedNodeId]="highlightedTimelineId()">
+          </app-palantir-dossier-studio>
+
+          <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper">
+            <app-ckd-graph 
+              *ngIf="selectedCkdCase()" 
+              [ckdCase]="selectedCkdCase()!">
+            </app-ckd-graph>
+          </div>
+
+          <app-geospatial-intel-map
+            *ngIf="activeRightView() === 'MAP'"
+            [currentDomain]="currentDomain()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [currentLogs]="filteredLogs()"
+            (nodeSelected)="inspectCase($event)">
+          </app-geospatial-intel-map>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- نوار تایم‌لاین پایین صفحه -->
+    <footer class="bottom-timeline-strip">
+<app-case-timeline-bar
+  [logs]="logs()"
+  [currentDomain]="currentDomain()"
+  (timeRangeChanged)="onTimeRangeChanged($event)"
+  (timeTick)="activePlaybackHour.set($event)">
+</app-case-timeline-bar>
+    </footer>
+
+  </main>
+
+  <!-- مودال گزارش جرم‌شناسی -->
+  <app-forensic-report-modal
+    [isOpen]="isReportModalOpen()"
+    [currentDomain]="currentDomain()"
+    [caseId]="inspectedItem()?.orderRegNumber || 'CASE-2026-MULTI'"
+    [targetNationalId]="focusedNationalId()"
+    [cottageNumber]="inspectedItem()?.cottageNumber || 'MULTI-LINK'"
+    [threatScore]="inspectedItem()?.riskScore || 95"
+    [multiEntityData]="activeProjectionFields()"
+    (closeRequested)="closeForensicReport()">
+  </app-forensic-report-modal>
+</div>
