@@ -293,15 +293,15 @@
               <span class="sub font-mono">در حال واکشی روابط و چیدمان نودهای گراف...</span>
             </div>
           </div>    
-          <app-palantir-dossier-studio
-            *ngIf="activeRightView() === 'GRAPH'"
-            [dossierData]="currentDossierData()"
-            [targetNationalId]="focusedNationalId()"
-            [isInspected]="!!inspectedItem()"
-            [currentLogs]="filteredLogs()"
-            [activePlaybackHour]="activePlaybackHour()"
-            [highlightedNodeId]="highlightedTimelineId()">
-          </app-palantir-dossier-studio>
+         <app-palantir-dossier-studio
+  *ngIf="activeRightView() === 'GRAPH'"
+  [dossierData]="currentDossierData()"
+  [targetNationalId]="focusedNationalId()"
+  [isInspected]="!!inspectedItem()"
+  [currentLogs]="filteredLogs()"
+  [activePlaybackHour]="activePlaybackHour()"
+  [highlightedNodeId]="highlightedTimelineId()">
+</app-palantir-dossier-studio>
 
           <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper">
             <app-ckd-graph 
@@ -311,26 +311,30 @@
           </div>
 
           <app-geospatial-intel-map
-            *ngIf="activeRightView() === 'MAP'"
-            [currentDomain]="currentDomain()"
-            [targetNationalId]="focusedNationalId()"
-            [isInspected]="!!inspectedItem()"
-            [currentLogs]="filteredLogs()"
-            (nodeSelected)="inspectCase($event)">
-          </app-geospatial-intel-map>
+  *ngIf="activeRightView() === 'MAP'"
+  [currentDomain]="currentDomain()"
+  [targetNationalId]="focusedNationalId()"
+  [isInspected]="!!inspectedItem()"
+  [inspectedItem]="inspectedItem()"
+  [highlightedTimelineId]="highlightedTimelineId()"
+  [currentLogs]="filteredLogs()"
+  (nodeSelected)="inspectCase($event)">
+</app-geospatial-intel-map>
         </div>
       </div>
 
     </section>
 
-    <!-- نوار تایم‌لاین پایین صفحه -->
+<!-- نوار تایم‌لاین پایین صفحه -->
+   <!-- نوار تایم‌لاین پایین صفحه -->
     <footer class="bottom-timeline-strip">
-<app-case-timeline-bar
-  [logs]="logs()"
-  [currentDomain]="currentDomain()"
-  (timeRangeChanged)="onTimeRangeChanged($event)"
-  (timeTick)="activePlaybackHour.set($event)">
-</app-case-timeline-bar>
+      <app-case-timeline-bar
+        [logs]="inspectedItem() ? timelineFeedEvents() : filteredLogs()"
+        [currentDomain]="currentDomain()"
+        [inspectedItem]="inspectedItem()"
+        (timeRangeChanged)="onTimeRangeChanged($event)"
+        (timeTick)="activePlaybackHour.set($event)">
+      </app-case-timeline-bar>
     </footer>
 
   </main>

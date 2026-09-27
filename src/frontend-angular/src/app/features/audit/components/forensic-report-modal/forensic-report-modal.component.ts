@@ -17,7 +17,8 @@ import { HttpClient } from '@angular/common/http';
 import * as echarts from 'echarts';
 import { AuditService, ForensicNarrativeResponse, PredictiveMoveData } from '../../../../core/services/audit.service';
 import { FormsModule } from '@angular/forms';
-
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 
 
@@ -27,7 +28,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="modal-backdrop" *ngIf="isOpen" (click)="close()">
-      <div class="forensic-paper" (click)="$event.stopPropagation()">
+      <div id="judicial-report-dossier" class="forensic-paper" (click)="$event.stopPropagation()">
 <button class="copilot-toggle-btn" (click)="toggleCopilot()">
   <span>💬 دستیار هوشمند پرونده (AI Copilot)</span>
 </button>
@@ -77,7 +78,36 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
             <div><strong>رده طبقه‌بندی:</strong> <span class="confidential-text">محرمانه - سند تخصصی قضایی</span></div>
           </div>
         </header>
+<!-- نوار اقدام فوری و صدور احکام نظارتی -->
+<div class="tactical-actions-strip">
+  <div class="strip-label">
+    <span class="icon">🚨</span>
+    <span>سامانه اقدام فوری و مداخله نظارتی:</span>
+  </div>
 
+  <div class="buttons-group">
+    <button class="act-btn danger" [disabled]="actionInProgress()" (click)="triggerAction('BLOCK_CUSTOMS_CLEARANCE')">
+      🛑 دستور توقف ترخیص (EPL)
+    </button>
+    <button class="act-btn warning" [disabled]="actionInProgress()" (click)="triggerAction('FREEZE_BANK_ACCOUNT')">
+      🔒 مسدودی اضطراری حساب (بانک مرکزی)
+    </button>
+    <button class="act-btn dark" [disabled]="actionInProgress()" (click)="triggerAction('FLAG_RED_LIST')">
+      ⚠️ درج در لیست سیاه مرزی
+    </button>
+  </div>
+</div>
+
+<!-- بنر بازخورد نتیجه اقدام -->
+<div *ngIf="actionNotification()" class="action-alert-banner" [ngClass]="actionNotification()?.type">
+  <div class="alert-content">
+    <strong>{{ actionNotification()?.message }}</strong>
+    <span *ngIf="actionNotification()?.tracking" class="tracking mono">
+      شماره پیگیری قضایی: {{ actionNotification()?.tracking }}
+    </span>
+  </div>
+  <button class="close-alert" (click)="actionNotification.set(null)">✕</button>
+</div>
         <!-- بخش تحلیل و استنتاج مدل زبانی (LLM) برای چند سوژه -->
         <section class="ai-forensic-narrative-card" *ngIf="multiEntityData?.isMultiTarget">
           <div class="card-head">
@@ -356,6 +386,14 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
             <div class="sign-stamp">امضای دیجیتال دیدبان: پرونده جهت بررسی حقوقی و قضایی نهایی شد</div>
           </div>
           <div class="actions">
+            <!-- دکمه بدون id -->
+            <button 
+              class="judicial-export-btn" 
+              [disabled]="isExportingPdf()" 
+              (click)="exportJudicialPdf()">
+              <span *ngIf="!isExportingPdf()">⚖️ صدور پرونده رسمی قضایی (PDF)</span>
+              <span *ngIf="isExportingPdf()">در حال ساخت سند...</span>
+            </button>
             <button class="btn print" (click)="printReport()">🖨️ چاپ رسمی پرونده</button>
             <button class="btn close" (click)="close()">بستن گزارش</button>
           </div>
@@ -365,6 +403,118 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
     </div>
   `,
   styles: [`
+  .tactical-actions-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 1rem;
+
+  .strip-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #f8fafc;
+  }
+
+  .buttons-group {
+    display: flex;
+    gap: 0.5rem;
+
+    .act-btn {
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+
+      &.danger {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: #ef4444;
+        color: #fca5a5;
+        &:hover { background: #ef4444; color: white; }
+      }
+      &.warning {
+        background: rgba(245, 158, 11, 0.15);
+        border-color: #f59e0b;
+        color: #fde68a;
+        &:hover { background: #f59e0b; color: #0f172a; }
+      }
+      &.dark {
+        background: rgba(148, 163, 184, 0.1);
+        border-color: #64748b;
+        color: #cbd5e1;
+        &:hover { background: #334155; color: white; }
+      }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+  }
+}
+
+.action-alert-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+
+  &.success {
+    background: rgba(6, 78, 59, 0.4);
+    border: 1px solid #10b981;
+    color: #a7f3d0;
+  }
+  &.error {
+    background: rgba(127, 29, 29, 0.4);
+    border: 1px solid #ef4444;
+    color: #fca5a5;
+  }
+
+  .tracking {
+    margin-right: 0.8rem;
+    font-family: monospace;
+    color: #38bdf8;
+  }
+  .close-alert {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+}
+  .judicial-export-btn {
+  background: linear-gradient(135deg, #1e3a8a, #0284c7);
+  border: 1px solid #38bdf8;
+  color: #f8fafc;
+  padding: 0.35rem 0.85rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1d4ed8, #0369a1);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
   .predictive-anomaly-card {
   background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95));
   border: 1px solid #6366f1;
@@ -679,10 +829,71 @@ chatMessages = signal<{ role: string; content: string }[]>([
   }
 ]);
 
+triggerAction
+
+isExportingPdf = signal<boolean>(false);
 toggleCopilot(): void {
   this.copilotOpen.update(v => !v);
 }
 
+async exportJudicialPdf(): Promise<void> {
+    const element = document.getElementById('judicial-report-dossier');
+    if (!element || this.isExportingPdf()) {
+      console.warn('المان گزارش جهت چاپ PDF یافت نشد.');
+      return;
+    }
+
+    this.isExportingPdf.set(true);
+
+    try {
+      // ذخیره موقت وضعیت اسکرول
+      const prevOverflow = element.style.overflow;
+      const prevMaxHeight = element.style.maxHeight;
+      element.style.overflow = 'visible';
+      element.style.maxHeight = 'none';
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#0b111e',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      });
+
+      // بازگرداندن وضعیت به حالت اولیه
+      element.style.overflow = prevOverflow;
+      element.style.maxHeight = prevMaxHeight;
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // درج صفحه اول
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // افزودن صفحات بعدی در صورت طولانی بودن محتوا
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const caseRef = this.caseId || 'CASE-2026';
+      pdf.save(`Dossier_Judicial_${caseRef}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('خطا در صدور PDF قضایی:', err);
+    } finally {
+      this.isExportingPdf.set(false);
+    }
+  }
 predictiveData = signal<PredictiveMoveData | null>(null);
 isPredicting = signal<boolean>(false);
 

@@ -207,6 +207,14 @@ private clusterPalette: string[] = [
   '#eab308'  // کهربایی
 ];
 
+private stepHoursMap: Record<number, number> = {
+    0: 8,   // ثبت سفارش (۰۸:۱۵)
+    1: 10,  // تخصیص ارز (۱۰:۳۰)
+    2: 11,  // اظهار گمرکی (۱۱:۴۵)
+    3: 12,  // کشف مغایرت (۱۲:۲۰)
+    4: 12   // ارجاع و توقف (۱۲:۲۵)
+  };
+
 // در palantir-dossier-studio.component.ts
 
 @Input() set activePlaybackHour(hour: number | null) {
@@ -216,48 +224,71 @@ private clusterPalette: string[] = [
 }
 
 private filterGraphByHour(currentHour: number): void {
-  const currentOption = this.chart?.getOption() as any;
-  if (!currentOption?.series?.[0]) return;
+    const currentOption = this.chart?.getOption() as any;
+    if (!currentOption?.series?.[0]) return;
 
-  const nodes = currentOption.series[0].data || [];
-  const links = currentOption.series[0].links || [];
+    const nodes = currentOption.series[0].data || [];
+    const links = currentOption.series[0].links || [];
 
-  // محاسبه پدیدار شدن تدریجی گره‌ها متناسب با ساعت
-  const updatedNodes = nodes.map((n: any, index: number) => {
-    // اگر شخص است همیشه بماند، اسناد متناسب با ساعت پدیدار شوند
-    const nodeHour = n.category === 'PERSON' ? 0 : ((index * 2) % 24);
-    const isVisible = nodeHour <= currentHour;
-
-    return {
-      ...n,
-      itemStyle: {
-        ...(n.itemStyle || {}),
-        opacity: isVisible ? 1 : 0.1,
-        shadowBlur: (isVisible && nodeHour === currentHour) ? 30 : (n.itemStyle?.shadowBlur || 0),
-        shadowColor: nodeHour === currentHour ? '#22c55e' : n.itemStyle?.shadowColor
+    // فیلتر کردن نودهای اسناد به تفکیک زمان واقعی
+    let docIdx = 0;
+    const updatedNodes = nodes.map((n: any) => {
+      // نود شخص و سرشبکه همیشه در گراف پابرجا بماند
+      if (n.category === 'PERSON') {
+        return {
+          ...n,
+          itemStyle: {
+            ...(n.itemStyle || {}),
+            opacity: 1
+          }
+        };
       }
-    };
-  });
 
-  const updatedLinks = links.map((l: any, index: number) => {
-    const linkHour = (index * 2) % 24;
-    const isVisible = linkHour <= currentHour;
-    return {
-      ...l,
-      lineStyle: {
-        ...(l.lineStyle || {}),
-        opacity: isVisible ? 0.9 : 0.05
-      }
-    };
-  });
+      // ساعت واقعی این نود در فرآیند پرونده
+      const assignedHour = this.stepHoursMap[docIdx] ?? 12;
+      docIdx++;
 
-  this.chart?.setOption({
-    series: [{
-      data: updatedNodes,
-      links: updatedLinks
-    }]
-  });
-}
+      // نود فقط در صورتی روشن می‌شود که زمان جاری به ساعت وقوع آن رسیده باشد
+      const isReached = assignedHour <= currentHour;
+      const isCurrentlyActive = assignedHour === currentHour;
+
+      return {
+        ...n,
+        itemStyle: {
+          ...(n.itemStyle || {}),
+          opacity: isReached ? 1 : 0.08,
+          shadowBlur: isCurrentlyActive ? 35 : (isReached ? 15 : 0),
+          shadowColor: isCurrentlyActive ? '#38bdf8' : (n.itemStyle?.shadowColor || undefined),
+          borderWidth: isCurrentlyActive ? 3 : (n.itemStyle?.borderWidth || 1),
+          borderColor: isCurrentlyActive ? '#38bdf8' : (n.itemStyle?.borderColor || '#ffffff')
+        }
+      };
+    });
+
+    // لینک‌ها نیز متناسب با روشن بودن نودهای متصل فعال می‌شوند
+    let linkIdx = 0;
+    const updatedLinks = links.map((l: any) => {
+      const assignedHour = this.stepHoursMap[linkIdx] ?? 12;
+      linkIdx++;
+      const isReached = assignedHour <= currentHour;
+
+      return {
+        ...l,
+        lineStyle: {
+          ...(l.lineStyle || {}),
+          opacity: isReached ? 0.9 : 0.05,
+          width: isReached ? 2.5 : 1
+        }
+      };
+    });
+
+    this.chart?.setOption({
+      series: [{
+        data: updatedNodes,
+        links: updatedLinks
+      }]
+    });
+  }
 private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
   if (!nodes.length) return 0;
 
@@ -508,44 +539,87 @@ this.detectedClustersCount.set(totalClusters);
     }, true);
   }
 
-  private applyHighlightFocus(): void {
+ private applyHighlightFocus(): void {
     if (!this.chart) return;
     const currentOption = this.chart.getOption() as any;
     if (!currentOption?.series?.[0]) return;
 
-    const targetId = this.highlightedNodeId;
+    const rawTargetId = this.highlightedNodeId;
     const nodes = currentOption.series[0].data || [];
     const links = currentOption.series[0].links || [];
 
+    // اگر انتخابی نبود، همه چیز به حالت عادی برگردد
+    if (!rawTargetId) {
+      const resetNodes = nodes.map((n: any) => ({
+        ...n,
+        itemStyle: {
+          ...(n.itemStyle || {}),
+          opacity: 1,
+          shadowBlur: n.isLeader ? 25 : 0
+        }
+      }));
+
+      const resetLinks = links.map((l: any) => ({
+        ...l,
+        lineStyle: {
+          ...(l.lineStyle || {}),
+          opacity: 0.85,
+          width: 1.8,
+          color: 'rgba(245, 158, 11, 0.45)'
+        }
+      }));
+
+      this.chart.setOption({ series: [{ data: resetNodes, links: resetLinks }] });
+      return;
+    }
+
+    // تعیین اندیس هدف بر اساس مرحله کلیک‌شده در تایم‌لاین
+    let targetIndex = -1;
+    if (rawTargetId.includes('STEP_ORDER')) targetIndex = 0;
+    else if (rawTargetId.includes('STEP_FX')) targetIndex = 1;
+    else if (rawTargetId.includes('STEP_DECL')) targetIndex = 2;
+    else if (rawTargetId.includes('STEP_ANOMALY')) targetIndex = 3;
+    else if (rawTargetId.includes('STEP_FLAG')) targetIndex = 4;
+
+    const cleanTargetId = rawTargetId.replace(/^STEP_[A-Z]+_/, '').replace(/^DOC_/, '').trim();
+
+    // نودهای اسناد (غیر از شخص) را برمی‌داریم
+    const docNodes = nodes.filter((n: any) => n.category !== 'PERSON');
+    const selectedDocId = (targetIndex >= 0 && docNodes[targetIndex]) ? docNodes[targetIndex].id : null;
+
     const updatedNodes = nodes.map((n: any) => {
-      const isTarget = targetId && (
-        n.id === targetId || 
-        n.name === targetId ||
-        String(n.id).includes(targetId) ||
-        String(n.displayLabel).includes(targetId)
-      );
+      const nId = String(n.id || '');
+      const nLabel = String(n.displayLabel || '');
+
+      const isMatchingDoc = (selectedDocId && nId === selectedDocId) ||
+                            (cleanTargetId && (nId.includes(cleanTargetId) || nLabel.includes(cleanTargetId)));
+      const isPersonHub = n.category === 'PERSON';
 
       return {
         ...n,
         itemStyle: {
           ...(n.itemStyle || {}),
-          opacity: (!targetId || isTarget) ? 1 : 0.2,
-          shadowBlur: isTarget ? 20 : 0,
-          shadowColor: isTarget ? '#38bdf8' : undefined
+          opacity: (isMatchingDoc || isPersonHub) ? 1 : 0.12,
+          shadowBlur: isMatchingDoc ? 35 : (n.isLeader ? 20 : 0),
+          shadowColor: isMatchingDoc ? '#38bdf8' : (n.itemStyle?.shadowColor || undefined),
+          borderWidth: isMatchingDoc ? 4 : (n.itemStyle?.borderWidth || 1),
+          borderColor: isMatchingDoc ? '#38bdf8' : (n.itemStyle?.borderColor || '#ffffff')
         }
       };
     });
 
     const updatedLinks = links.map((l: any) => {
-      const src = typeof l.source === 'object' ? l.source.id : l.source;
-      const tgt = typeof l.target === 'object' ? l.target.id : l.target;
-      const isLinkActive = targetId ? (src === targetId || tgt === targetId) : true;
+      const tgt = String(typeof l.target === 'object' ? l.target.id : l.target);
+      const isDirectLink = (selectedDocId && tgt === selectedDocId) ||
+                           (cleanTargetId && tgt.includes(cleanTargetId));
 
       return {
         ...l,
         lineStyle: {
           ...(l.lineStyle || {}),
-          opacity: isLinkActive ? 0.95 : 0.1
+          opacity: isDirectLink ? 1 : 0.08,
+          width: isDirectLink ? 3.5 : 1,
+          color: isDirectLink ? '#38bdf8' : 'rgba(245, 158, 11, 0.25)'
         }
       };
     });

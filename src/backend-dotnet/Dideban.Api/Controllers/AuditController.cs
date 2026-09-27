@@ -1,4 +1,5 @@
-﻿using Dideban.Api.Domain.Entities;
+﻿using Dideban.Api.Domain.Dtos;
+using Dideban.Api.Domain.Entities;
 using Dideban.Api.Infrastructure.Data;
 using Dideban.Api.Services;
 using Dideban.Api.Services.Strategies;
@@ -371,5 +372,30 @@ public class AuditController : ControllerBase
             evidences = report.Evidences,
             threatScore = report.GlobalRiskScore
         });
+    }
+
+    [HttpPost("actions/execute")]
+    public async Task<ActionResult<ActionExecutionResultDto>> ExecuteTacticalAction([FromBody] ExecuteActionRequestDto req)
+    {
+        var trackingCode = $"ACT-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(10000, 99999)}";
+
+        // شبیه‌سازی اتصال به وب‌سرویس‌های برون‌سازمانی گمرک/بانک مرکزی
+        string message = req.ActionType switch
+        {
+            "BLOCK_CUSTOMS_CLEARANCE" => $"دستور توقف سیستمی ترخیص کالا برای کوتاژ {req.CaseId} با موفقیت در EPL صادر شد.",
+            "FREEZE_BANK_ACCOUNT" => $"درخواست مسدودی موقت حساب‌های متصل به کدملی {req.TargetNationalId} به سامانه مانیتورینگ بانکی ارسال گردید.",
+            "FLAG_RED_LIST" => $"شناسه {req.TargetNationalId} در وضعیت هشدار سطح ۱ (Blacklist) پایگاه‌های مرزی قرار گرفت.",
+            _ => "عملیات نامشخص"
+        };
+
+        var result = new ActionExecutionResultDto
+        {
+            Success = true,
+            TrackingNumber = trackingCode,
+            Message = message,
+            ExecutedAtShamsi = "۱۴۰۵/۰۶/۳۰ - ۱۲:۳۰"
+        };
+
+        return Ok(result);
     }
 }

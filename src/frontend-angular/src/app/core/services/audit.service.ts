@@ -81,4 +81,16 @@ predictNextMove(payload: {
     payload
   );
 }
+
+executeTacticalAction(payload: {
+  caseId: string;
+  targetNationalId: string;
+  actionType: 'BLOCK_CUSTOMS_CLEARANCE' | 'FREEZE_BANK_ACCOUNT' | 'FLAG_RED_LIST';
+  reason: string;
+}) {
+  return this.http.post<{ success: boolean; trackingNumber: string; message: string; executedAtShamsi: string }>(
+    `${this.apiUrl}/actions/execute`,
+    payload
+  );
+}
 }

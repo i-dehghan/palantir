@@ -562,45 +562,50 @@ filteredLogs = computed(() => {
     return list.slice(start, start + size);
   });
 
-  timelineFeedEvents = computed(() => {
+ timelineFeedEvents = computed(() => {
     const item = this.selectedTableItem() || this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
     if (!item) return [];
 
     const domain = (item.domainType || this.currentDomain() || 'CUSTOMS').toUpperCase();
-    const id = item.orderRegNumber || item.cottageNumber || 'DOC-01';
+    const rawCode = item.orderRegNumber || item.cottageNumber || 'DOC-01';
     const risk = item.riskScore || 95;
 
     if (domain === 'CUSTOMS') {
       return [
-        { id: `STEP_ORDER_${id}`, time: '۰۸:۱۵', title: 'ثبت سفارش در سامانه صمت', domain: 'CUSTOMS', risk: 20, statusDesc: 'ثبت پرونده تحت ردیف قطعات منفصله' },
-        { id: `STEP_FX_${id}`, time: '۱۰:۳۰', title: 'تخصیص و تأمین ارز نیمایی', domain: 'CUSTOMS', risk: 45, statusDesc: 'تأیید گواهی ثبت آماری توسط بانک عامل' },
-        { id: `STEP_DECL_${id}`, time: '۱۱:۴۵', title: `اظهار و صدور کوتاژ ${item.cottageNumber || id}`, domain: 'CUSTOMS', risk: 70, statusDesc: 'ورود محموله به گمرک شهید رجایی' },
-        { id: `STEP_ANOMALY_${id}`, time: '۱۲:۲۰', title: item.ruleName || 'کشف مغایرت قاعده ۲-الف (CKD)', domain: 'CUSTOMS', risk: risk, statusDesc: 'انطباق اجزا با کالای کامل' },
-        { id: `STEP_FLAG_${id}`, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌اظهاری حقوق ورودی' }
+        { id: `STEP_ORDER_${rawCode}`, targetDocId: rawCode, time: '۰۸:۱۵', title: 'ثبت سفارش در سامانه صمت', domain: 'CUSTOMS', risk: 20, statusDesc: 'ثبت پرونده تحت ردیف قطعات منفصله' },
+        { id: `STEP_FX_${rawCode}`, targetDocId: rawCode, time: '۱۰:۳۰', title: 'تخصیص و تأمین ارز نیمایی', domain: 'CUSTOMS', risk: 45, statusDesc: 'تأیید گواهی ثبت آماری توسط بانک عامل' },
+        { id: `STEP_DECL_${rawCode}`, targetDocId: rawCode, time: '۱۱:۴۵', title: `اظهار و صدور کوتاژ ${item.cottageNumber || rawCode}`, domain: 'CUSTOMS', risk: 70, statusDesc: 'ورود محموله به گمرک مقصد/مرزی' },
+        { id: `STEP_ANOMALY_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۰', title: item.ruleName || 'کشف مغایرت هوش مصنوعی (قاعده ۲-الف)', domain: 'CUSTOMS', risk: risk, statusDesc: 'انطباق اجزا با کالای کامل' },
+        { id: `STEP_FLAG_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌اظهاری حقوق ورودی' }
       ];
     }
     if (domain === 'BANKING') {
       return [
-        { id: `STEP_INFLOW_${id}`, time: '۰۹:۰۵', title: 'واریز خرد از حساب‌های متعدد', domain: 'BANKING', risk: 60, statusDesc: 'الگوی ساختارشکنی مبالغ (Smurfing)' },
-        { id: `STEP_CONCENTRATE_${id}`, time: '۰۹:۱۴', title: `تجمیع در حساب واسط ${id}`, domain: 'BANKING', risk: 85, statusDesc: 'افزایش ناگهانی موجودی' },
-        { id: `STEP_DRAIN_${id}`, time: '۰۹:۱۸', title: item.ruleName || 'انتقال ساتنا آنی و تخلیه حساب', domain: 'BANKING', risk: risk, statusDesc: 'واریز به حساب صرافی غیرمجاز مرزی' },
-        { id: `STEP_BLOCK_${id}`, time: '۰۹:۲۵', title: 'انسداد سیستمی حساب و صدور هشدار AML', domain: 'BANKING', risk: risk, statusDesc: 'پرچم‌گذاری حساب Mule در شبکه بانکی' }
+        { id: `STEP_INFLOW_${rawCode}`, targetDocId: rawCode, time: '۰۹:۰۵', title: 'واریز خرد از حساب‌های متعدد', domain: 'BANKING', risk: 60, statusDesc: 'الگوی ساختارشکنی مبالغ (Smurfing)' },
+        { id: `STEP_CONCENTRATE_${rawCode}`, targetDocId: rawCode, time: '۰۹:۱۴', title: `تجمیع در حساب واسط ${rawCode}`, domain: 'BANKING', risk: 85, statusDesc: 'افزایش ناگهانی موجودی' },
+        { id: `STEP_DRAIN_${rawCode}`, targetDocId: rawCode, time: '۰۹:۱۸', title: item.ruleName || 'انتقال ساتنا آنی و تخلیه حساب', domain: 'BANKING', risk: risk, statusDesc: 'واریز به حساب صرافی غیرمجاز مرزی' },
+        { id: `STEP_BLOCK_${rawCode}`, targetDocId: rawCode, time: '۰۹:۲۵', title: 'انسداد سیستمی حساب و صدور هشدار AML', domain: 'BANKING', risk: risk, statusDesc: 'پرچم‌گذاری حساب Mule در شبکه بانکی' }
       ];
     }
     return [
-      { id: `STEP_REG_${id}`, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
-      { id: `STEP_BURST_${id}`, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
-      { id: `STEP_SIMBOX_${id}`, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
-      { id: `STEP_TERMINATE_${id}`, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
+      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
+      { id: `STEP_BURST_${rawCode}`, targetDocId: rawCode, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
+      { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
+      { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
     ];
   });
 
-  onTimelineEventClick(eventItem: any): void {
+onTimelineEventClick(eventItem: any): void {
     if (!eventItem) return;
-    const targetId = eventItem.id || eventItem.rawItem?.orderRegNumber || eventItem.rawItem?.cottageNumber;
-    this.highlightedTimelineId.set(this.highlightedTimelineId() === targetId ? null : targetId);
-    if (this.activeRightView() !== 'GRAPH') {
-      this.activeRightView.set('GRAPH');
+
+    const isCurrentlyActive = this.highlightedTimelineId() === eventItem.id;
+    this.highlightedTimelineId.set(isCurrentlyActive ? null : eventItem.id);
+
+    // استخراج ساعت رویداد جهت حرکت عقربه تایم‌لاین پایین
+    const [hStr] = (eventItem.time || '00:00').split(':');
+    const parsedHour = parseInt(hStr, 10);
+    if (!isNaN(parsedHour)) {
+      this.activePlaybackHour.set(isCurrentlyActive ? null : parsedHour);
     }
   }
 
