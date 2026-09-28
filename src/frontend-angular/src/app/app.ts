@@ -1,7 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuditService } from './core/services/audit.service';
-import { AuditDashboardComponent } from './features/audit/audit-dashboard.component';
 
 @Component({
   selector: 'app-root',
