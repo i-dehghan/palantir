@@ -1,50 +1,44 @@
 import os
 import sys
+import json
 from pathlib import Path
 
-# ایمن‌سازی مسیرهای اجرایی برای وارد کردن ماژول‌های مجاور
+# ۱. افزودن پوشه جاری، پوشه والد و پوشه services به sys.path جهت پشتیبانی کامل از تمام شیوه‌های اجرا
 CURRENT_DIR = Path(__file__).resolve().parent
 PARENT_DIR = CURRENT_DIR.parent
-for p in [str(CURRENT_DIR), str(PARENT_DIR), str(CURRENT_DIR / "services")]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+SERVICES_DIR = CURRENT_DIR / "services"
+
+for path_dir in [str(CURRENT_DIR), str(SERVICES_DIR), str(PARENT_DIR)]:
+    if path_dir not in sys.path:
+        sys.path.insert(0, path_dir)
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
-# بررسی وجود کتابخانه پردازش فایل‌های چندبخشی
+# ۲. ایمپورت موتورهای جرم‌شناسی و تطبیق از پکیج services با مکانیزم Fallback ایمن
 try:
-    import multipart
-    HAS_MULTIPART = True
-except ImportError:
-    HAS_MULTIPART = False
-
-if HAS_MULTIPART:
-    from fastapi import UploadFile, File, Form
-
-# لود ایمن ماژول‌های جرم‌شناسی و تطبیق
-try:
-    from forensic_narrative import forensic_narrative_engine
+    from services.forensic_narrative import forensic_narrative_engine
+    from services.matcher import matcher_engine
 except ImportError:
     try:
-        from app.forensic_narrative import forensic_narrative_engine
+        from forensic_narrative import forensic_narrative_engine
+        from matcher import matcher_engine
     except ImportError:
-        from services.forensic_narrative import forensic_narrative_engine
+        from app.services.forensic_narrative import forensic_narrative_engine
+        from app.services.matcher import matcher_engine
 
+# بارگذاری موتور بینایی ماشین و ممیزی چندوجهی اسناد
 try:
-    from matcher import matcher_engine
+    from multimodal_ocr import multimodal_auditor
 except ImportError:
-    try:
-        from app.matcher import matcher_engine
-    except ImportError:
-        from services.matcher import matcher_engine
+    from app.multimodal_ocr import multimodal_auditor
 
 app = FastAPI(
     title="DIDEBAN Intelligence Microservice",
-    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف، پیش‌بینی ناهنجاری و پردازش اسناد",
+    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف، پیش‌بینی ناهنجاری و پردازش چندوجهی اسناد",
     version="2.1.0"
 )
 
@@ -85,7 +79,6 @@ async def health_check():
     return {
         "status": "ONLINE",
         "module": "DIDEBAN-AI-ENGINE",
-        "has_multipart": HAS_MULTIPART,
         "port": 8000
     }
 
@@ -143,32 +136,22 @@ async def predict_next_move_endpoint(payload: PredictionRequest):
 async def match_text_endpoint(payload: MatcherRequest):
     return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
 
-# ثبت مشروط اندپوینت دریافت فایل بارنامه چندوجهی فقط در صورت در دسترس بودن پکیج
-if HAS_MULTIPART:
-    @app.post("/api/v1/multimodal-invoice-audit")
-    async def multimodal_invoice_audit_endpoint(
-        declared_hs_code: str = Form(...),
-        declared_goods_name: str = Form(...),
-        file: UploadFile = File(...)
-    ):
-        try:
-            file_bytes = await file.read()
-            extracted_text = f"INVOICE COMMODITY: COMPLETE LED TELEVISION PANEL ASSEMBLY WITH POWER UNIT - HS: {declared_hs_code}"
-            
-            match_result = matcher_engine.calculate_similarity(declared_goods_name, extracted_text)
-            
-            return {
-                "filename": file.filename,
-                "file_size_bytes": len(file_bytes),
-                "extracted_text": extracted_text,
-                "declared_hs_code": declared_hs_code,
-                "declared_goods_name": declared_goods_name,
-                "discrepancy_score": round((1.0 - match_result["combined_score"]) * 100, 1),
-                "is_violation_suspected": match_result["is_mismatch"],
-                "status": "PROCESSED"
-            }
-        except Exception as ex:
-            raise HTTPException(status_code=500, detail=f"خطا در پردازش تصویر بارنامه: {str(ex)}")
+@app.post("/api/v1/multimodal/audit-document")
+async def audit_document(
+    file: UploadFile = File(...),
+    system_data_json: str = Form(...)
+):
+    try:
+        image_bytes = await file.read()
+        system_declared = json.loads(system_data_json) if system_data_json else {}
+        result = await multimodal_auditor.audit_physical_document(
+            image_bytes=image_bytes,
+            mime_type=file.content_type or "image/jpeg",
+            system_declared_data=system_declared
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"خطا در پردازش چندوجهی سند: {str(ex)}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

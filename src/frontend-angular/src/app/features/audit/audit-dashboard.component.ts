@@ -3,7 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { AuditService } from '../../core/services/audit.service';
-import { DiscrepancyLog, CkdCase, DomainType, DomainOption } from '../../core/models/discrepancy.model';
+import {
+  DiscrepancyLog,
+  CkdCase,
+  DomainType,
+  DomainOption,
+  WaybillCorrelationReport
+} from '../../core/models/discrepancy.model';
 import { DossierService, MultiHopDossierGraph } from '../../core/services/dossier.service';
 import { PalantirDossierStudioComponent } from './components/palantir-dossier-studio/palantir-dossier-studio.component';
 import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/geospatial-intel-map.component';
@@ -41,7 +47,7 @@ export class AuditDashboardComponent implements OnInit {
   private auditService = inject(AuditService);
   private dossierService = inject(DossierService);
 
-  activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
+  activeRightView = signal<'MAP' | 'GRAPH' | 'CKD' | 'OCR'>('GRAPH');
   protected readonly Math = Math;
 
   logs = signal<DiscrepancyLog[]>([]);
@@ -57,6 +63,20 @@ export class AuditDashboardComponent implements OnInit {
   selectedOrderForCkd = signal<string | null>(null);
   currentDomain = this.auditService.activeDomain;
   currentDossierData = signal<MultiHopDossierGraph | any>(null);
+
+  // وضعیت‌های هوش مصنوعی و بینایی ماشین بارنامه
+  isOcrProcessing = signal<boolean>(false);
+  ocrResult = signal<any | null>(null);
+  fullDocumentDossier = signal<any | null>(null);
+  graphInjectionData = signal<any | null>(null);
+  isGraphInjected = signal<boolean>(false);
+  selectedOcrFile = signal<File | null>(null);
+  ocrImagePreviewUrl = signal<string | null>(null);
+  ocrErrorMessage = signal<string | null>(null);
+
+  // نتایج تطبیق تاریخی سوابق
+  historicalCorrelationReport = signal<WaybillCorrelationReport | null>(null);
+  isCorrelatingHistory = signal<boolean>(false);
 
   domainOptions: readonly DomainOption[] = [
     { id: 'CUSTOMS', label: '🛃 گمرک و تجارت خارجی', desc: 'صمت، بانک مرکزی و کوتاژهای گمرک' },
@@ -213,8 +233,154 @@ export class AuditDashboardComponent implements OnInit {
     });
   }
 
-  switchRightView(view: 'MAP' | 'GRAPH' | 'CKD'): void {
+  switchRightView(view: 'MAP' | 'GRAPH' | 'CKD' | 'OCR'): void {
     this.activeRightView.set(view);
+  }
+
+  onOcrFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      this.selectedOcrFile.set(file);
+      this.ocrErrorMessage.set(null);
+      this.ocrResult.set(null);
+      this.fullDocumentDossier.set(null);
+      this.historicalCorrelationReport.set(null);
+      this.isGraphInjected.set(false);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.ocrImagePreviewUrl.set(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // اجرای پیوسته و هوشمند: استخراج انتولوژی بارنامه + تطبیق خودکار سوابق تاریخی فرد
+  executeDocumentOcrAudit(): void {
+    const file = this.selectedOcrFile();
+    if (!file) {
+      this.ocrErrorMessage.set('لطفاً ابتدا تصویر بارنامه یا فاکتور کاغذی را بارگذاری نمایید.');
+      return;
+    }
+
+    this.isOcrProcessing.set(true);
+    this.ocrErrorMessage.set(null);
+
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    const activeItem = this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
+    const currentOrder = activeItem?.orderRegNumber || activeItem?.cottageNumber || 'NTSW-100K-100000';
+    const currentDesc = activeItem?.ruleName || 'بیش‌بود ارزش / قطعات منفصله الکترونیکی';
+    const importerName = activeItem?.importerNationalId ? `شرکت واردکننده ${activeItem.importerNationalId}` : 'شرکت بازرگانی واردات';
+
+    const systemData = {
+      order_reg_number: currentOrder,
+      goods_description: currentDesc,
+      total_usd: 85000.0,
+      importer_name: importerName
+    };
+
+    formData.append('system_data_json', JSON.stringify(systemData));
+
+    this.auditService.auditDocumentWaybill(formData).subscribe({
+      next: (res) => {
+        this.ocrResult.set(res);
+        this.fullDocumentDossier.set(res.document_dossier);
+        this.graphInjectionData.set(res.graph_injection);
+        this.isOcrProcessing.set(false);
+
+        // بلافاصله سوابق تاریخی شخص نیز واکشی می‌شود تا کاربر معطل نشود
+        this.correlateWaybillWithHistoricalImports();
+      },
+      error: (err) => {
+        console.error('خطای فراخوانی سرویس بینایی ماشین:', err);
+        this.ocrErrorMessage.set('خطا در پردازش تصویر بارنامه. سرور پایتون را بررسی کنید.');
+        this.isOcrProcessing.set(false);
+      }
+    });
+  }
+
+  correlateWaybillWithHistoricalImports(): void {
+    const dossier = this.fullDocumentDossier();
+    if (!dossier) return;
+
+    this.isCorrelatingHistory.set(true);
+    const targetNid = dossier.actors?.shipper?.national_code || '10102153202';
+    const serial = dossier.document?.serial_number || '512776';
+    const goods = dossier.cargo?.goods_description || 'انواع قطعات یدکی و واشر صنعتی';
+
+    this.auditService.correlateWaybillHistory({
+      consigneeOrShipperNationalId: targetNid,
+      waybillSerial: serial,
+      waybillGoodsDescription: goods
+    }).subscribe({
+      next: (report) => {
+        this.historicalCorrelationReport.set(report);
+        this.isCorrelatingHistory.set(false);
+      },
+      error: (err) => {
+        console.error('خطا در تطبیق سوابق تاریخی از بک‌اند دات‌‌نت:', err);
+        this.isCorrelatingHistory.set(false);
+      }
+    });
+  }
+
+  // تزریق متصل و بدون گره معلق به گراف پیوندها
+  injectWaybillToGraph(): void {
+    const injection = this.graphInjectionData();
+    if (!injection || !injection.nodes || !injection.nodes.length) {
+      alert('ابتدا باید تصویر بارنامه را تحلیل نمایید.');
+      return;
+    }
+
+    const currentGraph = this.currentDossierData() || { nodes: [], edges: [] };
+    const existingNodeIds = new Set(currentGraph.nodes.map((n: any) => n.id));
+
+    const newNodes = [...currentGraph.nodes];
+    injection.nodes.forEach((node: any) => {
+      if (!existingNodeIds.has(node.id)) {
+        newNodes.push(node);
+        existingNodeIds.add(node.id);
+      }
+    });
+
+    const newEdges = [...(currentGraph.edges || [])];
+
+    // پیوند قطعی: اتصال سند بارنامه فیزیکی به گره محوری یا پرونده بازرسی‌شده
+    const waybillNodeId = injection.nodes[0]?.id;
+    const hubNode = currentGraph.nodes.find((n: any) => n.isLeader || n.id.startsWith('HUB_') || n.id.startsWith('ENT_') || n.id.startsWith('PERSON_'));
+
+    if (waybillNodeId && hubNode) {
+      newEdges.push({
+        source: waybillNodeId,
+        target: hubNode.id,
+        predicate: 'CORRELATED_CARGO (محموله فیزیکی مرتبط با پرونده)',
+        value: 'تطبیق فیزیکی کوتاژ',
+        lineStyle: {
+          color: '#f43f5e',
+          width: 3.2,
+          curveness: 0.2
+        }
+      });
+    }
+
+    injection.edges.forEach((e: any) => {
+      if (existingNodeIds.has(e.source) && existingNodeIds.has(e.target)) {
+        newEdges.push(e);
+      }
+    });
+
+    this.currentDossierData.set({
+      ...currentGraph,
+      nodes: newNodes,
+      edges: newEdges,
+      timestamp: Date.now()
+    });
+
+    this.isGraphInjected.set(true);
+    this.switchRightView('GRAPH');
   }
 
   inspectCase(item: any, event?: MouseEvent): void {
@@ -374,7 +540,6 @@ export class AuditDashboardComponent implements OnInit {
           rawList = data.data;
         }
 
-        // نرمال‌سازی مستقیم داده‌های بازگشتی از EF Core و دیتابیس SQLite
         const records: DiscrepancyLog[] = rawList.map((item: any, idx: number) => ({
           id: item.id || item.Id || `LOG_${idx + 1}`,
           orderRegNumber: item.orderRegNumber || item.OrderRegNumber || item.order_reg_number || `ORD-${1000 + idx}`,
@@ -391,7 +556,6 @@ export class AuditDashboardComponent implements OnInit {
         this.currentPage.set(1);
         this.loading.set(false);
 
-        // فعال‌سازی داده‌های اولین سطر واقعی دیتابیس روی گراف و نقشه
         if (records.length > 0) {
           const firstItem = records[0];
           this.selectedTableItem.set(firstItem);
@@ -506,7 +670,7 @@ export class AuditDashboardComponent implements OnInit {
       { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
       { id: `STEP_BURST_${rawCode}`, targetDocId: rawCode, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
       { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
-      { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
+      { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌‌وی قاچاق' }
     ];
   });
 

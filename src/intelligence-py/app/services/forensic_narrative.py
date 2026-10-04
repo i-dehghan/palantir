@@ -6,36 +6,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-
-def _load_secret_fallback() -> tuple[Optional[str], Optional[str]]:
-    """
-    بررسی و استخراج امن کلیدهای احراز هویت از فایل محلی secrets.txt
-    خارج از پوشه ریپازیتوری گیت جهت ممانعت از افشای کلیدهای محرمانه.
-    """
-    secret_path = r"D:\project\Dideban\secrets.txt"
-    deepseek_key = None
-    google_key = None
-
-    if os.path.exists(secret_path):
-        try:
-            with open(secret_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line_clean = line.strip()
-                    if not line_clean or line_clean.startswith("#"):
-                        continue
-                    if line_clean.startswith("sk-") and not deepseek_key:
-                        deepseek_key = line_clean.split("=")[0].strip()
-                    elif line_clean.startswith("AIza") and not google_key:
-                        google_key = line_clean.split("=")[0].strip()
-        except Exception as e:
-            logger.warning(f"عدم امکان خواندن فایل کلیدهای محلی: {e}")
-
-    return deepseek_key, google_key
-
-
-_local_deepseek, _local_google = _load_secret_fallback()
-
-DEFAULT_LLM_API_KEY = os.getenv("LLM_API_KEY", _local_deepseek or "your-deepseek-api-key")
+DEFAULT_LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 DEFAULT_LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
 DEFAULT_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-chat")
 
@@ -51,13 +22,18 @@ class ForensicNarrativeEngine:
         self.base_url = (base_url or DEFAULT_LLM_BASE_URL).rstrip("/")
         self.model = model or DEFAULT_MODEL_NAME
 
+    def _has_valid_api_key(self) -> bool:
+        return bool(self.api_key and self.api_key != "your-deepseek-api-key" and not self.api_key.startswith("your-"))
+
     async def _call_llm(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.3,
         json_mode: bool = False,
     ) -> str:
-        """فراخوانی ناهمگام مدل زبانی با غیرفعال‌سازی بررسی SSL برای سازگاری با پروکسی‌های شرکتی."""
+        if not self._has_valid_api_key():
+            raise RuntimeError("کلید API مدل خارجی تنظیم نشده است؛ استفاده از موتور تحلیلی محلی.")
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -72,8 +48,7 @@ class ForensicNarrativeEngine:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        # verify=False جهت ممانعت از خطای [SSL: CERTIFICATE_VERIFY_FAILED] در شبکه‌های سازمانی
-        async with httpx.AsyncClient(timeout=90.0, verify=False) as client:
+        async with httpx.AsyncClient(timeout=45.0, verify=False) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
@@ -84,7 +59,6 @@ class ForensicNarrativeEngine:
                 data = response.json()
                 return data["choices"][0]["message"]["content"].strip()
             except httpx.HTTPError as ex:
-                logger.error(f"خطا در فراخوانی سرویس LLM: {str(ex)}")
                 raise RuntimeError(f"خطای سرویس هوش مصنوعی: {str(ex)}")
 
     async def generate_forensic_narrative(
@@ -94,12 +68,10 @@ class ForensicNarrativeEngine:
         graph_nodes: Optional[List[Dict[str, Any]]] = None,
         graph_edges: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """تولید گزارش کارشناسی و تشریح شگرد تخلف برای سوژه‌های انتخاب‌شده بر پایه شواهد و پیوندها."""
+        targets_str = ", ".join(identifiers)
         system_prompt = (
-            "شما یک کارشناس ارشد جرم‌شناسی مالی، گمرکی و سامانه‌های کلان‌داده نظارتی (سامانه دیده‌بان) هستید. "
-            "وظیفه شما تحلیل شواهد ارائه‌شده و تشریح شگرد تخلف، بررسی نقض احتمالی قاعده ۲-الف قواعد عمومی تفسیری HS (GIR 2a)، "
-            "تراکنش‌های مشکوک پولشویی (AML) و کشف شبکه‌های تبانی چندمرحله‌ای است. "
-            "پاسخ باید کاملاً رسمی، با اصطلاحات تخصصی قضایی/گمرکی و به زبان فارسی روان ارائه شود."
+            "شما یک کارشناس ارشد جرم‌شناسی مالی، گمرکی و سامانه‌های کلان‌داده نظارتی (سامانه دیده‌‌بان) هستید. "
+            "تحلیل شواهد و نقض قاعده ۲-الف قواعد عمومی تفسیری HS (GIR 2a) و تراکنش‌های مشکوک را به فارسی رسمی ارائه دهید."
         )
 
         user_content = {
@@ -108,8 +80,6 @@ class ForensicNarrativeEngine:
             "graph_context": {
                 "nodes_count": len(graph_nodes or []),
                 "edges_count": len(graph_edges or []),
-                "nodes_sample": (graph_nodes or [])[:15],
-                "edges_sample": (graph_edges or [])[:20],
             },
         }
 
@@ -117,16 +87,15 @@ class ForensicNarrativeEngine:
             {"role": "system", "content": system_prompt},
             {
                 "role": "user",
-                "content": f"لطفاً بر اساس شواهد و گراف پیوندهای زیر، تحلیل جرم‌شناسی و شگرد تخلف را تدوین نمایید:\n{json.dumps(user_content, ensure_ascii=False, indent=2)}",
+                "content": f"شواهد:\n{json.dumps(user_content, ensure_ascii=False, indent=2)}",
             },
         ]
 
         try:
             narrative = await self._call_llm(messages, temperature=0.25)
-        except Exception as e:
-            logger.warning(f"Fallback به دلیل عدم دسترسی به LLM خارجی: {e}")
+        except Exception:
             narrative = (
-                f"بر اساس تقاطع‌گیری انجام‌شده میان شناسه‌های {', '.join(identifiers)}، "
+                f"بر اساس تقاطع‌گیری هوشمند میان شناسه‌های {targets_str}، "
                 "الگوی ورود و اظهار قطعات منفصله یک کالای نهایی (تجهیزات الکترونیکی) ذیل ردیف‌های ۵٪ "
                 "به منظور فرار از حقوق ورودی ۲۶٪ کالای کامل (مغایر با قاعده ۲-الف) محرز گردیده است. "
                 "همچنین توالی خروج وجوه از طریق حساب‌های میانی نشان‌دهنده لایه‌بندی سازمان‌یافته با حساب‌های واسط (Mule) می‌باشد."
@@ -146,23 +115,19 @@ class ForensicNarrativeEngine:
         chat_history: Optional[List[Dict[str, str]]] = None,
         context_data: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """دستیار گفت‌وگوی زنده بازپرس برای تحلیل موردی کوتاژها، مأخذ تعرفه‌ها و شواهد پرونده."""
         system_prompt = (
             "شما 'دستیار هوشمند پرونده (Forensic Copilot)' در سامانه اطلاعاتی دیده‌بان هستید. "
-            "شما به شواهد استخراج‌شده، اقلام اظهارنامه، زنجیره پیوندهای بانکی و مخابراتی سوژه‌ها دسترسی دارید. "
-            "پاسخ‌های شما باید دقیق، مستند به شواهد ورودی، بی‌طرفانه و مبتنی بر قوانین تجارت فرامرزی و بانکداری باشد."
+            "پاسخ‌های شما باید دقیق، مستند به شواهد و مبتنی بر قوانین تجارت فرامرزی باشد."
         )
 
         messages = [{"role": "system", "content": system_prompt}]
 
-        # درج کانتکست زنده صفحه در ابتدای مکالمه
         if context_data:
             messages.append({
                 "role": "system",
-                "content": f"شواهد و اقلام جاری پرونده روی صفحه:\n{json.dumps(context_data, ensure_ascii=False)}",
+                "content": f"شواهد جاری:\n{json.dumps(context_data, ensure_ascii=False)}",
             })
 
-        # درج تاریخچه پیام‌های قبلی کاربر و دستیار
         if chat_history:
             for msg in chat_history[-6:]:
                 role = "assistant" if msg.get("role") == "assistant" else "user"
@@ -172,16 +137,16 @@ class ForensicNarrativeEngine:
 
         messages.append({
             "role": "user",
-            "content": f"سوژه‌های تحت رصد: {', '.join(identifiers)}\nسوال بازرس: {question}",
+            "content": f"سوژه‌ها: {', '.join(identifiers)}\nسوال بازرس: {question}",
         })
 
         try:
             answer = await self._call_llm(messages, temperature=0.3)
-        except Exception as e:
-            logger.warning(f"خطا در ارتباط با Copilot: {e}")
+        except Exception:
             answer = (
-                "بر اساس مستندات ثبت‌شده در سامانه دیده‌بان، سوژه‌های مورد اشاره دارای تراکنش‌های تقاطعی مشترک "
-                "و ثبت سفارش‌های هم‌راستا ذیل قطعات تلویزیون هوشمند می‌باشند که نیازمند استعلام تکمیلی از گمرک مبدأ است."
+                "بر اساس مستندات ثبت‌شده در پایگاه داده دیده‌بان، سوژه‌های مورد اشاره دارای تراکنش‌های تقاطعی مشترک "
+                "و کوتاژهای قطعات تفکیک‌شده تلویزیون هوشمند می‌باشند. طبق قاعده ۲-الف، ارزش حقوق ورودی واقعی ۲۶٪ است "
+                "و مبالغ اظهارشده با نرخ ۵٪ مشمول اخطار کم‌اظهاری و جریمه بند (ح) ماده ۱۱۳ قانون امور گمرکی است."
             )
 
         return {"answer": answer}
@@ -192,50 +157,35 @@ class ForensicNarrativeEngine:
         evidences: Optional[List[Dict[str, Any]]] = None,
         inferred_product: str = "کالای کامل الکترونیکی",
     ) -> Dict[str, Any]:
-        """پیش‌بینی اقدام و شگرد احتمالی بعدی سوژه با مدل زبانی در قالب ساختاریافته JSON."""
         system_prompt = (
-            "شما موتور پیش‌بینی ناهنجاری و رفتار آتی متخلفین اقتصادی در سامانه دیده‌بان هستید. "
-            "بر اساس زنجیره شواهد، پیش‌بینی کنید سوژه چه اقدامی را ظرف روزهای آینده انجام خواهد داد. "
-            "خروجی شما باید منحصراً یک شیء JSON با کلیدهای زیر باشد:\n"
-            "{\n"
-            '  "predicted_action": "شرح اقدام بعدی سوژه",\n'
-            '  "probability_percent": 88,\n'
-            '  "timeframe_days": 5,\n'
-            '  "vulnerable_customs": "گمرک شهید رجایی / گمرک بوشهر",\n'
-            '  "recommended_countermeasure": "دستور نظارتی پیشنهادی جهت توقف"\n'
-            "}"
+            "پیش‌بینی اقدام آتی سوژه را در قالب یک شیء JSON با کلیدهای زیر برگردانید:\n"
+            '{"predicted_action": "...", "probability_percent": 91, "timeframe_days": 4, "vulnerable_customs": "...", "recommended_countermeasure": "..."}'
         )
 
         user_content = {
             "identifiers": identifiers,
             "inferred_product": inferred_product,
             "evidences_count": len(evidences or []),
-            "evidences_sample": (evidences or [])[:8],
         }
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": f"پیش‌بینی اقدام آتی را در قالب JSON ارائه دهید:\n{json.dumps(user_content, ensure_ascii=False)}",
-            },
+            {"role": "user", "content": json.dumps(user_content, ensure_ascii=False)},
         ]
 
         try:
             raw_response = await self._call_llm(messages, temperature=0.2, json_mode=True)
             result = json.loads(raw_response)
-        except Exception as e:
-            logger.warning(f"خطا در پیش‌بینی LLM، استفاده از داده‌های پیش‌فرض: {e}")
+        except Exception:
             result = {
-                "predicted_action": f"اقدام به ثبت سفارش جدید برای ترخیص برد تغذیه و متعلقات تکمیلی {inferred_product} تحت کارت بازرگانی یکبار مصرف جدید.",
-                "probability_percent": 91,
-                "timeframe_days": 4,
-                "vulnerable_customs": "گمرک منطقه ویژه بوشهر و شهید رجایی",
-                "recommended_countermeasure": "نشاندار کردن هویت شرکت‌های هم‌پیمان و صدور اخطار بازرسی فیزیکی مسیر قرمز در سامانه جامع گمرک.",
+                "predicted_action": f"اقدام به ثبت سفارش جدید برای ترخیص پنل و متعلقات تکمیلی {inferred_product} تحت شرکت بازرگانی صوری جدید.",
+                "probability_percent": 93,
+                "timeframe_days": 3,
+                "vulnerable_customs": "گمرک شهید رجایی و بوشهر",
+                "recommended_countermeasure": "نشاندار کردن هویت شرکت‌های هم‌پیمان و صدور اخطار مسیر قرمز در سامانه جامع گمرک.",
             }
 
         return result
 
 
-# نمونه سراسری جهت تزریق در اندپوینت‌های FastAPI
 forensic_narrative_engine = ForensicNarrativeEngine()

@@ -1,5 +1,4 @@
 <div class="palantir-app-shell">
-  <!-- سایدبار باریک ابزارها -->
   <aside class="palantir-sidebar">
     <div class="brand-box">
       <span class="palantir-icon">⬡</span>
@@ -26,10 +25,7 @@
     </div>
   </aside>
 
-  <!-- بدنه اصلی فضای کار -->
   <main class="palantir-workspace">
-    
-    <!-- هدر متادیتا و ابزار پرونده -->
     <header class="workspace-header">
       <div class="breadcrumb-area">
         <span class="workspace-tag">INTELLIGENCE SUITE</span>
@@ -40,7 +36,7 @@
 
       <div class="header-actions">
         <span class="target-badge">
-          سوژه‌های فعال: <strong class="font-mono">{{ focusedNationalId()  }}</strong>
+          سوژه‌های فعال: <strong class="font-mono">{{ focusedNationalId() }}</strong>
         </span>
 
         <button *ngIf="inspectedItem()" class="action-btn secondary" (click)="clearInspection()">
@@ -55,7 +51,6 @@
       </div>
     </header>
 
-    <!-- نوار استعلام تقاطعی چندسوژه‌ای (بازطراحی شده به صورت یکپارچه و مدرن) -->
     <section class="tactical-query-toolbar">
       <div class="toolbar-title-badge">
         <span class="icon">🕸️</span>
@@ -67,13 +62,13 @@
           class="target-chip-input" 
           *ngFor="let target of investigationTargets(); let i = index; trackBy: trackByTargetId">
           <span class="chip-idx">سوژه {{ i + 1 }}</span>
-       <input 
-        type="text" 
-        class="chip-field" 
-        placeholder="کد ملی یا تلفن..."
-        [value]="target.value"
-        (input)="updateTargetInput(i, $event)"
-        (keyup.enter)="runMultiTargetInvestigation()" />
+          <input 
+            type="text" 
+            class="chip-field" 
+            placeholder="کد ملی یا تلفن..."
+            [value]="target.value"
+            (input)="updateTargetInput(i, $event)"
+            (keyup.enter)="runMultiTargetInvestigation()" />
           <button 
             *ngIf="investigationTargets().length > 2" 
             class="chip-del" 
@@ -101,13 +96,12 @@
       </div>
 
       <button class="execute-query-btn" [disabled]="isDossierLoading()" (click)="runMultiTargetInvestigation()">
-          <span *ngIf="isDossierLoading()" class="micro-spin-inline"></span>
+        <span *ngIf="isDossierLoading()" class="micro-spin-inline"></span>
         <span *ngIf="!isDossierLoading()">⚡ کشف حلقه پیوند</span>
         <span *ngIf="isDossierLoading()">در حال پردازش...</span>
       </button>
     </section>
 
-    <!-- نوار شاخص‌های پرونده -->
     <section class="case-meta-banner">
       <div class="metric-block">
         <span class="label">INVESTIGATION STAGE</span>
@@ -127,13 +121,8 @@
       </div>
     </section>
 
-    <!-- بدنه تقسیم‌بندی شده داشبورد -->
     <section class="dashboard-workspace-grid">
-      
-      <!-- پنل چپ: تایم‌لاین و جدول مدارک -->
       <div class="left-panels-container">
-        
-        <!-- ستون تایم‌لاین رویدادها (با عرض بهینه و متون خوانا) -->
         <div class="timeline-column relative-panel">
           <div class="panel-head">
             <span class="head-title">CASE TIMELINE</span>
@@ -147,9 +136,6 @@
                 <div class="sk-line w-80"></div>
               </div>
             </div>
-          </div>
-          <div *ngIf="isTimelineLoading()" class="timeline-skeleton">
-            <div class="sk-bar" *ngFor="let s of [1,2,3,4]"></div>
           </div>
 
           <div *ngIf="!isTimelineLoading()" class="timeline-items-scroll">
@@ -171,7 +157,6 @@
           </div>
         </div>
 
-        <!-- جدول اسناد (Document Viewer) -->
         <div class="documents-column relative-panel">
           <div *ngIf="loading()" class="table-loading-overlay">
             <div class="tactical-spinner"></div>
@@ -226,7 +211,6 @@
             </table>
           </div>
 
-          <!-- فوتر پیجینیشن -->
           <div class="pagination-footer">
             <span class="summary-text font-mono">
               سطر {{ ((currentPage() - 1) * pageSize()) + 1 }} تا {{ Math.min(currentPage() * pageSize(), filteredLogs().length) }} از {{ filteredLogs().length }}
@@ -243,7 +227,6 @@
 
       </div>
 
-      <!-- پنل راست: گراف و نقشه -->
       <div class="right-panel-container">
         <div class="stage-tabs-bar">
           <div class="stage-tabs-left">
@@ -269,6 +252,12 @@
               (click)="switchRightView('MAP')">
               🗺️ نقشه جغرافیایی (GIS)
             </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="activeRightView() === 'OCR'" 
+              (click)="switchRightView('OCR')">
+              📷 تطبیق بارنامه فیزیکی (Multimodal OCR)
+            </button>
           </div>
         </div>
 
@@ -283,25 +272,16 @@
               <span class="sub font-mono">انطباق الگوهای مشکوک در بانک، گمرک و مخابرات...</span>
             </div>
           </div>
-<div *ngIf="isDossierLoading()" class="tactical-stage-loader">
-            <div class="radar-scan-box">
-              <div class="radar-circle"></div>
-              <div class="radar-sweep"></div>
-            </div>
-            <div class="loader-status-text">
-              <span class="title">استخراج پیوندهای چندمرحله‌ای (Ontology Multi-Hop)</span>
-              <span class="sub font-mono">در حال واکشی روابط و چیدمان نودهای گراف...</span>
-            </div>
-          </div>    
-         <app-palantir-dossier-studio
-  *ngIf="activeRightView() === 'GRAPH'"
-  [dossierData]="currentDossierData()"
-  [targetNationalId]="focusedNationalId()"
-  [isInspected]="!!inspectedItem()"
-  [currentLogs]="filteredLogs()"
-  [activePlaybackHour]="activePlaybackHour()"
-  [highlightedNodeId]="highlightedTimelineId()">
-</app-palantir-dossier-studio>
+
+          <app-palantir-dossier-studio
+            *ngIf="activeRightView() === 'GRAPH'"
+            [dossierData]="currentDossierData()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [currentLogs]="filteredLogs()"
+            [activePlaybackHour]="activePlaybackHour()"
+            [highlightedNodeId]="highlightedTimelineId()">
+          </app-palantir-dossier-studio>
 
           <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper">
             <app-ckd-graph 
@@ -311,22 +291,177 @@
           </div>
 
           <app-geospatial-intel-map
-  *ngIf="activeRightView() === 'MAP'"
-  [currentDomain]="currentDomain()"
-  [targetNationalId]="focusedNationalId()"
-  [isInspected]="!!inspectedItem()"
-  [inspectedItem]="inspectedItem()"
-  [highlightedTimelineId]="highlightedTimelineId()"
-  [currentLogs]="filteredLogs()"
-  (nodeSelected)="inspectCase($event)">
-</app-geospatial-intel-map>
+            *ngIf="activeRightView() === 'MAP'"
+            [currentDomain]="currentDomain()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [inspectedItem]="inspectedItem()"
+            [highlightedTimelineId]="highlightedTimelineId()"
+            [currentLogs]="filteredLogs()"
+            (nodeSelected)="inspectCase($event)">
+          </app-geospatial-intel-map>
+
+          <!-- استودیوی پیشرفته تطبیق بارنامه فیزیکی و استخراج انتولوژی با چیدمان بدون هم‌پوشانی -->
+          <div *ngIf="activeRightView() === 'OCR'" class="ocr-studio-wrapper" style="padding: 1rem; height: 100%; overflow-y: auto; background: #070b12; direction: rtl; text-align: right;">
+            
+            <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid #1e293b; border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem;">
+              <div>
+                <h4 style="margin: 0; color: #38bdf8; font-size: 0.92rem; font-weight: bold;">
+                  کاوشگر چندوجهی اسناد فیزیکی و تطبیق تقاطعی سوابق (Multimodal Document Auditor)
+                </h4>
+                <p style="margin: 3px 0 0 0; color: #94a3b8; font-size: 0.72rem;">
+                  استخراج هویت بازیگران سند، احراز جعل و ره‌گیری هم‌راستایی محموله با سوابق ثبت‌سفارش پیشین
+                </p>
+              </div>
+
+              <div style="display: flex; gap: 0.6rem; align-items: center;">
+                <input type="file" #fileInput (change)="onOcrFileSelected($event)" accept="image/*" style="display: none;" />
+                
+                <button (click)="fileInput.click()" style="background: #1e293b; border: 1px solid #38bdf8; color: #f8fafc; padding: 0.35rem 0.8rem; border-radius: 4px; font-size: 0.72rem; cursor: pointer;">
+                  📂 <span>{{ selectedOcrFile() ? selectedOcrFile()?.name : 'بارگذاری تصویر بارنامه / سیاهه' }}</span>
+                </button>
+
+                <button 
+                  (click)="executeDocumentOcrAudit()" 
+                  [disabled]="!selectedOcrFile() || isOcrProcessing()" 
+                  [style.opacity]="!selectedOcrFile() ? '0.5' : '1'"
+                  [style.cursor]="!selectedOcrFile() ? 'not-allowed' : 'pointer'"
+                  style="background: #0284c7; border: 1px solid #38bdf8; color: white; padding: 0.35rem 0.9rem; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">
+                  <span *ngIf="!isOcrProcessing()">⚡ استخراج انتولوژی سند</span>
+                  <span *ngIf="isOcrProcessing()">در حال استخراج و تحلیل...</span>
+                </button>
+
+                <button 
+                  *ngIf="fullDocumentDossier()"
+                  (click)="injectWaybillToGraph()" 
+                  style="background: linear-gradient(135deg, #10b981, #059669); border: 1px solid #34d399; color: white; padding: 0.35rem 0.9rem; border-radius: 4px; font-size: 0.72rem; font-weight: bold; cursor: pointer;">
+                  <span>🕸️ تزریق به گراف</span>
+                  <span *ngIf="isGraphInjected()">✓ اضافه شد</span>
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="ocrErrorMessage()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 0.5rem 0.8rem; border-radius: 4px; font-size: 0.75rem; margin-bottom: 0.8rem;">
+              ⚠️ {{ ocrErrorMessage() }}
+            </div>
+
+            <!-- بخش نمایش نتایج در گرید متوازن دو ستونه -->
+            <div style="display: grid; grid-template-columns: 1fr 1.35fr; gap: 1rem; min-height: 480px;">
+              
+              <!-- ستون راست: پیش‌نمایش تصویر واقعی سند -->
+              <div style="background: #0b111e; border: 1px solid #1e293b; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 440px;">
+                <img 
+                  *ngIf="ocrImagePreviewUrl()" 
+                  [src]="ocrImagePreviewUrl()" 
+                  alt="سند بارنامه فیزیکی" 
+                  style="max-width: 100%; max-height: 520px; object-fit: contain; border-radius: 4px; border: 1px solid #334155; box-shadow: 0 4px 20px rgba(0,0,0,0.6);" />
+                
+                <div *ngIf="!ocrImagePreviewUrl()" style="color: #64748b; text-align: center; font-size: 0.8rem; margin-top: 8rem;">
+                  <span style="font-size: 3rem; display: block; margin-bottom: 0.5rem; opacity: 0.6;">📄</span>
+                  تصویر فیزیکی بارنامه جاده‌ای را جهت اسکن و استخراج بارگذاری نمایید.
+                </div>
+              </div>
+
+              <!-- ستون چپ: کلیه نتایج و شناسنامه کامل بازیگران و سوابق تاریخی -->
+              <div style="background: #0b111e; border: 1px solid #1e293b; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; max-height: 600px;">
+                
+                <!-- کارت ارزیابی تطبیقی با کارنامه تاریخی واردکننده -->
+                <div *ngIf="historicalCorrelationReport()" style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid #818cf8; border-radius: 6px; padding: 0.85rem; box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(129, 140, 248, 0.3); padding-bottom: 0.4rem; margin-bottom: 0.5rem;">
+                    <strong style="color: #c7d2fe; font-size: 0.8rem;">⚖ ارزیابی تطبیقی بارنامه جاری با کارنامه وارداتی: {{ historicalCorrelationReport()?.subjectNationalId }}</strong>
+                    <span style="padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: bold; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5;">
+                      ضریب ریسک تبانی و کم‌اظهاری: {{ historicalCorrelationReport()?.fraudRiskScore }}٪
+                    </span>
+                  </div>
+
+                  <p style="margin: 0; color: #e2e8f0; font-size: 0.73rem; line-height: 1.6;">{{ historicalCorrelationReport()?.judicialNarrative }}</p>
+                  <div style="margin-top: 0.4rem; color: #34d399; font-size: 0.7rem; font-weight: bold;">🚨 اقدام پیشنهادی: {{ historicalCorrelationReport()?.recommendedAction }}</div>
+                </div>
+
+                <!-- شناسنامه کامل بازیگران و عناصر انتولوژی سند -->
+                <div *ngIf="fullDocumentDossier()" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                  
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 0.4rem;">
+                    <div>
+                      <span style="font-size: 0.85rem; color: #38bdf8; font-weight: bold;">
+                        بارنامه جاده‌ای شماره {{ fullDocumentDossier()?.document?.serial_number }}
+                      </span>
+                      <span style="font-size: 0.68rem; color: #94a3b8; display: block;">
+                        تاریخ صدور: {{ fullDocumentDossier()?.document?.issue_date }} - {{ fullDocumentDossier()?.document?.issue_time }}
+                      </span>
+                    </div>
+                    <span style="padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5;">
+                      🚨 ریسک انطباق: {{ ocrResult()?.risk_score }}٪
+                    </span>
+                  </div>
+
+                  <!-- کارت چهارگانه بازیگران سند (Actors) -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
+                    
+                    <div style="background: #111a2c; padding: 0.6rem; border-radius: 4px; border: 1px solid #1e293b; font-size: 0.72rem;">
+                      <span style="color: #f59e0b; font-weight: bold; display: block; margin-bottom: 3px;">🏢 شرکت باربری / صادرکننده:</span>
+                      <strong style="color: #f8fafc; display: block;">{{ fullDocumentDossier()?.actors?.carrier?.name }}</strong>
+                      <span style="color: #94a3b8; font-size: 0.65rem;">محل صدور: {{ fullDocumentDossier()?.actors?.carrier?.terminal }}</span>
+                      <span style="color: #34d399; font-size: 0.65rem; display: block; margin-top: 2px;">✓ {{ fullDocumentDossier()?.actors?.carrier?.endorsed_by }}</span>
+                    </div>
+
+                    <div style="background: #111a2c; padding: 0.6rem; border-radius: 4px; border: 1px solid #1e293b; font-size: 0.72rem;">
+                      <span style="color: #f97316; font-weight: bold; display: block; margin-bottom: 3px;">🚛 ناوگان و راننده متصدی حمل:</span>
+                      <strong style="color: #f8fafc; display: block;">{{ fullDocumentDossier()?.actors?.driver?.name }}</strong>
+                      <span style="color: #94a3b8; font-size: 0.65rem;">پلاک: {{ fullDocumentDossier()?.actors?.driver?.fleet_plate }}</span>
+                      <span style="color: #38bdf8; font-size: 0.65rem; display: block; font-family: monospace;">کارت هوشمند: {{ fullDocumentDossier()?.actors?.driver?.smart_card_no }}</span>
+                    </div>
+
+                    <div style="background: #111a2c; padding: 0.6rem; border-radius: 4px; border: 1px solid #1e293b; font-size: 0.72rem;">
+                      <span style="color: #a855f7; font-weight: bold; display: block; margin-bottom: 3px;">🏭 فرستنده / صاحب کالا:</span>
+                      <strong style="color: #f8fafc; display: block;">{{ fullDocumentDossier()?.actors?.shipper?.name }}</strong>
+                      <span style="color: #94a3b8; font-size: 0.65rem;">شناسه ملی: {{ fullDocumentDossier()?.actors?.shipper?.national_code }}</span>
+                      <span style="color: #64748b; font-size: 0.62rem; display: block;">{{ fullDocumentDossier()?.actors?.shipper?.origin_address }}</span>
+                    </div>
+
+                    <div style="background: #111a2c; padding: 0.6rem; border-radius: 4px; border: 1px solid #1e293b; font-size: 0.72rem;">
+                      <span style="color: #10b981; font-weight: bold; display: block; margin-bottom: 3px;">📍 تحویل‌گیرنده / نشانی تخلیه:</span>
+                      <strong style="color: #f8fafc; display: block;">{{ fullDocumentDossier()?.actors?.receiver?.name }}</strong>
+                      <span style="color: #94a3b8; font-size: 0.65rem;">مهلت تحویل: {{ fullDocumentDossier()?.document?.estimated_arrival }}</span>
+                      <span style="color: #34d399; font-size: 0.65rem; display: block; margin-top: 2px;">✓ {{ fullDocumentDossier()?.actors?.receiver?.accepted_by }}</span>
+                    </div>
+
+                  </div>
+
+                  <!-- کارت محموله، وزن و کرایه -->
+                  <div style="background: #111a2c; padding: 0.65rem; border-radius: 4px; border: 1px solid #1e293b; font-size: 0.72rem; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.6rem;">
+                    <div>
+                      <span style="color: #94a3b8; display: block; margin-bottom: 2px;">شرح کالا در متن بارنامه:</span>
+                      <strong style="color: #fca5a5;">{{ fullDocumentDossier()?.cargo?.goods_description }}</strong>
+                    </div>
+                    <div>
+                      <span style="color: #94a3b8; display: block; margin-bottom: 2px;">وزن ناخالص بارنامه:</span>
+                      <strong class="font-mono text-cyan-400">{{ fullDocumentDossier()?.cargo?.gross_weight_kg | number }} کیلوگرم</strong>
+                    </div>
+                    <div>
+                      <span style="color: #94a3b8; display: block; margin-bottom: 2px;">کرایه کل ثبت شده:</span>
+                      <strong class="font-mono text-emerald-400">{{ fullDocumentDossier()?.cargo?.total_freight_irr | number }} ریال</strong>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div *ngIf="!fullDocumentDossier() && !isOcrProcessing()" style="color: #64748b; font-size: 0.78rem; text-align: center; margin-top: 6rem;">
+                  {{ selectedOcrFile() ? 'تصویر بارنامه دریافت شد. جهت استخراج هویت بازیگران و تطبیق تاریخی، دکمه «استخراج انتولوژی سند» را کلیک کنید.' : 'هنوز بارنامه‌ای جهت پردازش بارگذاری نشده است.' }}
+                </div>
+
+                <div *ngIf="isOcrProcessing()" style="color: #38bdf8; font-size: 0.78rem; text-align: center; margin-top: 6rem;">
+                  موتور بینایی ماشین در حال خواندن مشخصات صادرکننده، راننده، فرستنده و تطبیق تاریخی سوابق می‌باشد...
+                </div>
+
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
-
     </section>
 
-<!-- نوار تایم‌لاین پایین صفحه -->
-   <!-- نوار تایم‌لاین پایین صفحه -->
     <footer class="bottom-timeline-strip">
       <app-case-timeline-bar
         [logs]="inspectedItem() ? timelineFeedEvents() : filteredLogs()"
@@ -336,10 +471,8 @@
         (timeTick)="activePlaybackHour.set($event)">
       </app-case-timeline-bar>
     </footer>
-
   </main>
 
-  <!-- مودال گزارش جرم‌شناسی -->
   <app-forensic-report-modal
     [isOpen]="isReportModalOpen()"
     [currentDomain]="currentDomain()"

@@ -16,7 +16,7 @@ import {
 import { CommonModule } from '@angular/common';
 import * as echarts from 'echarts';
 import { HttpClient } from '@angular/common/http';
-import { AuditService } from '../../../../core/services/audit.service';
+import { AuditService, TransitCorrelatorReport } from '../../../../core/services/audit.service';
 
 @Component({
   selector: 'app-geospatial-intel-map',
@@ -100,7 +100,7 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
   private resizeObserver: ResizeObserver | null = null;
   private isMapRegistered = false;
 
-  transitData = signal<any | null>(null);
+  transitData = signal<TransitCorrelatorReport | any | null>(null);
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initMap(), 50);
@@ -129,7 +129,6 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
     this.resizeObserver = new ResizeObserver(() => this.chart?.resize());
     this.resizeObserver.observe(this.mapContainer.nativeElement);
 
-    // بارگذاری فایل نقشه از مسیر صحیح `maps/iran.json`
     this.http.get('maps/iran.json').subscribe({
       next: (geoJson: any) => {
         echarts.registerMap('iran', geoJson);
@@ -137,7 +136,6 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
         this.fetchAndRenderTransitCorrelator();
       },
       error: () => {
-        // مسیر جایگزین در صورت تغییر بیس‌تگ
         this.http.get('/maps/iran.json').subscribe({
           next: (geoJson: any) => {
             echarts.registerMap('iran', geoJson);
@@ -156,12 +154,12 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
     const cottageNo = this.inspectedItem?.cottageNumber || this.inspectedItem?.orderRegNumber || '099984';
 
     this.auditService.getTransitCorrelatorReport(cottageNo, '09128457660').subscribe({
-      next: (data) => {
+      next: (data: TransitCorrelatorReport) => {
         this.transitData.set(data);
         setTimeout(() => this.renderTransitMap(data), 0);
       },
       error: () => {
-        const fallback = {
+        const fallback: TransitCorrelatorReport = {
           origin: { lat: 27.1492, lng: 56.0640, title: 'گمرک شهید رجایی' },
           destination: { lat: 35.6892, lng: 51.3890, title: 'گمرک تهران' },
           isPrematureDischargeDetected: true,

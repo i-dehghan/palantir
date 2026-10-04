@@ -1,41 +1,19 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { DiscrepancyLog, DomainType } from '../models/discrepancy.model';
-
-export interface TacticalGatewayDto {
-  id: string;
-  name: string;
-  code: string;
-  domain: string;
-  latitude: number;
-  longitude: number;
-  riskScore: number;
-  trafficVolume: number;
-  anomalyDetected: boolean;
-}
-
-export interface RemedialActionCommand {
-  actionType: string;
-  targetIdentifier: string;
-  caseId: string;
-  domain: string;
-}
-
-export interface RemedialActionResult {
-  success: boolean;
-  trackingCode: string;
-  timestamp: string;
-  message: string;
-}
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import {
+  DiscrepancyLog,
+  DomainType,
+  WaybillCorrelationRequest,
+  WaybillCorrelationReport
+} from '../models/discrepancy.model';
 
 export interface ForensicNarrativeResponse {
-  summaryNarrative: string;
+  summaryNarrative?: string;
   summary_narrative?: string;
-  riskLevel: string;
-  inferredViolation: string;
-  targets: string[];
+  riskLevel?: string;
+  inferredViolation?: string;
+  targets?: string[];
 }
 
 export interface PredictiveMoveData {
@@ -46,8 +24,19 @@ export interface PredictiveMoveData {
   recommended_countermeasure: string;
 }
 
-export interface CopilotResponse {
-  answer: string;
+export interface TransitCorrelatorReport {
+  origin: { lat: number; lng: number; title: string };
+  destination: { lat: number; lng: number; title: string };
+  isPrematureDischargeDetected: boolean;
+  confidenceScore: number;
+  judicialDescription: string;
+  waypoints: Array<{
+    lat: number;
+    lng: number;
+    cellId: string;
+    isDeviated: boolean;
+    anomalyType?: string;
+  }>;
 }
 
 @Injectable({
@@ -55,116 +44,53 @@ export interface CopilotResponse {
 })
 export class AuditService {
   private http = inject(HttpClient);
-
-  // آدرس‌های قطعی پورت بک‌اند دات‌نت (5191) و پایتون FastAPI (8000)
-  private readonly dotnetApiUrl = 'http://localhost:5191/api/Audit';
-  private readonly dotnetTacticalUrl = 'http://localhost:5191/api/v1/tactical';
-  private readonly dotnetActionsUrl = 'http://localhost:5191/api/v1/actions';
-  private readonly pythonAiUrl = 'http://127.0.0.1:8000/api/v1';
+  
+  // آدرس‌های پایه هماهنگ با Routeهای تعریف‌شده در Swagger و سرور پایتون
+  private readonly apiBaseUrl = 'http://localhost:5191/api/Audit';
+  private readonly aiBaseUrl = 'http://127.0.0.1:8000/api/v1';
 
   activeDomain = signal<DomainType>('CUSTOMS');
 
+  // ۱. اصلاح روت لاگ‌های مغایرت مطابق با Swagger: /api/Audit/logs
   getDiscrepancies(domain: DomainType): Observable<DiscrepancyLog[]> {
-    return this.http.get<DiscrepancyLog[]>(`${this.dotnetApiUrl}/logs?domain=${domain}`).pipe(
-      catchError(err => {
-        console.warn('[AuditService] عدم دسترسی به API دات‌نت روی پورت 5191:', err);
-        return of([]);
-      })
+    return this.http.get<DiscrepancyLog[]>(`${this.apiBaseUrl}/logs?domain=${domain}`);
+  }
+
+  // ۲. ارسال تصویر سند فیزیکی بارنامه به مایکروسرویس پایتون
+  auditDocumentWaybill(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${this.aiBaseUrl}/multimodal/audit-document`, formData);
+  }
+
+  // ۳. تطبیق تقاطعی مشخصات بارنامه با سوابق تاریخی در دات‌نت: /api/Audit/correlate-waybill-history
+  correlateWaybillHistory(payload: WaybillCorrelationRequest): Observable<WaybillCorrelationReport> {
+    return this.http.post<WaybillCorrelationReport>(`${this.apiBaseUrl}/correlate-waybill-history`, payload);
+  }
+
+  // ۴. پایش خط سیر ترانزیت و ردپای سلولی: /api/Audit/transit-correlator مطابق با کوئری‌پارامترهای Swagger
+  getTransitCorrelatorReport(cottageNo: string, mobileNumber: string): Observable<TransitCorrelatorReport> {
+    const encodedCottage = encodeURIComponent(cottageNo || '');
+    const encodedMobile = encodeURIComponent(mobileNumber || '');
+    return this.http.get<TransitCorrelatorReport>(
+      `${this.apiBaseUrl}/transit-correlator?cottageNumber=${encodedCottage}&driverMsisdn=${encodedMobile}`
     );
   }
 
-  getTacticalGateways(domain: string = 'CUSTOMS', nationalId?: string): Observable<TacticalGatewayDto[]> {
-    const nidParam = nationalId ? `&nationalId=${encodeURIComponent(nationalId)}` : '';
-    return this.http.get<TacticalGatewayDto[]>(`${this.dotnetTacticalUrl}/gateways?domain=${encodeURIComponent(domain)}${nidParam}`).pipe(
-      catchError(err => {
-        console.warn('[AuditService] خطای دریافت TacticalGateways از دات‌نت، استفاده از پایگاه‌های مرزی پیش‌فرض:', err);
-        const fallbackGateways: TacticalGatewayDto[] = [
-          { id: 'GW-RAJAEE', name: 'گمرک شهید رجایی بندرعباس (ورود کانتینری)', code: 'C-BND-01', domain: 'CUSTOMS', latitude: 27.1408, longitude: 56.0624, riskScore: 98, trafficVolume: 850, anomalyDetected: true },
-          { id: 'GW-BUSHEHR', name: 'منطقه ویژه اقتصادی بندر بوشهر', code: 'C-BSH-02', domain: 'CUSTOMS', latitude: 28.9234, longitude: 50.8203, riskScore: 92, trafficVolume: 420, anomalyDetected: true },
-          { id: 'GW-TEHRAN-HUB', name: 'هاب انبار مرکزی شهریار تهران (مقصد ترانزیت)', code: 'C-THR-HUB', domain: 'CUSTOMS', latitude: 35.6892, longitude: 51.3890, riskScore: 96, trafficVolume: 1200, anomalyDetected: true },
-          { id: 'GW-BAZARGAN', name: 'گمرک مرزی بازرگان', code: 'C-BZG-03', domain: 'CUSTOMS', latitude: 39.3908, longitude: 44.3833, riskScore: 78, trafficVolume: 310, anomalyDetected: false },
-          { id: 'GW-SARAKHS', name: 'منطقه ویژه اقتصادی سرخس', code: 'C-SRX-04', domain: 'CUSTOMS', latitude: 36.5447, longitude: 61.1575, riskScore: 82, trafficVolume: 290, anomalyDetected: false },
-          { id: 'GW-MEHRAN', name: 'پایانه مرزی تجاری مهران', code: 'C-MHR-05', domain: 'CUSTOMS', latitude: 33.1222, longitude: 46.1644, riskScore: 85, trafficVolume: 360, anomalyDetected: false },
-          { id: 'GW-CHABAHAR', name: 'بندر آزاد چابهار (ترانزیت اقیانوسی)', code: 'C-CHB-06', domain: 'CUSTOMS', latitude: 25.2969, longitude: 60.6430, riskScore: 88, trafficVolume: 510, anomalyDetected: true }
-        ];
-        return of(fallbackGateways);
-      })
-    );
+  // ۵. دریافت گزارش جرم‌شناسی مدل زبانی
+  getForensicDossierNarrative(identifiers: string[], evidences?: any[]): Observable<ForensicNarrativeResponse> {
+    const payload: any = { identifiers };
+    if (evidences && evidences.length > 0) {
+      payload.evidences = evidences;
+    }
+    return this.http.post<ForensicNarrativeResponse>(`${this.aiBaseUrl}/forensic-narrative`, payload);
   }
 
-  executeRemedialAction(command: RemedialActionCommand): Observable<RemedialActionResult> {
-    return this.http.post<RemedialActionResult>(`${this.dotnetActionsUrl}/execute`, command).pipe(
-      catchError(err => {
-        console.warn('[AuditService] خطای صدور اقدام نظارتی دات‌نت، شبیه‌سازی محلی:', err);
-        return of({
-          success: true,
-          trackingCode: `JD-EPL-${Date.now().toString().slice(-6)}`,
-          timestamp: new Date().toISOString(),
-          message: 'دستور مداخله نظارتی با مهر دیجیتال سامانه صادر گردید.'
-        });
-      })
-    );
+  // ۶. گفت‌وگو با دستیار هوشمند پرونده (Copilot)
+  askForensicCopilot(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.aiBaseUrl}/forensic-copilot`, payload);
   }
 
-  getForensicDossierNarrative(identifiers: string[], nodes: any[] = [], edges: any[] = []): Observable<ForensicNarrativeResponse> {
-    const payload = {
-      identifiers: identifiers,
-      nodes: nodes,
-      edges: edges,
-      evidences: nodes
-    };
-
-    return this.http.post<ForensicNarrativeResponse>(`${this.pythonAiUrl}/forensic-narrative`, payload).pipe(
-      catchError(err => {
-        console.warn('[AuditService] خطای forensic-narrative پایتون، اجرای Fallback تحلیلی:', err);
-        return of({
-          summaryNarrative: `بر اساس تقاطع‌گیری هوشمند سامانه‌ای میان شناسه‌های [${identifiers.join(' ⟷ ')}]، الگوی ورود متوالی قطعات منفصله یک کالای نهایی (تجهیزات الکترونیکی) ذیل ردیف‌های با مأخذ ۵٪ جهت فرار از حقوق ورودی ۲۶٪ کالای کامل (مغایر با قاعده ۲-الف) محرز گردید. همچنین گردش نامتعارف حساب‌های واسط حاکی از لایه‌بندی پولشویی است.`,
-          riskLevel: 'CRITICAL',
-          inferredViolation: 'نقض قاعده ۲-الف گمرک و لایه‌بندی عواید ارزی',
-          targets: identifiers
-        });
-      })
-    );
-  }
-
-  predictNextMove(payload: { identifiers: string[]; evidences?: any[]; inferred_product?: string }): Observable<PredictiveMoveData> {
-    return this.http.post<PredictiveMoveData>(`${this.pythonAiUrl}/predict-move`, payload).pipe(
-      catchError(err => {
-        console.warn('[AuditService] خطای predict-move پایتون، اجرای Fallback:', err);
-        return of({
-          predicted_action: 'اقدام به ثبت سفارش جدید برای ترخیص متعلقات تکمیلی کالا تحت کارت بازرگانی یکبار مصرف جدید.',
-          probability_percent: 92,
-          timeframe_days: 4,
-          vulnerable_customs: 'گمرک شهید رجایی / گمرک بوشهر',
-          recommended_countermeasure: 'نشان‌دار کردن هویت شرکت‌های هم‌پیمان و صدور اخطار بازرسی فیزیکی مسیر قرمز در سامانه EPL.'
-        });
-      })
-    );
-  }
-
-  askForensicCopilot(payload: {
-    identifiers: string[];
-    question: string;
-    chat_history?: any[];
-    nodes?: any[];
-    inferred_finished_good?: string;
-    inferred_hs_code?: string;
-    total_val_usd?: string;
-  }): Observable<CopilotResponse> {
-    return this.http.post<CopilotResponse>(`${this.pythonAiUrl}/forensic-copilot`, payload).pipe(
-      catchError(err => {
-        console.warn('[AuditService] خطای Copilot:', err);
-        return of({
-          answer: 'با توجه به اسناد کوتاژ و تراکنش‌های ثبت‌شده، ارتباط معناداری میان کوتاژهای قطعات تفکیک‌شده و انتقال‌های سریع پایا احراز گردیده است.'
-        });
-      })
-    );
-  }
-
-  getTransitCorrelatorReport(cottageNumber: string, driverMsisdn: string = '09128457660'): Observable<any> {
-    const params = new HttpParams()
-      .set('cottageNumber', cottageNumber)
-      .set('driverMsisdn', driverMsisdn);
-    return this.http.get<any>(`${this.dotnetApiUrl}/transit-correlator`, { params });
+  // ۷. پیش‌بینی هوشمند اقدام آتی سوژه
+  predictNextMove(payload: any): Observable<PredictiveMoveData> {
+    return this.http.post<PredictiveMoveData>(`${this.aiBaseUrl}/predict-move`, payload);
   }
 }
