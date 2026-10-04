@@ -36,4 +36,11 @@ obj/
 # =========================
 # Project Specific
 # =========================
-data/
+data/secrets.txt
+*.env
+appsettings.*.Local.json
+**/bin/
+**/obj/
+node_modules/
+__pycache__/
+*.pyc
