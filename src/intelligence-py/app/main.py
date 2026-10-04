@@ -1,26 +1,16 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-import logging
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("dideban-intelligence")
-
-try:
-    from .services.matcher import matcher_engine
-except ImportError:
-    from services.matcher import matcher_engine
-
-try:
-    from .services.forensic_narrative import forensic_engine
-except ImportError:
-    from services.forensic_narrative import forensic_engine
+from forensic_narrative import forensic_narrative_engine
+from matcher import matcher_engine
 
 app = FastAPI(
-    title="Dideban Intelligence Engine",
-    description="سرویس هوشمند تطبیق معنایی، فازی و جرم‌شناسی اسناد تجاری دیده‌بان",
-    version="1.0.0"
+    title="DIDEBAN Intelligence Microservice",
+    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف و پیش‌بینی ناهنجاری",
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -31,179 +21,87 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class CompareRequest(BaseModel):
-    order_reg_text: str = Field(..., example="روان‌نویس فوق روان اداری و مهندسی")
-    customs_dec_text: str = Field(..., example="مداد گرافیتی مشکی و رنگی بسته‌ای")
-
-class CompareResponse(BaseModel):
-    text_a: str
-    text_b: str
-    fuzzy_similarity: float
-    semantic_similarity: float
-    combined_score: float
-    is_mismatch: bool
-    risk_level: str
-
-class BatchCompareItem(BaseModel):
-    id: str
-    order_reg_text: Optional[str] = ""
-    customs_dec_text: Optional[str] = ""
-
-class BatchCompareResponseItem(BaseModel):
-    id: str
-    result: CompareResponse
-
-class ForensicDossierRequest(BaseModel):
+class NarrativeRequest(BaseModel):
     identifiers: List[str]
-    nodes: List[Dict[str, Any]] = []
-    edges: List[Dict[str, Any]] = []
-    declared_parts: Optional[List[Dict[str, Any]]] = []
-    inferred_finished_good: Optional[str] = ""
-    inferred_hs_code: Optional[str] = ""
+    nodes: Optional[List[Dict[str, Any]]] = None
+    edges: Optional[List[Dict[str, Any]]] = None
+    evidences: Optional[List[Dict[str, Any]]] = None
 
-class ForensicDossierResponse(BaseModel):
-    case_id: str
-    summary_narrative: str
-
-class PredictMoveRequest(BaseModel):
-    identifiers: List[str]
-    evidences: List[Dict[str, Any]] = []
-    inferred_product: Optional[str] = "تلویزیون هوشمند"
-
-class PredictMoveResponse(BaseModel):
-    predicted_action: str
-    probability_percent: int
-    timeframe_days: int
-    vulnerable_customs: str
-    recommended_countermeasure: str
-
-class CopilotChatRequest(BaseModel):
+class CopilotRequest(BaseModel):
     identifiers: List[str]
     question: str
-    chat_history: List[Dict[str, str]] = []
-    nodes: List[Dict[str, Any]] = []
-    edges: List[Dict[str, Any]] = []
+    chat_history: Optional[List[Dict[str, str]]] = None
+    nodes: Optional[List[Dict[str, Any]]] = None
     inferred_finished_good: Optional[str] = "تلویزیون هوشمند LED"
     inferred_hs_code: Optional[str] = "85287200"
-    total_val_usd: Optional[str] = "$703,500"
+    total_val_usd: Optional[str] = None
 
-class CopilotChatResponse(BaseModel):
-    answer: str
+class PredictionRequest(BaseModel):
+    identifiers: List[str]
+    evidences: Optional[List[Dict[str, Any]]] = None
+    inferred_product: Optional[str] = "کالای کامل الکترونیکی"
 
-
-def get_identical_response(t1: str, t2: str) -> CompareResponse:
-    return CompareResponse(
-        text_a=t1, text_b=t2, fuzzy_similarity=100.0,
-        semantic_similarity=100.0, combined_score=100.0,
-        is_mismatch=False, risk_level="LOW"
-    )
-
-def get_fallback_empty_response(t1: str, t2: str) -> CompareResponse:
-    return CompareResponse(
-        text_a=t1, text_b=t2, fuzzy_similarity=0.0,
-        semantic_similarity=0.0, combined_score=0.0,
-        is_mismatch=True, risk_level="CRITICAL"
-    )
-
+class MatcherRequest(BaseModel):
+    text_a: str
+    text_b: str
 
 @app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "service": "dideban-intelligence",
-        "engine_ready": matcher_engine is not None
-    }
+async def health_check():
+    return {"status": "ONLINE", "module": "DIDEBAN-AI-ENGINE", "port": 8000}
 
-
-@app.post("/api/v1/compare-text", response_model=CompareResponse)
-def compare_text(payload: CompareRequest):
-    t1 = (payload.order_reg_text or "").strip()
-    t2 = (payload.customs_dec_text or "").strip()
-
-    if not t1 or not t2:
-        raise HTTPException(status_code=400, detail="متون ورودی نمی‌توانند خالی باشند.")
-    if t1 == t2:
-        return get_identical_response(t1, t2)
-
+@app.post("/api/v1/forensic-narrative")
+async def generate_forensic_narrative_endpoint(payload: NarrativeRequest):
     try:
-        return matcher_engine.calculate_similarity(t1, t2)
+        result = await forensic_narrative_engine.generate_forensic_narrative(
+            identifiers=payload.identifiers,
+            evidences=payload.evidences,
+            graph_nodes=payload.nodes,
+            graph_edges=payload.edges
+        )
+        return {
+            "summaryNarrative": result["summaryNarrative"],
+            "summary_narrative": result["summaryNarrative"],
+            "riskLevel": result["riskLevel"],
+            "inferredViolation": result["inferredViolation"],
+            "targets": result["targets"]
+        }
     except Exception as ex:
-        logger.error(f"خطا در پردازش NLP تکی: {ex}")
-        raise HTTPException(status_code=500, detail=f"خطای موتور تطبیق: {str(ex)}")
+        raise HTTPException(status_code=500, detail=str(ex))
 
+@app.post("/api/v1/forensic-copilot")
+async def chat_with_copilot_endpoint(payload: CopilotRequest):
+    try:
+        context_data = {
+            "items": payload.nodes,
+            "inferred_finished_good": payload.inferred_finished_good,
+            "inferred_hs_code": payload.inferred_hs_code,
+            "total_val_usd": payload.total_val_usd
+        }
+        result = await forensic_narrative_engine.chat_with_copilot(
+            identifiers=payload.identifiers,
+            question=payload.question,
+            chat_history=payload.chat_history,
+            context_data=context_data
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
 
-@app.post("/api/v1/compare-batch", response_model=List[BatchCompareResponseItem])
-def compare_batch(items: List[BatchCompareItem]):
-    if not items:
-        return []
+@app.post("/api/v1/predict-move")
+async def predict_next_move_endpoint(payload: PredictionRequest):
+    try:
+        result = await forensic_narrative_engine.predict_next_move(
+            identifiers=payload.identifiers,
+            evidences=payload.evidences,
+            inferred_product=payload.inferred_product
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
 
-    results: List[BatchCompareResponseItem] = []
-    for item in items:
-        t1 = (item.order_reg_text or "").strip()
-        t2 = (item.customs_dec_text or "").strip()
+@app.post("/api/v1/match-text")
+async def match_text_endpoint(payload: MatcherRequest):
+    return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
 
-        if not t1 and not t2:
-            results.append(BatchCompareResponseItem(id=item.id, result=get_identical_response(t1, t2)))
-            continue
-        if t1 == t2:
-            results.append(BatchCompareResponseItem(id=item.id, result=get_identical_response(t1, t2)))
-            continue
-
-        try:
-            res = matcher_engine.calculate_similarity(t1, t2)
-            res_model = CompareResponse(**res) if isinstance(res, dict) else res
-            results.append(BatchCompareResponseItem(id=item.id, result=res_model))
-        except Exception as ex:
-            logger.warning(f"خطا در پردازش شناسه {item.id}: {ex}")
-            results.append(BatchCompareResponseItem(id=item.id, result=get_fallback_empty_response(t1, t2)))
-
-    return results
-
-
-@app.post("/api/v1/forensic-narrative", response_model=ForensicDossierResponse)
-async def generate_forensic_narrative(payload: ForensicDossierRequest):
-    if not payload.identifiers or len(payload.identifiers) < 2:
-        raise HTTPException(status_code=400, detail="حداقل دو شناسه الزامی است.")
-
-    narrative = await forensic_engine.generate_narrative_async(
-        target_ids=payload.identifiers,
-        nodes=payload.nodes,
-        edges=payload.edges,
-        declared_parts=payload.declared_parts or [],
-        inferred_finished_good=payload.inferred_finished_good or "",
-        inferred_hs_code=payload.inferred_hs_code or ""
-    )
-
-    case_suffix = payload.identifiers[0][-4:] if len(payload.identifiers[0]) >= 4 else payload.identifiers[0]
-    return ForensicDossierResponse(case_id=f"CASE-AI-{case_suffix}", summary_narrative=narrative)
-
-
-@app.post("/api/v1/predict-next-move", response_model=PredictMoveResponse)
-async def predict_next_move(payload: PredictMoveRequest):
-    if not payload.identifiers:
-        raise HTTPException(status_code=400, detail="شناسه سوژه الزامی است.")
-
-    result = await forensic_engine.predict_next_move_async(
-        target_ids=payload.identifiers,
-        evidences=payload.evidences,
-        inferred_product=payload.inferred_product or "تلویزیون هوشمند"
-    )
-    return PredictMoveResponse(**result)
-
-
-@app.post("/api/v1/forensic-copilot/chat", response_model=CopilotChatResponse)
-async def chat_with_copilot(payload: CopilotChatRequest):
-    if not payload.question.strip():
-        raise HTTPException(status_code=400, detail="متن سوال نمی‌تواند خالی باشد.")
-
-    answer = await forensic_engine.chat_copilot_async(
-        target_ids=payload.identifiers,
-        chat_history=payload.chat_history,
-        user_question=payload.question,
-        nodes=payload.nodes,
-        edges=payload.edges,
-        inferred_finished_good=payload.inferred_finished_good,
-        inferred_hs_code=payload.inferred_hs_code,
-        total_val_usd=payload.total_val_usd
-    )
-    return CopilotChatResponse(answer=answer)
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
