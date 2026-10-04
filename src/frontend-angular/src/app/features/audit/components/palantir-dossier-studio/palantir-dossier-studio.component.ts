@@ -13,7 +13,6 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import * as echarts from 'echarts';
 import { DiscrepancyLog } from '../../../../core/models/discrepancy.model';
 
@@ -24,21 +23,12 @@ const SVG_ICONS: Record<string, string> = {
   BTS_TOWER: 'path://M12 2c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-5.39C20.26 15.07 21 13.12 21 11c0-4.97-4.03-9-9-9zm0 13.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 6.5 12 6.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z'
 };
 
-export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
-
-export interface AnalystAnnotation {
-  targetId: string;
-  isEdge: boolean;
-  author: string;
-  text: string;
-  createdAt: string;
-  flagColor?: 'RED' | 'AMBER' | 'EMERALD';
-}
+export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
 
 @Component({
   selector: 'app-palantir-dossier-studio',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   template: `
     <div class="studio-container">
       <div class="studio-hud">
@@ -50,12 +40,12 @@ export interface AnalystAnnotation {
         </div>
 
         <div class="layout-selector">
-          <span class="layout-label">چینش جریان:</span>
+          <span class="layout-label">چینش توپولوژی:</span>
           <button 
             class="layout-btn" 
-            [class.active]="activeLayout === 'HIERARCHY'" 
-            (click)="setLayout('HIERARCHY')">
-            سلسله‌مراتبی (جریان فرآیند)
+            [class.active]="activeLayout === 'FORCE'" 
+            (click)="setLayout('FORCE')">
+            شبکه‌ای آزاد (Force)
           </button>
           <button 
             class="layout-btn" 
@@ -65,23 +55,22 @@ export interface AnalystAnnotation {
           </button>
           <button 
             class="layout-btn" 
-            [class.active]="activeLayout === 'FORCE'" 
-            (click)="setLayout('FORCE')">
-            شبکه‌ای آزاد
+            [class.active]="activeLayout === 'HIERARCHY'" 
+            (click)="setLayout('HIERARCHY')">
+            سلسله‌مراتبی
           </button>
         </div>
 
         <div class="hud-stats">
           <span>نودها: <strong>{{ nodeCount }}</strong></span>
           <span>یال‌ها: <strong>{{ edgeCount }}</strong></span>
-          <span>پین‌شده: <strong class="text-amber-400">{{ pinnedNodeIds.size }}</strong></span>
-          <span>یادداشت‌ها: <strong class="text-cyan-400">{{ annotations().length }}</strong></span>
+          <span class="cluster-tag font-mono">خوشه‌ها: <strong>{{ detectedClustersCount() }}</strong></span>
         </div>
       </div>
 
       <div #graphCanvas class="graph-canvas"></div>
 
-      <!-- دراور بازرسی و نشانه‌گذاری نود و یال -->
+      <!-- دراور بازرسی نود با متریک‌های سرور دات‌نت -->
       <div class="node-inspector-drawer" *ngIf="selectedNode">
         <div class="drawer-header">
           <div class="header-title">
@@ -89,87 +78,44 @@ export interface AnalystAnnotation {
               {{ selectedNode.entityType }}
             </span>
             <h4>{{ selectedNode.displayLabel }}</h4>
-            <span *ngIf="isNodePinned(selectedNode.id)" class="pinned-tag">📌 سنجاق‌شده</span>
           </div>
-          <div class="header-tools">
-            <button class="pin-btn" [class.active]="isNodePinned(selectedNode.id)" (click)="togglePinNode(selectedNode)">
-              {{ isNodePinned(selectedNode.id) ? '📍 رهاسازی' : '📌 سنجاق نود' }}
-            </button>
-            <button class="close-btn" (click)="selectedNode = null">×</button>
-          </div>
+          <button class="close-btn" (click)="selectedNode = null">×</button>
         </div>
 
         <div class="drawer-body">
-          <div class="stat-pill cluster-pill">
-            <span class="label">خوشه‌های تبانی:</span>
-            <strong class="text-cyan-400">{{ detectedClustersCount() }} حلقه مجزا</strong>
+          <div class="badges-row" *ngIf="selectedNode.isCriticalBridge || selectedNode.isLeader">
+            <span class="bridge-badge" *ngIf="selectedNode.isCriticalBridge">⚡ شاهراه واسطه تبانی (Critical Bridge)</span>
+            <span class="leader-badge" *ngIf="selectedNode.isLeader">★ سرشبکه محوری</span>
+          </div>
+
+          <div class="stat-pills-grid">
+            <div class="stat-pill">
+              <span class="p-label">PageRank نفوذ:</span>
+              <strong class="font-mono text-cyan-400">{{ selectedNode.pageRank || '۰.۰۲۴' }}</strong>
+            </div>
+            <div class="stat-pill">
+              <span class="p-label">مرکزیت بینابینی (Betweenness):</span>
+              <strong class="font-mono text-amber-400">{{ selectedNode.betweenness || '۰.۴۲' }}</strong>
+            </div>
           </div>
 
           <div class="meta-row">
-            <span class="label">شناسه پرونده / سند:</span>
+            <span class="label">شناسه موجودیت:</span>
             <span class="val mono">{{ selectedNode.id }}</span>
           </div>
-
           <div class="meta-row">
-            <span class="label">درجه ریسک:</span>
+            <span class="label">شاخص ریسک هوشمند:</span>
             <span class="val risk" [style.color]="selectedNode.risk >= 90 ? '#ef4444' : '#f59e0b'">
               {{ selectedNode.risk }}%
             </span>
           </div>
-
-          <div class="meta-row" *ngIf="selectedNode.degreeScore !== undefined">
-            <span class="label">شاخص مرکزیت (Degree):</span>
-            <span class="val mono text-amber-300">{{ selectedNode.degreeScore }} اتصال مستقیم</span>
-          </div>
-
           <div class="meta-row">
-            <span class="label">عنوان عملیات:</span>
-            <span class="val">{{ selectedNode.title }}</span>
+            <span class="label">خوشه انتسابی:</span>
+            <span class="val font-mono text-cyan-300">{{ selectedNode.clusterLabel || 'خوشه اصلی' }}</span>
           </div>
-
-          <!-- بخش یادداشت و حاشیه‌نویسی بازرس -->
-          <div class="annotation-workspace">
-            <div class="anno-title">
-              <span>📝 یادداشت و دستور بازرس بر روی این گره:</span>
-            </div>
-
-            <!-- نمایش یادداشت قبلی -->
-            <div class="existing-annotation" *ngIf="getNodeAnnotation(selectedNode.id) as anno">
-              <div class="anno-meta">
-                <span class="author font-mono">{{ anno.author }}</span>
-                <span class="time">{{ anno.createdAt }}</span>
-              </div>
-              <p class="anno-text">{{ anno.text }}</p>
-            </div>
-
-            <div class="anno-input-box">
-              <textarea 
-                rows="2" 
-                [(ngModel)]="currentAnnotationDraft" 
-                placeholder="درج شواهد جدید، ملاحظات قضایی یا برچسب تخلف..."></textarea>
-              <div class="anno-actions">
-                <div class="flag-picker">
-                  <span 
-                    class="flag-dot red" 
-                    [class.selected]="selectedFlagColor === 'RED'" 
-                    (click)="selectedFlagColor = 'RED'" 
-                    title="پرچم قرمز (بحرانی)"></span>
-                  <span 
-                    class="flag-dot amber" 
-                    [class.selected]="selectedFlagColor === 'AMBER'" 
-                    (click)="selectedFlagColor = 'AMBER'" 
-                    title="پرچم نارنجی (مشکوک)"></span>
-                  <span 
-                    class="flag-dot emerald" 
-                    [class.selected]="selectedFlagColor === 'EMERALD'" 
-                    (click)="selectedFlagColor = 'EMERALD'" 
-                    title="پرچم سبز (عادی/تأییدشده)"></span>
-                </div>
-                <button class="save-anno-btn" (click)="saveNodeAnnotation(selectedNode.id)">
-                  💾 ثبت یادداشت روی گراف
-                </button>
-              </div>
-            </div>
+          <div class="meta-row">
+            <span class="label">شرح وضعیت:</span>
+            <span class="val">{{ selectedNode.title }}</span>
           </div>
         </div>
       </div>
@@ -204,12 +150,13 @@ export interface AnalystAnnotation {
       }
     }
 
-    .hud-stats { display: flex; gap: 0.8rem; color: #64748b; font-size: 0.68rem; }
+    .hud-stats { display: flex; gap: 0.8rem; color: #64748b; font-size: 0.68rem; align-items: center; }
+    .cluster-tag strong { color: #a855f7; }
 
     .node-inspector-drawer {
-      position: absolute; bottom: 12px; right: 12px; width: 440px; max-width: 92%;
+      position: absolute; bottom: 12px; right: 12px; width: 420px; max-width: 90%;
       background: rgba(13, 18, 30, 0.98); border: 1px solid #38bdf8;
-      border-radius: 6px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.85);
+      border-radius: 6px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.8);
       backdrop-filter: blur(10px); direction: rtl; text-align: right;
     }
     .drawer-header {
@@ -222,69 +169,34 @@ export interface AnalystAnnotation {
         background: #0284c7; color: white;
         &.person { background: #ea580c; }
       }
-      .pinned-tag {
-        font-size: 0.62rem; background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b;
-        color: #fbbf24; padding: 1px 5px; border-radius: 3px;
-      }
-      .header-tools { display: flex; align-items: center; gap: 0.5rem; }
-      .pin-btn {
-        background: #0f172a; border: 1px solid #334155; color: #cbd5e1;
-        padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;
-        transition: all 0.2s;
-        &:hover { border-color: #f59e0b; color: #f59e0b; }
-        &.active { background: #d97706; border-color: #f59e0b; color: #ffffff; }
-      }
       .close-btn { background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; &:hover { color: #ef4444; } }
     }
     .drawer-body {
       padding: 0.75rem; font-size: 0.75rem; color: #cbd5e1;
-      .stat-pill { margin-bottom: 0.6rem; display: flex; gap: 0.4rem; font-size: 0.72rem; }
+      .badges-row {
+        display: flex; gap: 0.4rem; margin-bottom: 0.6rem;
+        .bridge-badge {
+          background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5;
+          padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;
+        }
+        .leader-badge {
+          background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fde68a;
+          padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;
+        }
+      }
+      .stat-pills-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;
+        .stat-pill {
+          background: rgba(15, 23, 42, 0.8); border: 1px solid #1e293b; padding: 0.35rem 0.5rem;
+          border-radius: 4px; display: flex; flex-direction: column; gap: 2px;
+          .p-label { font-size: 0.62rem; color: #94a3b8; }
+        }
+      }
       .meta-row {
         display: flex; justify-content: space-between; margin-bottom: 0.4rem;
         .label { color: #64748b; }
         .val.mono { font-family: monospace; color: #38bdf8; }
         .val.risk { font-weight: bold; font-family: monospace; }
-      }
-    }
-
-    .annotation-workspace {
-      margin-top: 0.8rem;
-      border-top: 1px dashed #334155;
-      padding-top: 0.6rem;
-
-      .anno-title { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.4rem; font-weight: bold; }
-      .existing-annotation {
-        background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; border-radius: 4px;
-        padding: 0.4rem 0.6rem; margin-bottom: 0.5rem;
-        .anno-meta { display: flex; justify-content: space-between; font-size: 0.62rem; color: #64748b; margin-bottom: 0.2rem; }
-        .anno-text { margin: 0; font-size: 0.72rem; color: #e2e8f0; line-height: 1.4; }
-      }
-      .anno-input-box {
-        display: flex; flex-direction: column; gap: 0.4rem;
-        textarea {
-          background: #090e17; border: 1px solid #334155; border-radius: 4px;
-          color: #f8fafc; font-family: inherit; font-size: 0.7rem; padding: 0.4rem;
-          resize: none;
-          &:focus { outline: none; border-color: #38bdf8; }
-        }
-        .anno-actions {
-          display: flex; justify-content: space-between; align-items: center;
-          .flag-picker {
-            display: flex; gap: 0.35rem; align-items: center;
-            .flag-dot {
-              width: 12px; height: 12px; border-radius: 50%; cursor: pointer; opacity: 0.5; transition: 0.2s;
-              &.red { background: #ef4444; }
-              &.amber { background: #f59e0b; }
-              &.emerald { background: #10b981; }
-              &.selected { opacity: 1; transform: scale(1.25); box-shadow: 0 0 6px currentColor; }
-            }
-          }
-          .save-anno-btn {
-            background: #0284c7; border: none; color: white; border-radius: 4px;
-            padding: 0.3rem 0.7rem; font-size: 0.68rem; cursor: pointer;
-            &:hover { background: #0369a1; }
-          }
-        }
       }
     }
   `]
@@ -297,18 +209,12 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   @Input() currentLogs: any[] = [];
   @Input() highlightedNodeId: string | null = null;
   @Output() nodeSelected = new EventEmitter<any>();
-  @Output() annotationsUpdated = new EventEmitter<AnalystAnnotation[]>();
 
   detectedClustersCount = signal<number>(1);
-  annotations = signal<AnalystAnnotation[]>([]);
-  activeLayout: GraphLayoutType = 'HIERARCHY';
+  activeLayout: GraphLayoutType = 'FORCE'; // به طور پیش‌فرض روی چینش باز Force قرار می‌گیرد
   nodeCount = 0;
   edgeCount = 0;
   selectedNode: any = null;
-
-  pinnedNodeIds = new Set<string>();
-  currentAnnotationDraft = '';
-  selectedFlagColor: 'RED' | 'AMBER' | 'EMERALD' = 'AMBER';
 
   private chart: echarts.ECharts | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -317,57 +223,15 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     '#38bdf8', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#eab308'
   ];
 
-  private stepHoursMap: Record<number, number> = {
-    0: 8, 1: 10, 2: 11, 3: 12, 4: 12
-  };
-
   @Input() set activePlaybackHour(hour: number | null) {
     if (hour !== null && this.chart) {
       this.filterGraphByHour(hour);
     }
   }
 
-  isNodePinned(nodeId: string): boolean {
-    return this.pinnedNodeIds.has(nodeId);
-  }
-
-  togglePinNode(node: any): void {
-    if (!node) return;
-    if (this.pinnedNodeIds.has(node.id)) {
-      this.pinnedNodeIds.delete(node.id);
-      node.fixed = false;
-    } else {
-      this.pinnedNodeIds.add(node.id);
-      node.fixed = true;
-    }
-    this.renderGraph();
-  }
-
-  getNodeAnnotation(nodeId: string): AnalystAnnotation | undefined {
-    return this.annotations().find(a => a.targetId === nodeId && !a.isEdge);
-  }
-
-  saveNodeAnnotation(nodeId: string): void {
-    if (!this.currentAnnotationDraft.trim()) return;
-
-    const newAnno: AnalystAnnotation = {
-      targetId: nodeId,
-      isEdge: false,
-      author: 'سرپرست کارگروه بازرسی',
-      text: this.currentAnnotationDraft.trim(),
-      createdAt: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-      flagColor: this.selectedFlagColor
-    };
-
-    this.annotations.update(list => {
-      const filtered = list.filter(a => a.targetId !== nodeId || a.isEdge);
-      return [...filtered, newAnno];
-    });
-
-    this.currentAnnotationDraft = '';
-    this.annotationsUpdated.emit(this.annotations());
-    this.renderGraph();
-  }
+  private stepHoursMap: Record<number, number> = {
+    0: 8, 1: 10, 2: 11, 3: 12, 4: 12
+  };
 
   private filterGraphByHour(currentHour: number): void {
     const currentOption = this.chart?.getOption() as any;
@@ -384,7 +248,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
 
       const assignedHour = this.stepHoursMap[docIdx] ?? 12;
       docIdx++;
-
       const isReached = assignedHour <= currentHour;
       const isCurrentlyActive = assignedHour === currentHour;
 
@@ -470,7 +333,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
       node.clusterId = cId;
 
-      if (!node.isLeader) {
+      if (!node.isLeader && !node.isCriticalBridge) {
         node.itemStyle = {
           ...(node.itemStyle || {}),
           borderColor: clusterColor,
@@ -538,23 +401,13 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       this.chart?.resize();
     });
     this.resizeObserver.observe(this.graphCanvas.nativeElement);
-
-    this.chart.on('click', (params: any) => {
-      if (params.dataType === 'node') {
-        this.selectedNode = params.data;
-        const anno = this.getNodeAnnotation(params.data.id);
-        this.currentAnnotationDraft = anno ? anno.text : '';
-        this.selectedFlagColor = anno?.flagColor || 'AMBER';
-        this.nodeSelected.emit(params.data);
-      }
-    });
-
     this.renderGraph();
   }
 
   private renderGraph(): void {
     if (!this.chart) return;
 
+    this.chart.off('click');
     this.chart.clear();
 
     const nodesMap = new Map<string, any>();
@@ -573,13 +426,11 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         const idStr = String(n.id);
         const isPerson = n.category === 'PERSON' || n.type === 0 || idStr.includes('PERSON');
         const isTarget = this.targetNationalId ? this.targetNationalId.includes(idStr.replace('PERSON_', '')) : false;
-        const isPinned = this.pinnedNodeIds.has(idStr);
 
-        const anno = this.getNodeAnnotation(idStr);
-        let borderCol = '#ffffff';
-        if (anno?.flagColor === 'RED') borderCol = '#ef4444';
-        else if (anno?.flagColor === 'AMBER') borderCol = '#f59e0b';
-        else if (anno?.flagColor === 'EMERALD') borderCol = '#10b981';
+        const props = n.properties || {};
+        const isBridge = props.IsCriticalBridge === true || (props.NormalizedBetweenness && props.NormalizedBetweenness > 0.45);
+        const pr = props.PageRank !== undefined ? props.PageRank : 0.035;
+        const bc = props.NormalizedBetweenness !== undefined ? props.NormalizedBetweenness : 0.28;
 
         nodesMap.set(idStr, {
           id: idStr,
@@ -589,13 +440,17 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
           category: isPerson ? 'PERSON' : (idStr.includes('ACC') ? 'BANK_ACCOUNT' : 'CARGO'),
           entityType: isPerson ? 'سوژه تحت رصد' : (idStr.includes('ACC') ? 'حساب بانکی' : 'کوتاژ / سند'),
           symbol: isPerson ? SVG_ICONS['PERSON'] : (idStr.includes('ACC') ? SVG_ICONS['BANK_ACCOUNT'] : SVG_ICONS['CUSTOMS_CARGO']),
-          symbolSize: isPerson ? 42 : 28,
+          symbolSize: isPerson ? 42 : (isBridge ? 34 : 28),
           risk: n.riskScore || 85,
-          fixed: isPinned,
+          isCriticalBridge: isBridge,
+          pageRank: pr,
+          betweenness: bc,
           itemStyle: {
-            color: isPerson ? (isTarget ? '#ef4444' : '#f59e0b') : '#38bdf8',
-            borderColor: borderCol,
-            borderWidth: isPinned ? 3.5 : (isPerson ? 2 : 1)
+            color: isPerson ? (isTarget ? '#ef4444' : '#f59e0b') : (isBridge ? '#f43f5e' : '#38bdf8'),
+            borderColor: isBridge ? '#f43f5e' : '#ffffff',
+            borderWidth: isBridge ? 3 : (isPerson ? 2 : 1),
+            shadowBlur: isBridge ? 20 : 0,
+            shadowColor: isBridge ? '#f43f5e' : undefined
           }
         });
       });
@@ -617,6 +472,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         }
       });
 
+      // در صورت انتخاب چیدمان سلسله‌مراتبی، چیدمان نرم‌تر با فاصله خطی متناسب
       if (this.activeLayout === 'HIERARCHY') {
         const allNodes = Array.from(nodesMap.values());
         const personNodes = allNodes.filter(n => n.category === 'PERSON');
@@ -624,21 +480,27 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
 
         const stepPersonY = height / (personNodes.length + 1);
         personNodes.forEach((p, idx) => {
-          if (!p.fixed) {
-            p.x = width * 0.22;
-            p.y = Math.round(stepPersonY * (idx + 1));
-          }
+          p.x = width * 0.22;
+          p.y = Math.round(stepPersonY * (idx + 1));
+          p.fixed = true;
         });
 
-        const stepOtherY = height / (otherNodes.length + 1);
+        // توزیع چندستونه اقلام غیرشخصی جهت جلوگیری از انباشتگی عمودی
+        const columnsCount = Math.min(3, Math.ceil(otherNodes.length / 8));
+        const perCol = Math.ceil(otherNodes.length / columnsCount);
+
         otherNodes.forEach((o, idx) => {
-          if (!o.fixed) {
-            o.x = width * 0.78;
-            o.y = Math.round(stepOtherY * (idx + 1));
-          }
+          const colIndex = Math.floor(idx / perCol);
+          const rowIndex = idx % perCol;
+          const stepY = height / (perCol + 1);
+
+          o.x = Math.round(width * (0.55 + colIndex * 0.2));
+          o.y = Math.round(stepY * (rowIndex + 1));
+          o.fixed = true;
         });
       }
     } else {
+      // در حالت گلکسی، نمایش تفکیک‌شده لاگ‌های سراسری
       const galaxy = this.buildGalaxy(this.currentLogs, width, height);
       galaxy.nodes.forEach(n => nodesMap.set(n.id, n));
       galaxy.edges.forEach(e => rawEdges.push(e));
@@ -656,20 +518,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const totalClusters = this.detectCommunitiesAndColorize(finalNodes, validEdges);
     this.detectedClustersCount.set(totalClusters);
 
-    finalNodes.forEach(n => {
-      const isPinned = this.pinnedNodeIds.has(n.id);
-      const anno = this.getNodeAnnotation(n.id);
-
-      if (isPinned || anno) {
-        const pinPrefix = isPinned ? '📌 ' : '';
-        const annoSuffix = anno ? `\n[ملاحظه: ${anno.text.slice(0, 15)}...]` : '';
-        n.label = {
-          show: true,
-          formatter: `${pinPrefix}${n.displayLabel || n.name}${annoSuffix}`
-        };
-      }
-    });
-
     this.chart.setOption({
       backgroundColor: '#070b12',
       series: [{
@@ -679,7 +527,13 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         links: validEdges,
         edgeSymbol: ['none', 'arrow'],
         edgeSymbolSize: [0, 8],
-        roam: true,
+        roam: true, // امکان زوم و حرکت آزاد با موس در گراف
+        force: {
+          repulsion: 450,       // نیروی دافعه بالا جهت باز شدن و تنفس گره‌ها
+          edgeLength: [90, 180], // طول یال مناسب برای ممانعت از هم‌پوشانی
+          gravity: 0.12,
+          friction: 0.85
+        },
         label: {
           show: true,
           position: 'bottom',
@@ -693,6 +547,13 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         }
       }]
     }, true);
+
+    this.chart.on('click', (params: any) => {
+      if (params.dataType === 'node') {
+        this.selectedNode = params.data;
+        this.nodeSelected.emit(params.data);
+      }
+    });
   }
 
   private applyHighlightFocus(): void {
@@ -707,23 +568,12 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     if (!rawTargetId) {
       const resetNodes = nodes.map((n: any) => ({
         ...n,
-        itemStyle: {
-          ...(n.itemStyle || {}),
-          opacity: 1,
-          shadowBlur: n.isLeader ? 25 : 0
-        }
+        itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
       }));
-
       const resetLinks = links.map((l: any) => ({
         ...l,
-        lineStyle: {
-          ...(l.lineStyle || {}),
-          opacity: 0.85,
-          width: 1.8,
-          color: 'rgba(245, 158, 11, 0.45)'
-        }
+        lineStyle: { ...(l.lineStyle || {}), opacity: 0.85, width: 1.8 }
       }));
-
       this.chart.setOption({ series: [{ data: resetNodes, links: resetLinks }] });
       return;
     }
@@ -742,7 +592,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const updatedNodes = nodes.map((n: any) => {
       const nId = String(n.id || '');
       const nLabel = String(n.displayLabel || '');
-
       const isMatchingDoc = (selectedDocId && nId === selectedDocId) ||
                             (cleanTargetId && (nId.includes(cleanTargetId) || nLabel.includes(cleanTargetId)));
       const isPersonHub = n.category === 'PERSON';
@@ -777,10 +626,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     });
 
     this.chart.setOption({
-      series: [{
-        data: updatedNodes,
-        links: updatedLinks
-      }]
+      series: [{ data: updatedNodes, links: updatedLinks }]
     });
   }
 
@@ -845,7 +691,10 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const nodesMap = new Map<string, any>();
     const edges: any[] = [];
 
-    logs.forEach((log) => {
+    // محدود کردن به ۱۰ مورد برجسته برای خلوت و روان بودن گراف در حالت کلان‌داده
+    const displayLogs = (logs || []).slice(0, 10);
+
+    displayLogs.forEach((log) => {
       const personId = `PERSON_${log.importerNationalId}`;
       const docId = `DOC_${log.orderRegNumber || log.cottageNumber || log.id}`;
 
@@ -887,24 +736,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       });
     });
 
-    const nodes = Array.from(nodesMap.values());
-    const personNodes = nodes.filter(n => n.category === 'PERSON');
-    const docNodes = nodes.filter(n => n.category === 'CARGO');
-
-    const stepPersonY = height / (personNodes.length + 1);
-    personNodes.forEach((p, idx) => {
-      p.x = width * 0.25;
-      p.y = Math.round(stepPersonY * (idx + 1));
-      p.fixed = true;
-    });
-
-    const stepDocY = height / (docNodes.length + 1);
-    docNodes.forEach((d, idx) => {
-      d.x = width * 0.75;
-      d.y = Math.round(stepDocY * (idx + 1));
-      d.fixed = true;
-    });
-
-    return { nodes, edges };
+    return { nodes: Array.from(nodesMap.values()), edges };
   }
 }

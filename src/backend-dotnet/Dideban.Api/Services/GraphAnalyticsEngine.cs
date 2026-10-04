@@ -2,181 +2,207 @@
 
 namespace Dideban.Api.Services;
 
-/// <summary>
-/// موتور تحلیلی محاسبات گراف سامانه دیده‌بان
-/// پیاده‌سازی شاخص‌های مرکزیت شبکه (PageRank, Betweenness Centrality, Degree)
-/// و الگوریتم‌های خوشه‌بندی جهت کشف سرشبکه‌ها و جریان‌های پولشویی/قاچاق
-/// </summary>
 public static class GraphAnalyticsEngine
 {
+    private const double DampingFactor = 0.85;
+    private const int MaxPageRankIterations = 30;
+    private const double PageRankTolerance = 1e-4;
+
+    /// <summary>
+    /// اجرای یکپارچه محاسبات Betweenness Centrality و PageRank و تزریق مقادیر به نودهای گراف
+    /// </summary>
     public static void ComputeCentralityAndRisk(MultiHopDossierGraph graph)
     {
-        if (graph?.Nodes == null || graph.Nodes.Count == 0)
-        {
-            return;
-        }
+        if (graph?.Nodes == null || !graph.Nodes.Any()) return;
 
-        var nodeIds = graph.Nodes.Select(n => n.Id).Distinct().ToList();
+        var nodes = graph.Nodes;
         var edges = graph.Edges ?? new List<OntologyEdge>();
 
-        // ۱. ساخت ماتریس مجاورت جهت محاسبات سریع
-        var outgoing = new Dictionary<string, List<(string Target, double Weight)>>();
-        var incoming = new Dictionary<string, List<(string Source, double Weight)>>();
-        var unweightedAdj = new Dictionary<string, HashSet<string>>();
+        // ۱. ساخت ماتریس مجاورت گراف به تفکیک همسایگان ورودی و خروجی
+        var adjOut = new Dictionary<string, List<string>>();
+        var adjIn = new Dictionary<string, List<string>>();
+        var neighborsUndirected = new Dictionary<string, List<string>>();
 
-        foreach (var id in nodeIds)
+        foreach (var node in nodes)
         {
-            outgoing[id] = new List<(string, double)>();
-            incoming[id] = new List<(string, double)>();
-            unweightedAdj[id] = new HashSet<string>();
+            adjOut[node.Id] = new List<string>();
+            adjIn[node.Id] = new List<string>();
+            neighborsUndirected[node.Id] = new List<string>();
         }
 
         foreach (var edge in edges)
         {
-            if (outgoing.ContainsKey(edge.SourceId) && outgoing.ContainsKey(edge.TargetId))
+            if (adjOut.ContainsKey(edge.SourceId) && adjOut.ContainsKey(edge.TargetId) && edge.SourceId != edge.TargetId)
             {
-                var w = edge.Weight <= 0 ? 1.0 : edge.Weight;
-                outgoing[edge.SourceId].Add((edge.TargetId, w));
-                incoming[edge.TargetId].Add((edge.SourceId, w));
+                adjOut[edge.SourceId].Add(edge.TargetId);
+                adjIn[edge.TargetId].Add(edge.SourceId);
 
-                unweightedAdj[edge.SourceId].Add(edge.TargetId);
-                unweightedAdj[edge.TargetId].Add(edge.SourceId);
+                if (!neighborsUndirected[edge.SourceId].Contains(edge.TargetId))
+                    neighborsUndirected[edge.SourceId].Add(edge.TargetId);
+
+                if (!neighborsUndirected[edge.TargetId].Contains(edge.SourceId))
+                    neighborsUndirected[edge.TargetId].Add(edge.SourceId);
             }
         }
 
-        // ۲. محاسبه PageRank
-        var pageRanks = ComputePageRank(nodeIds, outgoing, dampingFactor: 0.85, maxIterations: 40);
+        // ۲. محاسبه PageRank با الگوریتم تکرار توانی (Power Iteration)
+        var pageRanks = ComputePageRank(nodes.Select(n => n.Id).ToList(), adjOut, adjIn);
 
-        // ۳. محاسبه Betweenness Centrality با استفاده از الگوریتم براندز (Ulrik Brandes)
-        var betweenness = ComputeBetweennessCentrality(nodeIds, unweightedAdj);
+        // ۳. محاسبه Betweenness Centrality با الگوریتم سریع Brandes
+        var betweenness = ComputeBetweennessCentralityBrandes(nodes.Select(n => n.Id).ToList(), neighborsUndirected);
 
-        // ۴. کشف جوامع و خوشه‌های تبانی با الگوریتم مؤلفه‌های ماژولار
-        var communities = DetectCommunities(nodeIds, unweightedAdj);
+        // ۴. نگاشت نتایج و نرمال‌سازی در Properties نودها
+        double maxBetweenness = betweenness.Values.Any() ? betweenness.Values.Max() : 0.0;
+        double maxPageRank = pageRanks.Values.Any() ? pageRanks.Values.Max() : 0.0;
 
-        // ۵. اعمال ضرایب محاسباتی به ویژگی‌های نودها و به‌‌روزرسانی رتبه ریسک
-        foreach (var node in graph.Nodes)
+        foreach (var node in nodes)
         {
-            var pr = pageRanks.GetValueOrDefault(node.Id, 0.0);
-            var bc = betweenness.GetValueOrDefault(node.Id, 0.0);
-            var deg = (outgoing[node.Id].Count + incoming[node.Id].Count);
-            var cluster = communities.GetValueOrDefault(node.Id, 1);
+            double rawBc = betweenness.GetValueOrDefault(node.Id, 0.0);
+            double rawPr = pageRanks.GetValueOrDefault(node.Id, 0.0);
 
-            node.Properties["DegreeCentrality"] = deg;
-            node.Properties["PageRank"] = Math.Round(pr, 4);
-            node.Properties["BetweennessCentrality"] = Math.Round(bc, 4);
-            node.Properties["CommunityId"] = cluster;
+            double normBc = maxBetweenness > 0 ? (rawBc / maxBetweenness) : 0.0;
+            double normPr = maxPageRank > 0 ? (rawPr / maxPageRank) : 0.0;
 
-            // تشخیص سرشبکه پنهان (تراکنش شاید کم ولی بینابینی بالا و اتصال خوشه‌ای کلیدی)
-            var isHiddenBridge = bc > 0.25 && deg < 6;
-            if (isHiddenBridge)
+            // محاسبه ضریب اهمیت واسطه‌گری (پل ارتباطی تخلف)
+            node.Properties["BetweennessCentrality"] = Math.Round(rawBc, 4);
+            node.Properties["NormalizedBetweenness"] = Math.Round(normBc, 4);
+            node.Properties["PageRank"] = Math.Round(rawPr, 5);
+            node.Properties["IsCriticalBridge"] = normBc > 0.45;
+
+            // به‌روزرسانی ضریب ریسک نود بر پایه جایگاه توپولوژیک در شبکه
+            if (node.RiskScore > 0)
             {
-                node.Properties["IsHiddenBridge"] = true;
-                node.RiskScore = Math.Min(99, Math.Max(node.RiskScore, 92));
+                double structuralRiskWeight = (normBc * 0.5) + (normPr * 0.5);
+                double adjustedRisk = (node.RiskScore * 0.7) + (structuralRiskWeight * 30.0);
+                node.RiskScore = Math.Min(100, (int)Math.Round(adjustedRisk));
             }
         }
     }
 
+    /// <summary>
+    /// پیاده‌سازی الگوریتم PageRank با در نظر گرفتن Damping Factor و گره‌های بن‌بست (Dangling Nodes)
+    /// </summary>
     private static Dictionary<string, double> ComputePageRank(
         List<string> nodeIds,
-        Dictionary<string, List<(string Target, double Weight)>> outgoing,
-        double dampingFactor,
-        int maxIterations)
+        Dictionary<string, List<string>> adjOut,
+        Dictionary<string, List<string>> adjIn)
     {
-        var n = nodeIds.Count;
-        var ranks = nodeIds.ToDictionary(id => id, _ => 1.0 / n);
-        var dampingValue = (1.0 - dampingFactor) / n;
+        int n = nodeIds.Count;
+        var ranks = new Dictionary<string, double>();
+        if (n == 0) return ranks;
 
-        for (int iter = 0; iter < maxIterations; iter++)
+        double initialRank = 1.0 / n;
+        foreach (var id in nodeIds)
         {
-            var nextRanks = nodeIds.ToDictionary(id => id, _ => dampingValue);
-            double danglingSum = 0;
+            ranks[id] = initialRank;
+        }
 
+        for (int iter = 0; iter < MaxPageRankIterations; iter++)
+        {
+            var nextRanks = new Dictionary<string, double>();
+            double danglingSum = 0.0;
+
+            // تجمیع امتیاز نودهایی که هیچ خروجی ندارند
             foreach (var id in nodeIds)
             {
-                var outs = outgoing[id];
-                if (outs.Count == 0)
+                if (adjOut[id].Count == 0)
                 {
                     danglingSum += ranks[id];
                 }
-                else
-                {
-                    var totalWeight = outs.Sum(x => x.Weight);
-                    if (totalWeight <= 0) totalWeight = outs.Count;
-
-                    var share = (ranks[id] * dampingFactor);
-                    foreach (var edge in outs)
-                    {
-                        var edgeShare = share * (edge.Weight / totalWeight);
-                        nextRanks[edge.Target] += edgeShare;
-                    }
-                }
             }
 
-            if (danglingSum > 0)
+            double baseScore = (1.0 - DampingFactor + (DampingFactor * danglingSum)) / n;
+            double maxDiff = 0.0;
+
+            foreach (var id in nodeIds)
             {
-                var extraPerNode = (dampingFactor * danglingSum) / n;
-                foreach (var id in nodeIds)
+                double incomingSum = 0.0;
+                foreach (var inNeighbor in adjIn[id])
                 {
-                    nextRanks[id] += extraPerNode;
+                    int outDegree = adjOut[inNeighbor].Count;
+                    if (outDegree > 0)
+                    {
+                        incomingSum += ranks[inNeighbor] / outDegree;
+                    }
                 }
+
+                double newRank = baseScore + (DampingFactor * incomingSum);
+                nextRanks[id] = newRank;
+
+                double diff = Math.Abs(newRank - ranks[id]);
+                if (diff > maxDiff) maxDiff = diff;
             }
 
             ranks = nextRanks;
+            if (maxDiff < PageRankTolerance) break;
         }
 
         return ranks;
     }
 
-    private static Dictionary<string, double> ComputeBetweennessCentrality(
+    /// <summary>
+    /// پیاده‌سازی الگوریتم Brandes برای Betweenness Centrality روی گراف بدون جهت با پیچیدگی O(V*E)
+    /// </summary>
+    private static Dictionary<string, double> ComputeBetweennessCentralityBrandes(
         List<string> nodeIds,
-        Dictionary<string, HashSet<string>> adj)
+        Dictionary<string, List<string>> neighbors)
     {
-        var cb = nodeIds.ToDictionary(id => id, _ => 0.0);
+        var cb = new Dictionary<string, double>();
+        foreach (var v in nodeIds) cb[v] = 0.0;
 
         foreach (var s in nodeIds)
         {
             var stack = new Stack<string>();
-            var predecessors = nodeIds.ToDictionary(id => id, _ => new List<string>());
-            var sigma = nodeIds.ToDictionary(id => id, _ => 0.0);
-            var dist = nodeIds.ToDictionary(id => id, _ => -1);
-            var delta = nodeIds.ToDictionary(id => id, _ => 0.0);
+            var p = new Dictionary<string, List<string>>();
+            var sigma = new Dictionary<string, double>();
+            var d = new Dictionary<string, int>();
+            var delta = new Dictionary<string, double>();
+
+            foreach (var w in nodeIds)
+            {
+                p[w] = new List<string>();
+                sigma[w] = 0.0;
+                d[w] = -1;
+                delta[w] = 0.0;
+            }
 
             sigma[s] = 1.0;
-            dist[s] = 0;
+            d[s] = 0;
 
             var queue = new Queue<string>();
             queue.Enqueue(s);
 
+            // گام ۱: پیمایش سطح‌اول (BFS)
             while (queue.Count > 0)
             {
                 var v = queue.Dequeue();
                 stack.Push(v);
 
-                foreach (var w in adj[v])
+                foreach (var w in neighbors[v])
                 {
-                    if (dist[w] < 0)
+                    // کشف اولیه نود w
+                    if (d[w] < 0)
                     {
-                        dist[w] = dist[v] + 1;
+                        d[w] = d[v] + 1;
                         queue.Enqueue(w);
                     }
 
-                    if (dist[w] == dist[v] + 1)
+                    // آیا کوتاه‌ترین مسیر از طریق v می‌‌گذرد؟
+                    if (d[w] == d[v] + 1)
                     {
                         sigma[w] += sigma[v];
-                        predecessors[w].Add(v);
+                        p[w].Add(v);
                     }
                 }
             }
 
+            // گام ۲: انباشت معکوس وابستگی‌ها (Back-propagation)
             while (stack.Count > 0)
             {
                 var w = stack.Pop();
-                foreach (var v in predecessors[w])
+                foreach (var v in p[w])
                 {
-                    if (sigma[w] > 0)
-                    {
-                        delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w]);
-                    }
+                    delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w]);
                 }
 
                 if (w != s)
@@ -186,55 +212,12 @@ public static class GraphAnalyticsEngine
             }
         }
 
-        // نرمال‌سازی مقدار مرکزیت بینابینی برای گراف‌های غیرجهت‌دار
-        var n = nodeIds.Count;
-        if (n > 2)
+        // برای گراف بدون جهت مقادیر دو بار شمرده می‌شوند، پس بر ۲ تقسیم می‌شوند
+        foreach (var v in nodeIds)
         {
-            var factor = 1.0 / ((n - 1) * (n - 2));
-            foreach (var id in nodeIds)
-            {
-                cb[id] = Math.Round(cb[id] * factor, 4);
-            }
+            cb[v] = cb[v] / 2.0;
         }
 
         return cb;
-    }
-
-    private static Dictionary<string, int> DetectCommunities(
-        List<string> nodeIds,
-        Dictionary<string, HashSet<string>> adj)
-    {
-        var visited = new HashSet<string>();
-        var communities = new Dictionary<string, int>();
-        int clusterCounter = 1;
-
-        foreach (var node in nodeIds)
-        {
-            if (!visited.Contains(node))
-            {
-                var queue = new Queue<string>();
-                queue.Enqueue(node);
-                visited.Add(node);
-
-                while (queue.Count > 0)
-                {
-                    var curr = queue.Dequeue();
-                    communities[curr] = clusterCounter;
-
-                    foreach (var neighbor in adj[curr])
-                    {
-                        if (!visited.Contains(neighbor))
-                        {
-                            visited.Add(neighbor);
-                            queue.Enqueue(neighbor);
-                        }
-                    }
-                }
-
-                clusterCounter++;
-            }
-        }
-
-        return communities;
     }
 }

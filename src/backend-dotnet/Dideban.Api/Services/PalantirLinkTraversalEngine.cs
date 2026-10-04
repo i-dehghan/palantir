@@ -1,9 +1,18 @@
 ﻿using Dideban.Api.Domain.Ontology;
 using Dideban.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using static Dideban.Api.Services.PalantirLinkTraversalEngine;
 
 namespace Dideban.Api.Services;
+
+public class PathfindingResultDto
+{
+    public string SourceId { get; set; } = string.Empty;
+    public string TargetId { get; set; } = string.Empty;
+    public bool PathExists { get; set; }
+    public List<string> PathNodeIds { get; set; } = new();
+    public List<OntologyEdge> PathEdges { get; set; } = new();
+    public string NarrativeSummary { get; set; } = string.Empty;
+}
 
 public interface IPalantirLinkTraversalEngine
 {
@@ -120,7 +129,7 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
                     SELECT source_account AS SourceAcc, dest_account AS DestAcc, amount_irr AS Amount
                     FROM bank_transactions 
                     WHERE source_account IN ('{accList}')
-                    LIMIT 10
+                    LIMIT 12
                 ").ToListAsync();
 
                 foreach (var tx in transfers)
@@ -132,16 +141,16 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
                         {
                             Id = destId,
                             Type = EntityType.BankAccount,
-                            DisplayLabel = $"واسط/قاطر: {tx.DestAcc}",
+                            DisplayLabel = $"حساب واسط: {tx.DestAcc}",
                             RiskScore = 90,
-                            Properties = new() { { "AccountNumber", tx.DestAcc }, { "Role", "Layering Entity" } }
+                            Properties = new() { { "AccountNumber", tx.DestAcc }, { "Role", "Layering Mule" } }
                         };
                     }
                     AddEdge(graph, edgeSet, $"ACC_{tx.SourceAcc}", destId, "TRANSFERRED_FUNDS", tx.Amount / 10.0);
                 }
             }
 
-            // ۲.۲. رصد دکل‌های مخابراتی پرتردد که خطوط فعال در آن دیده شده‌اند
+            // ۲.۲. رصد دکل‌های مخابراتی
             if (phoneLines.Any())
             {
                 var phoneList = string.Join("','", phoneLines);
@@ -150,7 +159,7 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
                     FROM telecom_cdrs
                     WHERE caller_msisdn IN ('{phoneList}')
                     GROUP BY caller_msisdn, cell_id
-                    LIMIT 6
+                    LIMIT 8
                 ").ToListAsync();
 
                 foreach (var tw in towerSightings)
@@ -173,7 +182,10 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         }
 
         graph.Nodes = nodeMap.Values.ToList();
+
+        // اجرای محاسبات تحلیلی Betweenness Centrality و PageRank
         GraphAnalyticsEngine.ComputeCentralityAndRisk(graph);
+
         return graph;
     }
 
@@ -202,13 +214,12 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         if (nodeId.StartsWith("ACC_") || nodeId.StartsWith("MULE_"))
         {
             var accNo = nodeId.Replace("ACC_", "").Replace("MULE_", "");
-            // کشف تراکنش‌های تکمیلی این حساب
             var extraTxs = await _context.Database.SqlQueryRaw<TransferHopRecord>(@"
-            SELECT source_account AS SourceAcc, dest_account AS DestAcc, amount_irr AS Amount
-            FROM bank_transactions 
-            WHERE source_account = {0} OR dest_account = {0}
-            LIMIT 10
-        ", accNo).ToListAsync();
+                SELECT source_account AS SourceAcc, dest_account AS DestAcc, amount_irr AS Amount
+                FROM bank_transactions 
+                WHERE source_account = {0} OR dest_account = {0}
+                LIMIT 15
+            ", accNo).ToListAsync();
 
             foreach (var tx in extraTxs)
             {
@@ -227,11 +238,11 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         {
             var msisdn = nodeId.Replace("TEL_", "");
             var extraCdrs = await _context.Database.SqlQueryRaw<TowerHopRecord>(@"
-            SELECT receiver_msisdn AS Msisdn, cell_id AS CellId, duration_seconds AS TotalCalls
-            FROM telecom_cdrs 
-            WHERE caller_msisdn = {0}
-            LIMIT 8
-        ", msisdn).ToListAsync();
+                SELECT receiver_msisdn AS Msisdn, cell_id AS CellId, duration_seconds AS TotalCalls
+                FROM telecom_cdrs 
+                WHERE caller_msisdn = {0}
+                LIMIT 10
+            ", msisdn).ToListAsync();
 
             foreach (var cdr in extraCdrs)
             {
@@ -244,28 +255,24 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         }
 
         graph.Nodes = nodeMap.Values.ToList();
+        GraphAnalyticsEngine.ComputeCentralityAndRisk(graph);
         return graph;
     }
 
     public async Task<PathfindingResultDto> FindShortestIntermediaryPathAsync(string sourceId, string targetId)
     {
-        // ۱. استخراج زیرگراف ارتباطات مرتبط با هر دو گره جهت تحلیل همبستگی
-        // برای پرفورمنس در مقیاس بالا، الگوریتم جستجوی سطح‌اول (BFS) روی یال‌های موجود اجرا می‌شود
         var result = new PathfindingResultDto
         {
             SourceId = sourceId,
             TargetId = targetId
         };
 
-        // فرض کنید گره A یک شخص یا حساب است و گره B یک شرکت یا خط مقصد
-        // یک کوئری سریع جهت یافتن پل‌های مشترک (Common Intermediaries) در پایگاه‌داده:
         var rawEdges = await _context.Database.SqlQueryRaw<RawPathEdge>(@"
-        SELECT source_account AS Src, dest_account AS Tgt, 'TRANSFERRED_TO' AS Relation, amount_irr AS Weight
-        FROM bank_transactions
-        LIMIT 5000
-    ").ToListAsync();
+            SELECT source_account AS Src, dest_account AS Tgt, 'TRANSFERRED_TO' AS Relation, amount_irr AS Weight
+            FROM bank_transactions
+            LIMIT 5000
+        ").ToListAsync();
 
-        // ساخت گراف مجاورت (Adjacency List)
         var adj = new Dictionary<string, List<(string Target, string Rel, double Weight)>>();
         void AddAdj(string u, string v, string rel, double w)
         {
@@ -276,10 +283,9 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         foreach (var e in rawEdges)
         {
             AddAdj($"ACC_{e.Src}", $"MULE_{e.Tgt}", e.Relation, e.Weight);
-            AddAdj($"MULE_{e.Tgt}", $"ACC_{e.Src}", e.Relation, e.Weight); // غیرجهت‌دار برای یافتن هرگونه کانال اتصال
+            AddAdj($"MULE_{e.Tgt}", $"ACC_{e.Src}", e.Relation, e.Weight);
         }
 
-        // الگوریتم BFS برای پیدا کردن کوتاه‌ترین زنجیره واسطه‌ها
         var queue = new Queue<string>();
         var visited = new HashSet<string>();
         var parentMap = new Dictionary<string, (string Parent, string Rel, double Weight)>();
@@ -348,19 +354,21 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
     {
         public string Src { get; set; } = string.Empty;
         public string Tgt { get; set; } = string.Empty;
-        public string Relation { get; set; } = string.Empty; // این پراپرتی جا افتاده بود
+        public string Relation { get; set; } = string.Empty;
         public double Weight { get; set; }
     }
-    private class TransferHopRecord { public string SourceAcc { get; set; } public string DestAcc { get; set; } public long Amount { get; set; } }
-    private class TowerHopRecord { public string Msisdn { get; set; } public string CellId { get; set; } public int TotalCalls { get; set; } }
-    // اضافه کردن DTO برای نتیجه کشف مسیر
-    public class PathfindingResultDto
+
+    private class TransferHopRecord
     {
-        public string SourceId { get; set; } = string.Empty;
-        public string TargetId { get; set; } = string.Empty;
-        public bool PathExists { get; set; }
-        public List<string> PathNodeIds { get; set; } = new();
-        public List<OntologyEdge> PathEdges { get; set; } = new();
-        public string NarrativeSummary { get; set; } = string.Empty;
+        public string SourceAcc { get; set; } = string.Empty;
+        public string DestAcc { get; set; } = string.Empty;
+        public long Amount { get; set; }
+    }
+
+    private class TowerHopRecord
+    {
+        public string Msisdn { get; set; } = string.Empty;
+        public string CellId { get; set; } = string.Empty;
+        public int TotalCalls { get; set; }
     }
 }
