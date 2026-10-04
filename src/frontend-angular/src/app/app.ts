@@ -1,35 +1,28 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AuditService } from './core/services/audit.service';
+import { AuditDashboardComponent } from './features/audit/audit-dashboard.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule, AuditDashboardComponent],
-  templateUrl: './app.html',
-  styleUrl: './app.scss'
+  template: `
+    <app-audit-dashboard></app-audit-dashboard>
+  `,
+  styles: [`
+    :host {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+  `]
 })
 export class App {
-  public auditService = inject(AuditService);
-
-  activeTab: 'audit' | 'rules' = 'audit';
-  runningAudit = false;
-  actionMessage = '';
-
-  runAuditEngine(): void {
-    this.runningAudit = true;
-    const current = this.auditService.activeDomain();
-    this.actionMessage = `در حال اجرای موتور انطباق برای حوزه ${current}...`;
-
-    this.auditService.runAudit(current).subscribe({
-      next: (res) => {
-        this.actionMessage = `انطباق حوزه ${res.domain || current} پایان یافت. تعداد تخلفات ثبت‌شده: ${res.totalViolations ?? 0}`;
-        this.runningAudit = false;
-      },
-      error: (err) => {
-        this.actionMessage = err.error || 'خطا در ارتباط با سرور دات‌نت';
-        this.runningAudit = false;
-      }
-    });
-  }
+  title = 'dideban-platform';
 }
+
+// جهت سازگاری با ایمپورت‌های احتمالی دیگر در پروژه
+export { App as AppComponent };

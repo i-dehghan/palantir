@@ -1,5 +1,6 @@
 from rapidfuzz import fuzz
 
+
 class TextMatchingEngine:
     def __init__(self):
         pass
@@ -8,7 +9,6 @@ class TextMatchingEngine:
         clean_a = text_a.strip()
         clean_b = text_b.strip()
 
-        # محاسبه دو معیار مختلف تشابه لغوی و مجموعه‌ای کلمات
         token_ratio = fuzz.token_sort_ratio(clean_a, clean_b) / 100.0
         partial_ratio = fuzz.partial_ratio(clean_a, clean_b) / 100.0
 
@@ -30,7 +30,8 @@ class TextMatchingEngine:
             "semantic_similarity": round(partial_ratio, 3),
             "combined_score": combined_score,
             "is_mismatch": is_mismatch,
-            "risk_level": risk_level
+            "risk_level": risk_level,
         }
+
 
 matcher_engine = TextMatchingEngine()

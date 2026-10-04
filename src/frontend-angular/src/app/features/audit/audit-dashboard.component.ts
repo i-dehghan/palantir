@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { AuditService } from '../../core/services/audit.service';
-import { DiscrepancyLog, CkdCase, DomainType, DomainOption, MultiEntityLinkGraph } from '../../core/models/discrepancy.model';
+import { DiscrepancyLog, CkdCase, DomainType, DomainOption } from '../../core/models/discrepancy.model';
 import { DossierService, MultiHopDossierGraph } from '../../core/services/dossier.service';
 import { PalantirDossierStudioComponent } from './components/palantir-dossier-studio/palantir-dossier-studio.component';
 import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/geospatial-intel-map.component';
-import { CaseTimelineBarComponent, QuickDatePreset, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
+import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
-import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component'; // <-- اضافه شده
+import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
 
 @Component({
   selector: 'app-audit-dashboard',
@@ -21,26 +21,26 @@ import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component'; 
     GeospatialIntelMapComponent,
     CaseTimelineBarComponent,
     ForensicReportModalComponent,
-    CkdGraphComponent // <-- اضافه شده
+    CkdGraphComponent
   ],
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss'
 })
-
 export class AuditDashboardComponent implements OnInit {
   @ViewChild(PalantirDossierStudioComponent) dossierStudio?: PalantirDossierStudioComponent;
   @ViewChild(CaseTimelineBarComponent) timelineBar!: CaseTimelineBarComponent;
   @ViewChild('iranMapCanvas') iranMapCanvas!: ElementRef<HTMLDivElement>;
+
   activePlaybackHour = signal<number | null>(null);
-timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>({
-  startHour: 0,
-  endHour: 23,
-  active: false
-});
+  timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>({
+    startHour: 0,
+    endHour: 23,
+    active: false
+  });
+
   private auditService = inject(AuditService);
   private dossierService = inject(DossierService);
 
-  // حالت‌های نمای راست: گراف پیوندی | نقشه وکتوری | ساختار درختی تفکیک قطعات (CKD)
   activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
   protected readonly Math = Math;
 
@@ -68,20 +68,6 @@ timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>
   focusedNationalId = signal<string>('');
   focusedOrderInGalaxy = signal<string | null>(null);
 
-  selectedTimeWindow = signal<{
-    preset: 'TODAY' | 'YESTERDAY' | 'LAST_7D' | 'ALL';
-    startHour: string;
-    endHour: string;
-    start: string;
-    end: string;
-  }>({
-    preset: 'TODAY',
-    startHour: '00:00',
-    endHour: '22:00',
-    start: '00:00',
-    end: '22:00'
-  });
-
   inspectedItem = signal<any | null>(null);
   isReportModalOpen = signal(false);
   selectedTableItem = signal<DiscrepancyLog | any | null>(null);
@@ -90,67 +76,63 @@ timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>
   isTimelineLoading = signal<boolean>(false);
   inspectingRowId = signal<string | null>(null);
 
-  searchQuery = signal<string>(''); // کدملی یا شماره همراه واردشده
-  selectedAnalysisDepth = signal<number>(2); // عمق رابطه (1-Hop یا 2-Hop)
-  linkFilterDomains = signal<DomainType[]>(['CUSTOMS', 'BANKING', 'TELECOM']);
-
-  // در audit-dashboard.component.ts
-
-// ۱. نگهداری اهداف با شناسه یکتا برای تثبیت در DOM
-investigationTargets = signal<{ id: string; value: string }[]>([
-  { id: 'target_1', value: '' },
-  { id: 'target_2', value: '' }
-]);
-
-noLinkWarning = signal<string | null>(null);
-// در audit-dashboard.component.ts
-
-// تابع ردیابی اختصاصی برای ngFor
-trackByTargetId(index: number, item: { id: string; value: string }): string {
-  return item.id;
-}
-
-onTimeRangeChanged(event: TimelineRangeEvent): void {
-  if (event.preset === 'ALL') {
-    this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
-  } else {
-    this.timelineFilter.set({
-      startHour: event.startHour,
-      endHour: event.endHour,
-      active: true
-    });
-  }
-}
-// افزودن سوژه جدید با کلید اختصاصی
-addTargetInput(): void {
-  this.investigationTargets.update(list => [
-    ...list,
-    { id: `target_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, value: '' }
+  investigationTargets = signal<{ id: string; value: string }[]>([
+    { id: 'target_1', value: '14001000484' },
+    { id: 'target_2', value: '14001000260' }
   ]);
-}
 
-// حذف یک ورودی بدون تخریب بقیه عناصر
-removeTargetInput(index: number): void {
-  if (this.investigationTargets().length > 2) {
-    this.investigationTargets.update(list => list.filter((_, i) => i !== index));
-  }
-}
+  noLinkWarning = signal<string | null>(null);
 
-// به‌روزرسانی مقدار بدون ساخت مجدد آبجکت و بدون دستکاری رفرنس
-updateTargetInput(index: number, event: Event): void {
-  const inputEl = event.target as HTMLInputElement;
-  const list = this.investigationTargets();
-  if (list[index]) {
-    list[index].value = inputEl.value;
+  selectedRelationTypes = signal<{ banking: boolean; telecom: boolean; customs: boolean }>({
+    banking: true,
+    telecom: true,
+    customs: true
+  });
+
+  private currentDossierSub: any = null;
+
+  ngOnInit(): void {
+    this.fetchLogs();
   }
-}
-selectedRelationTypes = signal<{ banking: boolean; telecom: boolean; customs: boolean }>({
-  banking: true,
-  telecom: true,
-  customs: true
-});
-// خواندن مقادیر هنگام ارسال به سرور
-runMultiTargetInvestigation(): void {
+
+  trackByTargetId(index: number, item: { id: string; value: string }): string {
+    return item.id;
+  }
+
+  onTimeRangeChanged(event: TimelineRangeEvent): void {
+    if (event.preset === 'ALL') {
+      this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
+    } else {
+      this.timelineFilter.set({
+        startHour: event.startHour,
+        endHour: event.endHour,
+        active: true
+      });
+    }
+  }
+
+  addTargetInput(): void {
+    this.investigationTargets.update(list => [
+      ...list,
+      { id: `target_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, value: '' }
+    ]);
+  }
+
+  removeTargetInput(index: number): void {
+    if (this.investigationTargets().length > 2) {
+      this.investigationTargets.update(list => list.filter((_, i) => i !== index));
+    }
+  }
+
+  updateTargetInput(index: number, event: Event): void {
+    const inputEl = event.target as HTMLInputElement;
+    const list = this.investigationTargets();
+    if (list[index]) {
+      list[index].value = inputEl.value;
+    }
+  }
+
+  runMultiTargetInvestigation(): void {
     const cleanIds = this.investigationTargets()
       .map(x => x.value.trim())
       .filter(x => x.length > 0);
@@ -164,7 +146,6 @@ runMultiTargetInvestigation(): void {
     this.isDossierLoading.set(true);
     this.isTimelineLoading.set(true);
 
-    // ۱. پاک‌سازی صریح وضعیت پرونده تک‌نفره قبلی
     this.inspectedItem.set(null);
     this.selectedTableItem.set(null);
     this.focusedNationalId.set(cleanIds.join(' , '));
@@ -184,7 +165,6 @@ runMultiTargetInvestigation(): void {
         const rawNodes = res.nodes || [];
         const rawEdges = res.edges || [];
 
-        // ۲. بازنشانی کامل شیء پرونده با کلیدهای یکتا جهت تحریک ngOnChanges
         this.currentDossierData.set({
           isMultiTarget: true,
           targetNid: cleanIds.join(' ⟷ '),
@@ -193,13 +173,12 @@ runMultiTargetInvestigation(): void {
           timestamp: Date.now()
         });
 
-        // ۳. ساخت لاگ‌های جدول از روی نودها و یال‌های بازگشتی
         if (rawNodes.length > 0) {
           const tableRecords: DiscrepancyLog[] = [];
           rawNodes.forEach((node: any, idx: number) => {
             const isDoc = String(node.id).startsWith('DOC_') || node.type === 3;
             const isAcc = String(node.id).startsWith('ACC_') || String(node.id).includes('IR-ACC');
-            
+
             if (isDoc || isAcc) {
               const code = node.properties?.OrderRegNumber || node.id;
               tableRecords.push({
@@ -222,23 +201,16 @@ runMultiTargetInvestigation(): void {
           }
         }
 
-        // هدایت صریح به نمای گراف
         this.activeRightView.set('GRAPH');
         this.isDossierLoading.set(false);
         this.isTimelineLoading.set(false);
       },
       error: (err) => {
-        console.error('خطا در واکشی استعلام:', err);
+        console.error('خطا در واکشی استعلام چندسوژه‌ای:', err);
         this.isDossierLoading.set(false);
         this.isTimelineLoading.set(false);
       }
     });
-  }
-
-  private currentDossierSub: any = null;
-
-  ngOnInit(): void {
-    this.fetchLogs();
   }
 
   switchRightView(view: 'MAP' | 'GRAPH' | 'CKD'): void {
@@ -260,7 +232,7 @@ runMultiTargetInvestigation(): void {
     this.inspectedItem.set({ ...item });
     this.focusedNationalId.set(targetNid);
     this.focusedOrderInGalaxy.set(caseId);
-    this.selectedOrderForCkd.set(item?.orderRegNumber || null); // اتصال به درخت CKD
+    this.selectedOrderForCkd.set(item?.orderRegNumber || null);
 
     if (this.currentDossierSub) {
       this.currentDossierSub.unsubscribe();
@@ -268,23 +240,25 @@ runMultiTargetInvestigation(): void {
 
     setTimeout(() => {
       this.isTimelineLoading.set(false);
-    }, 200);
+    }, 150);
 
     this.currentDossierSub = this.dossierService.getDossier(targetNid, 2).subscribe({
       next: (data: any) => {
+        const nodes = data?.nodes || [];
+        const edges = data?.edges || [];
+
         this.currentDossierData.set({
           ...data,
           targetNid: targetNid,
           inspectedRecord: { ...item },
-          nodes: [...(data?.nodes || [])],
-          edges: [...(data?.edges || [])]
-        } as any);
+          nodes: [...nodes],
+          edges: [...edges]
+        });
 
         this.isDossierLoading.set(false);
         this.inspectingRowId.set(null);
       },
       error: () => {
-        // Fallback خودکار: اگر اندپوینت بک‌اند برای این NID داده ندهد، داده‌های پیش‌فرض محلی تولید می‌شود
         this.currentDossierData.set({
           targetNid: targetNid,
           inspectedRecord: { ...item },
@@ -298,90 +272,6 @@ runMultiTargetInvestigation(): void {
     });
   }
 
-  executePersonLinkAnalysis(identifier: string): void {
-    const cleanId = (identifier || '').trim();
-    if (!cleanId) return;
-
-    this.isDossierLoading.set(true);
-    this.focusedNationalId.set(cleanId);
-    this.activeRightView.set('GRAPH');
-
-    this.dossierService.getMultiHopEntityLinks(cleanId, 2).subscribe({
-      next: (graphData: MultiHopDossierGraph) => {
-        // تبدیل نودهای بک‌اند به استایل نودهای گراف
-        const formattedNodes = (graphData.nodes || []).map(node => {
-          const isTarget = node.id === cleanId || node.id === graphData.rootEntityId;
-          const isPhone = node.id.startsWith('09') || node.type === 4;
-          const isBank = node.type === 2 || node.id.startsWith('IR') || node.displayLabel.includes('حساب');
-
-          let iconType = 'PERSON';
-          let nodeColor = isTarget ? '#ef4444' : '#f59e0b';
-
-          if (isPhone) {
-            iconType = 'BTS_TOWER';
-            nodeColor = '#38bdf8';
-          } else if (isBank) {
-            iconType = 'BANK_ACCOUNT';
-            nodeColor = '#10b981';
-          }
-
-          return {
-            id: node.id,
-            name: node.id,
-            displayLabel: node.displayLabel || node.id,
-            category: iconType,
-            entityType: isPhone ? 'شماره همراه / ارتباط مخابراتی' : isBank ? 'حساب بانکی / تراکنش AML' : 'سوژه انسانی / شرکت',
-            risk: node.riskScore || 85,
-            title: node.displayLabel,
-            symbolSize: isTarget ? 42 : 28,
-            itemStyle: {
-              color: nodeColor,
-              borderColor: isTarget ? '#38bdf8' : '#ffffff',
-              borderWidth: isTarget ? 3 : 1
-            }
-          };
-        });
-
-        // تبدیل یال‌های ارتباطی (تماس، ساتنا، کوتاژ)
-        const formattedEdges = (graphData.edges || []).map(edge => {
-          const pred = edge.predicate || '';
-          let edgeColor = '#94a3b8';
-
-          if (pred.includes('تماس') || pred.includes('پیامک') || pred.includes('سلولی')) {
-            edgeColor = '#38bdf8'; // مخابرات
-          } else if (pred.includes('واریز') || pred.includes('ساتنا') || pred.includes('انتقال')) {
-            edgeColor = '#10b981'; // بانکی
-          } else if (pred.includes('گمرک') || pred.includes('کوتاژ') || pred.includes('سفارش')) {
-            edgeColor = '#f59e0b'; // گمرک
-          }
-
-          return {
-            source: edge.sourceId,
-            target: edge.targetId,
-            value: edge.predicate,
-            lineStyle: {
-              color: edgeColor,
-              width: Math.min(4, Math.max(1.5, (edge.weight || 20) / 25)),
-              curveness: 0.12
-            }
-          };
-        });
-
-        this.currentDossierData.set({
-          targetNid: cleanId,
-          rootEntityId: graphData.rootEntityId,
-          nodes: formattedNodes,
-          edges: formattedEdges
-        });
-
-        this.isDossierLoading.set(false);
-      },
-      error: () => {
-        this.isDossierLoading.set(false);
-      }
-    });
-  }
-
   selectRowItem(item: DiscrepancyLog): void {
     this.selectedTableItem.set(item);
     this.inspectCase(item);
@@ -389,7 +279,6 @@ runMultiTargetInvestigation(): void {
 
   clearInspection(): void {
     this.inspectedItem.set(null);
-    this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
     this.selectedOrderForCkd.set(null);
     this.highlightedTimelineId.set(null);
@@ -398,7 +287,6 @@ runMultiTargetInvestigation(): void {
 
   loadGlobalDossier(): void {
     this.inspectedItem.set(null);
-    this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
     this.buildGlobalDomainGraph(this.currentDomain(), this.logs());
   }
@@ -407,14 +295,14 @@ runMultiTargetInvestigation(): void {
     const currentLogs = rawLogs && rawLogs.length > 0 ? rawLogs : this.logs();
     if (!currentLogs || currentLogs.length === 0) return;
 
-    const topLogs = currentLogs.slice(0, 10);
+    const topLogs = currentLogs.slice(0, 15);
     const nodes: any[] = [];
     const edges: any[] = [];
     const addedNodeIds = new Set<string>();
 
     const domainHubId = `HUB_${domain}`;
     const hubLabels: Record<DomainType, string> = {
-      CUSTOMS: 'سامانه جامع پایش گمرک',
+      CUSTOMS: 'سامانه جامع پایش گمرک و تجارت',
       BANKING: 'سامانه جامع نظارت بانکی و AML',
       TELECOM: 'سامانه نظارت ترافیک مخابرات (CDR)'
     };
@@ -471,33 +359,59 @@ runMultiTargetInvestigation(): void {
     this.fetchLogs();
   }
 
-fetchLogs(): void {
-  this.loading.set(true);
-  const domain = this.currentDomain();
-  this.auditService.getDiscrepancies(domain).subscribe({
-    next: (data: any) => {
-      const rawList = Array.isArray(data) ? data : (data?.items || []);
-      const records = Array.isArray(rawList) ? rawList : [];
+  fetchLogs(): void {
+    this.loading.set(true);
+    const domain = this.currentDomain();
 
-      this.logs.set(records);
-      this.currentPage.set(1);
-      this.loading.set(false);
+    this.auditService.getDiscrepancies(domain).subscribe({
+      next: (data: any) => {
+        let rawList: any[] = [];
+        if (Array.isArray(data)) {
+          rawList = data;
+        } else if (data && Array.isArray(data.items)) {
+          rawList = data.items;
+        } else if (data && Array.isArray(data.data)) {
+          rawList = data.data;
+        }
 
-      // پاک کردن انتخاب‌های قبلی در لود اولیه
-      this.selectedTableItem.set(null);
-      this.focusedNationalId.set('');
-      this.inspectedItem.set(null);
+        // نرمال‌سازی مستقیم داده‌های بازگشتی از EF Core و دیتابیس SQLite
+        const records: DiscrepancyLog[] = rawList.map((item: any, idx: number) => ({
+          id: item.id || item.Id || `LOG_${idx + 1}`,
+          orderRegNumber: item.orderRegNumber || item.OrderRegNumber || item.order_reg_number || `ORD-${1000 + idx}`,
+          importerNationalId: item.importerNationalId || item.ImporterNationalId || item.importer_national_id || '14001000484',
+          cottageNumber: item.cottageNumber || item.CottageNumber || item.cottage_number || `COT-${2000 + idx}`,
+          ruleName: item.ruleName || item.RuleName || item.rule_name || 'مغایرت قاعده ۲-الف در اسناد گمرکی',
+          description: item.description || item.Description || item.description_text || 'شرح تخلف احراز شده توسط موتور هوش مصنوعی',
+          riskScore: item.riskScore ?? item.RiskScore ?? item.risk_score ?? 90,
+          detectedAt: item.detectedAt || item.DetectedAt || item.detected_at || new Date().toISOString(),
+          domainType: item.domainType || item.DomainType || item.domain_type || domain
+        }));
 
-      // در صورت تمایل می‌توانید گراف کلی شبکه را با کل رکوردها رسم کنید 
-      // یا بوم گراف را تا زمان اقدام کاربر خالی بگذارید:
-      if (records.length > 0) {
-        this.buildGlobalDomainGraph(domain, records);
+        this.logs.set(records);
+        this.currentPage.set(1);
+        this.loading.set(false);
+
+        // فعال‌سازی داده‌های اولین سطر واقعی دیتابیس روی گراف و نقشه
+        if (records.length > 0) {
+          const firstItem = records[0];
+          this.selectedTableItem.set(firstItem);
+          this.inspectedItem.set({ ...firstItem });
+          this.focusedNationalId.set(String(firstItem.importerNationalId));
+          this.focusedOrderInGalaxy.set(firstItem.orderRegNumber);
+          this.buildGlobalDomainGraph(domain, records);
+        } else {
+          this.selectedTableItem.set(null);
+          this.inspectedItem.set(null);
+          this.focusedNationalId.set('');
+        }
+      },
+      error: (err) => {
+        console.error('خطا در واکشی اطلاعات از دیتابیس:', err);
+        this.loading.set(false);
       }
-    },
-    error: () => this.loading.set(false)
-  });
-}
-  // محاسبه درختی اطلاعات پرونده تفکیک قطعات بر اساس سطر انتخاب‌شده
+    });
+  }
+
   selectedCkdCase = computed<CkdCase | null>(() => {
     const currentLogs = this.filteredLogs();
     if (currentLogs.length === 0) return null;
@@ -534,20 +448,21 @@ fetchLogs(): void {
     };
   });
 
-filteredLogs = computed(() => {
-  const currentLogs = this.logs();
-  const tf = this.timelineFilter();
-  
-  if (!tf.active) {
-    return currentLogs;
-  }
+  filteredLogs = computed(() => {
+    const currentLogs = this.logs();
+    const tf = this.timelineFilter();
 
-  return currentLogs.filter(log => {
-    const dt = log.detectedAt ? new Date(log.detectedAt) : null;
-    const hour = (dt && !isNaN(dt.getTime())) ? dt.getHours() : 0;
-    return hour >= tf.startHour && hour <= tf.endHour;
+    if (!tf.active) {
+      return currentLogs;
+    }
+
+    return currentLogs.filter(log => {
+      const dt = log.detectedAt ? new Date(log.detectedAt) : null;
+      const hour = (dt && !isNaN(dt.getTime())) ? dt.getHours() : 12;
+      return hour >= tf.startHour && hour <= tf.endHour;
+    });
   });
-});
+
   totalPages = computed(() => {
     const total = this.filteredLogs().length;
     const size = this.pageSize();
@@ -562,7 +477,7 @@ filteredLogs = computed(() => {
     return list.slice(start, start + size);
   });
 
- timelineFeedEvents = computed(() => {
+  timelineFeedEvents = computed(() => {
     const item = this.selectedTableItem() || this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
     if (!item) return [];
 
@@ -588,20 +503,19 @@ filteredLogs = computed(() => {
       ];
     }
     return [
-      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
+      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
       { id: `STEP_BURST_${rawCode}`, targetDocId: rawCode, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
-      { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
+      { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
       { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
     ];
   });
 
-onTimelineEventClick(eventItem: any): void {
+  onTimelineEventClick(eventItem: any): void {
     if (!eventItem) return;
 
     const isCurrentlyActive = this.highlightedTimelineId() === eventItem.id;
     this.highlightedTimelineId.set(isCurrentlyActive ? null : eventItem.id);
 
-    // استخراج ساعت رویداد جهت حرکت عقربه تایم‌لاین پایین
     const [hStr] = (eventItem.time || '00:00').split(':');
     const parsedHour = parseInt(hStr, 10);
     if (!isNaN(parsedHour)) {
@@ -609,110 +523,36 @@ onTimelineEventClick(eventItem: any): void {
     }
   }
 
-  selectedTimeRange = signal<{ startHour: number; endHour: number; preset: string }>({
-    startHour: 0,
-    endHour: 23,
-    preset: 'ALL'
-  });
+  openForensicReport(): void {
+    const targets = this.investigationTargets()
+      .map(t => t.value.trim())
+      .filter(v => v.length > 0);
 
-  // در audit-dashboard.component.ts
-
-  onTimelineFilterChanged(event: TimelineRangeEvent): void {
-    this.currentPage.set(1);
-    this.selectedTimeRange.set({
-      startHour: event.startHour,
-      endHour: event.endHour,
-      preset: event.preset
+    this.activeProjectionFields.set({
+      isMultiTarget: targets.length >= 2,
+      targets: targets.length >= 2 ? targets : [this.focusedNationalId() || '14001000484'],
+      dossierGraph: this.currentDossierData(),
+      evidences: this.filteredLogs()
     });
 
-    // ۱. استخراج رکوردهایی که در این بازه زمانی ثبت شده‌اند
-    const activeLogs = this.filteredLogs();
-
-    // ۲. به‌روزرسانی گراف متناسب با رکوردهای این ساعت‌ها
-    if (this.currentDossierData()) {
-      const activeOrderNos = new Set(activeLogs.map(l => l.orderRegNumber || l.cottageNumber));
-      const activeNids = new Set(activeLogs.map(l => String(l.importerNationalId)));
-
-      const currentNodes = this.currentDossierData().nodes || [];
-      const currentEdges = this.currentDossierData().edges || [];
-
-      // اگر بازه روی ALL نیست، نودهایی که در این ساعت‌ها فعالیتی نداشتند کم‌رنگ یا فیلتر شوند
-      if (event.preset !== 'ALL' && activeLogs.length > 0) {
-        const filteredNodes = currentNodes.map((n: any) => {
-          const rawId = String(n.id).replace('PERSON_', '').replace('DOC_', '');
-          const isRelevant = activeOrderNos.has(rawId) || activeNids.has(rawId);
-
-          return {
-            ...n,
-            itemStyle: {
-              ...(n.itemStyle || {}),
-              opacity: isRelevant ? 1 : 0.15
-            }
-          };
-        });
-
-        const filteredEdges = currentEdges.map((e: any) => {
-          const src = String(e.sourceId || e.source).replace('PERSON_', '').replace('DOC_', '');
-          const tgt = String(e.targetId || e.target).replace('PERSON_', '').replace('DOC_', '');
-          const isEdgeActive = activeOrderNos.has(tgt) || activeOrderNos.has(src) || activeNids.has(src);
-
-          return {
-            ...e,
-            lineStyle: {
-              ...(e.lineStyle || {}),
-              opacity: isEdgeActive ? 0.95 : 0.08
-            }
-          };
-        });
-
-        this.currentDossierData.set({
-          ...this.currentDossierData(),
-          nodes: filteredNodes,
-          edges: filteredEdges
-        });
-      } else if (event.preset === 'ALL') {
-        // بازنشانی شفافیت همه نودها
-        const restoredNodes = currentNodes.map((n: any) => ({
-          ...n,
-          itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
-        }));
-        const restoredEdges = currentEdges.map((e: any) => ({
-          ...e,
-          lineStyle: { ...(e.lineStyle || {}), opacity: 0.9 }
-        }));
-
-        this.currentDossierData.set({
-          ...this.currentDossierData(),
-          nodes: restoredNodes,
-          edges: restoredEdges
-        });
-      }
-    }
+    this.isReportModalOpen.set(true);
   }
 
-  
+  closeForensicReport(): void {
+    this.isReportModalOpen.set(false);
+  }
 
-// در audit-dashboard.component.ts
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page);
+  }
 
-// در audit-dashboard.component.ts
-openForensicReport(): void {
-  const targets = this.investigationTargets()
-    .map(t => t.value.trim())
-    .filter(v => v.length > 0);
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1);
+  }
 
-  this.activeProjectionFields.set({
-    isMultiTarget: targets.length >= 2,
-    targets: targets.length >= 2 ? targets : [this.focusedNationalId()],
-    dossierGraph: this.currentDossierData()
-  });
-
-  this.isReportModalOpen.set(true);
-}
-closeForensicReport(): void { this.isReportModalOpen.set(false); }
-
-  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page); }
-  nextPage(): void { if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1); }
-  prevPage(): void { if (this.currentPage() > 1) this.currentPage.update(p => p - 1); }
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update(p => p - 1);
+  }
 
   exportToExcel(): void {
     const records = this.filteredLogs();
@@ -732,6 +572,4 @@ closeForensicReport(): void { this.isReportModalOpen.set(false); }
     const wb = { Sheets: { 'مغایرت‌ها': ws }, SheetNames: ['مغایرت‌ها'] };
     XLSX.writeFile(wb, `Dideban_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
-
-  
 }

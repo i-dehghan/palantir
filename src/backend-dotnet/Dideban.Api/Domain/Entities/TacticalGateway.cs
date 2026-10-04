@@ -7,37 +7,23 @@ namespace Dideban.Api.Domain.Entities;
 public class TacticalGateway
 {
     [Key]
-    [Column("Code")]
-    public string Code { get; set; } = string.Empty;
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
-    [Column("Domain")]
-    public string Domain { get; set; } = string.Empty;
-
-    [Column("Name")]
+    [Required]
     public string Name { get; set; } = string.Empty;
 
-    [Column("Province")]
-    public string? Province { get; set; }
+    [Required]
+    public string Code { get; set; } = string.Empty;
 
-    [Column("Longitude")]
-    public string? RawLongitude { get; set; }
+    public string Domain { get; set; } = "CUSTOMS";
 
-    [Column("Latitude")]
-    public string? RawLatitude { get; set; }
+    public double Latitude { get; set; }
 
-    [Column("Category")]
-    public string? Category { get; set; }
+    public double Longitude { get; set; }
 
-    [Column("RiskScore")]
-    public string? RawRiskScore { get; set; }
+    public int RiskScore { get; set; }
 
-    // خصوصیات محاسباتی جهت استفاده راحت و تبدیل رشته به عدد
-    [NotMapped]
-    public double Longitude => double.TryParse(RawLongitude, System.Globalization.CultureInfo.InvariantCulture, out var val) ? val : 0.0;
+    public int TrafficVolume { get; set; } = 100;
 
-    [NotMapped]
-    public double Latitude => double.TryParse(RawLatitude, System.Globalization.CultureInfo.InvariantCulture, out var val) ? val : 0.0;
-
-    [NotMapped]
-    public int RiskScore => int.TryParse(RawRiskScore, out var val) ? val : 75;
+    public bool IsActive { get; set; } = true;
 }

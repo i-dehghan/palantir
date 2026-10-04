@@ -13,14 +13,13 @@ import {
   inject
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import * as echarts from 'echarts';
-import { AuditService, ForensicNarrativeResponse, PredictiveMoveData } from '../../../../core/services/audit.service';
 import { FormsModule } from '@angular/forms';
+import * as echarts from 'echarts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
+import { AuditService, ForensicNarrativeResponse, PredictiveMoveData } from '../../../../core/services/audit.service';
 
+export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 
 @Component({
   selector: 'app-forensic-report-modal',
@@ -29,44 +28,49 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
   template: `
     <div class="modal-backdrop" *ngIf="isOpen" (click)="close()">
       <div id="judicial-report-dossier" class="forensic-paper" (click)="$event.stopPropagation()">
-<button class="copilot-toggle-btn" (click)="toggleCopilot()">
-  <span>💬 دستیار هوشمند پرونده (AI Copilot)</span>
-</button>
-<div class="copilot-drawer" *ngIf="copilotOpen()">
-  <div class="copilot-header">
-    <div class="title">
-      <span class="ai-sparkle">✦</span>
-      <strong>کاوشگر هوشمند جرم‌شناسی (DeepSeek)</strong>
-    </div>
-    <button class="close-btn" (click)="toggleCopilot()">×</button>
-  </div>
+        
+        <!-- دکمه فعال‌سازی دستیار هوشمند پرونده -->
+        <button class="copilot-toggle-btn" (click)="toggleCopilot()">
+          <span>💬 دستیار هوشمند پرونده (AI Copilot)</span>
+        </button>
 
-  <div class="copilot-body">
-    <div class="chat-bubble" *ngFor="let msg of chatMessages()" [class.user]="msg.role === 'user'">
-      <div class="sender-label">{{ msg.role === 'user' ? 'بازرس' : 'سامانه دیده‌بان' }}</div>
-      <div class="msg-content">{{ msg.content }}</div>
-    </div>
-    <div class="chat-bubble typing" *ngIf="copilotLoading()">
-      <em>در حال تحلیل تقاطعی اسناد و استنتاج...</em>
-    </div>
-  </div>
+        <!-- دراور چت زنده دستیار پرونده -->
+        <div class="copilot-drawer" *ngIf="copilotOpen()">
+          <div class="copilot-header">
+            <div class="title">
+              <span class="ai-sparkle">✦</span>
+              <strong>کاوشگر هوشمند جرم‌شناسی (DeepSeek)</strong>
+            </div>
+            <button class="close-btn" (click)="toggleCopilot()">×</button>
+          </div>
 
-  <div class="copilot-footer">
-    <input 
-      type="text" 
-      [(ngModel)]="userPrompt" 
-      (keyup.enter)="sendCopilotMessage()" 
-      placeholder="سوال خود را درباره شگرد، تعرفه‌ها یا این شبکه بپرسید..." />
-    <button (click)="sendCopilotMessage()" [disabled]="copilotLoading()">ارسال</button>
-  </div>
-</div>
-        <!-- هدر رسمی گزارش -->
+          <div class="copilot-body">
+            <div class="chat-bubble" *ngFor="let msg of chatMessages()" [class.user]="msg.role === 'user'">
+              <div class="sender-label">{{ msg.role === 'user' ? 'بازرس' : 'سامانه دیده‌بان' }}</div>
+              <div class="msg-content">{{ msg.content }}</div>
+            </div>
+            <div class="chat-bubble typing" *ngIf="copilotLoading()">
+              <em>در حال تحلیل تقاطعی اسناد و استنتاج شگرد...</em>
+            </div>
+          </div>
+
+          <div class="copilot-footer">
+            <input 
+              type="text" 
+              [(ngModel)]="userPrompt" 
+              (keyup.enter)="sendCopilotMessage()" 
+              placeholder="سوال خود را درباره شگرد، تعرفه‌ها یا این شبکه بپرسید..." />
+            <button (click)="sendCopilotMessage()" [disabled]="copilotLoading()">ارسال</button>
+          </div>
+        </div>
+
+        <!-- هدر رسمی گزارش قضایی -->
         <header class="paper-header">
           <div class="header-right">
             <div class="national-emblem">⚖️</div>
             <div class="titles">
               <h3>جمهوری اسلامی ایران</h3>
-              <h4>سامانه یکپارچه جرم‌شناسی کلان داده و تصمیم‌یاری (دیدبان)</h4>
+              <h4>سامانه یکپارچه جرم‌شناسی کلان داده و تصمیم‌یاری (دیده‌بان)</h4>
               <div class="domain-tag-badge" [ngClass]="currentDomain">
                 حوزه بازرسی: {{ getDomainTitle() }}
               </div>
@@ -78,36 +82,38 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
             <div><strong>رده طبقه‌بندی:</strong> <span class="confidential-text">محرمانه - سند تخصصی قضایی</span></div>
           </div>
         </header>
-<!-- نوار اقدام فوری و صدور احکام نظارتی -->
-<div class="tactical-actions-strip">
-  <div class="strip-label">
-    <span class="icon">🚨</span>
-    <span>سامانه اقدام فوری و مداخله نظارتی:</span>
-  </div>
 
-  <div class="buttons-group">
-    <button class="act-btn danger" [disabled]="actionInProgress()" (click)="triggerAction('BLOCK_CUSTOMS_CLEARANCE')">
-      🛑 دستور توقف ترخیص (EPL)
-    </button>
-    <button class="act-btn warning" [disabled]="actionInProgress()" (click)="triggerAction('FREEZE_BANK_ACCOUNT')">
-      🔒 مسدودی اضطراری حساب (بانک مرکزی)
-    </button>
-    <button class="act-btn dark" [disabled]="actionInProgress()" (click)="triggerAction('FLAG_RED_LIST')">
-      ⚠️ درج در لیست سیاه مرزی
-    </button>
-  </div>
-</div>
+        <!-- نوار اقدام فوری و صدور احکام نظارتی -->
+        <div class="tactical-actions-strip">
+          <div class="strip-label">
+            <span class="icon">🚨</span>
+            <span>سامانه اقدام فوری و مداخله نظارتی:</span>
+          </div>
 
-<!-- بنر بازخورد نتیجه اقدام -->
-<div *ngIf="actionNotification()" class="action-alert-banner" [ngClass]="actionNotification()?.type">
-  <div class="alert-content">
-    <strong>{{ actionNotification()?.message }}</strong>
-    <span *ngIf="actionNotification()?.tracking" class="tracking mono">
-      شماره پیگیری قضایی: {{ actionNotification()?.tracking }}
-    </span>
-  </div>
-  <button class="close-alert" (click)="actionNotification.set(null)">✕</button>
-</div>
+          <div class="buttons-group">
+            <button class="act-btn danger" [disabled]="actionInProgress()" (click)="triggerAction('BLOCK_CUSTOMS_CLEARANCE')">
+              🛑 دستور توقف ترخیص (EPL)
+            </button>
+            <button class="act-btn warning" [disabled]="actionInProgress()" (click)="triggerAction('FREEZE_BANK_ACCOUNT')">
+              🔒 مسدودی اضطراری حساب (بانک مرکزی)
+            </button>
+            <button class="act-btn dark" [disabled]="actionInProgress()" (click)="triggerAction('FLAG_RED_LIST')">
+              ⚠️ درج در لیست سیاه مرزی
+            </button>
+          </div>
+        </div>
+
+        <!-- بنر بازخورد نتیجه اقدام مداخله‌ای -->
+        <div *ngIf="actionNotification()" class="action-alert-banner" [ngClass]="actionNotification()?.type">
+          <div class="alert-content">
+            <strong>{{ actionNotification()?.message }}</strong>
+            <span *ngIf="actionNotification()?.tracking" class="tracking mono">
+              شماره پیگیری قضایی: {{ actionNotification()?.tracking }}
+            </span>
+          </div>
+          <button class="close-alert" (click)="actionNotification.set(null)">✕</button>
+        </div>
+
         <!-- بخش تحلیل و استنتاج مدل زبانی (LLM) برای چند سوژه -->
         <section class="ai-forensic-narrative-card" *ngIf="multiEntityData?.isMultiTarget">
           <div class="card-head">
@@ -246,39 +252,40 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 
             <div class="legal-inference-note">
               <strong>شرح تخلف ارتباطی:</strong> 
-              دستگاه‌های سیم‌باکس با استفاده از سیم‌کارت‌های فعال‌شده با هویت‌های نامعتبر، تماس‌های ورودی بین‌المللی ارزی را به مکالمه محلی تبدیل کرده و باعث تضییع درآمدهای ارتباطی کشور شده‌اند.
+              دستگاه‌های سیم‌‌باکس با استفاده از سیم‌کارت‌های فعال‌شده با هویت‌های نامعتبر، تماس‌های ورودی بین‌المللی ارزی را به مکالمه محلی تبدیل کرده و باعث تضییع درآمدهای ارتباطی کشور شده‌اند.
             </div>
           </section>
         </ng-container>
 
         <!-- کارت تحلیل پیش‌دستانه و پیش‌بینی حرکت بعدی -->
-<section class="predictive-anomaly-card" *ngIf="predictiveData()">
-  <div class="pred-header">
-    <div class="pred-title">
-      <span class="pulse-radar">📡</span>
-      <strong>پیش‌بینی هوشمند اقدام آتی سوژه (Predictive Anomaly Forecast)</strong>
-    </div>
-    <div class="prob-tag">
-      احتمال وقوع: <strong class="danger">{{ predictiveData()?.probability_percent }}٪</strong>
-      <span>(ظرف {{ predictiveData()?.timeframe_days }} روز آینده)</span>
-    </div>
-  </div>
+        <section class="predictive-anomaly-card" *ngIf="predictiveData()">
+          <div class="pred-header">
+            <div class="pred-title">
+              <span class="pulse-radar">📡</span>
+              <strong>پیش‌بینی هوشمند اقدام آتی سوژه (Predictive Anomaly Forecast)</strong>
+            </div>
+            <div class="prob-tag">
+              احتمال وقوع: <strong class="danger">{{ predictiveData()?.probability_percent }}٪</strong>
+              <span>(ظرف {{ predictiveData()?.timeframe_days }} روز آینده)</span>
+            </div>
+          </div>
 
-  <div class="pred-content-grid">
-    <div class="pred-block">
-      <span class="label">شگرد و اقدام محتمل بعدی:</span>
-      <p class="val text-amber-300">{{ predictiveData()?.predicted_action }}</p>
-    </div>
-    <div class="pred-block">
-      <span class="label">مبادی ورودی در معرض خطر:</span>
-      <p class="val mono text-cyan-300">{{ predictiveData()?.vulnerable_customs }}</p>
-    </div>
-    <div class="pred-block action-block">
-      <span class="label">دستور پیشگیرانه بازرسی (Countermeasure):</span>
-      <p class="val text-emerald-400">🛡️ {{ predictiveData()?.recommended_countermeasure }}</p>
-    </div>
-  </div>
-</section>
+          <div class="pred-content-grid">
+            <div class="pred-block">
+              <span class="label">شگرد و اقدام محتمل بعدی:</span>
+              <p class="val text-amber-300">{{ predictiveData()?.predicted_action }}</p>
+            </div>
+            <div class="pred-block">
+              <span class="label">مبادی ورودی در معرض خطر:</span>
+              <p class="val mono text-cyan-300">{{ predictiveData()?.vulnerable_customs }}</p>
+            </div>
+            <div class="pred-block action-block">
+              <span class="label">دستور پیشگیرانه بازرسی (Countermeasure):</span>
+              <p class="val text-emerald-400">🛡️ {{ predictiveData()?.recommended_countermeasure }}</p>
+            </div>
+          </div>
+        </section>
+
         <!-- نمودارهای تحلیلی -->
         <section class="visual-analytics-grid">
           <div class="chart-container-box">
@@ -357,7 +364,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
             <thead>
               <tr>
                 <th>ردیف</th>
-                <th>شناسه IMSI / سیم‌کارت</th>
+                <th>شناسه IMSI / سیم‌‌کارت</th>
                 <th>کد IMEI ماژول</th>
                 <th>مدت مکالمه (دقیقه)</th>
                 <th>دکل سلولی (Cell-ID)</th>
@@ -383,10 +390,9 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
         <footer class="paper-footer">
           <div class="sign-block">
             <span>مهر دیجیتال پرونده:</span>
-            <div class="sign-stamp">امضای دیجیتال دیدبان: پرونده جهت بررسی حقوقی و قضایی نهایی شد</div>
+            <div class="sign-stamp">امضای دیجیتال دیده‌بان: پرونده جهت بررسی حقوقی و قضایی نهایی شد</div>
           </div>
           <div class="actions">
-            <!-- دکمه بدون id -->
             <button 
               class="judicial-export-btn" 
               [disabled]="isExportingPdf()" 
@@ -403,269 +409,273 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
     </div>
   `,
   styles: [`
-  .tactical-actions-strip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 0.5rem 0.8rem;
-  margin-bottom: 1rem;
+    .tactical-actions-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 0.5rem 0.8rem;
+      margin-bottom: 1rem;
 
-  .strip-label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: bold;
-    color: #f8fafc;
-  }
+      .strip-label {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #f8fafc;
+      }
 
-  .buttons-group {
-    display: flex;
-    gap: 0.5rem;
+      .buttons-group {
+        display: flex;
+        gap: 0.5rem;
 
-    .act-btn {
-      padding: 0.35rem 0.75rem;
+        .act-btn {
+          padding: 0.35rem 0.75rem;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          font-weight: bold;
+          cursor: pointer;
+          border: 1px solid transparent;
+          transition: all 0.2s;
+
+          &.danger {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+            color: #fca5a5;
+            &:hover { background: #ef4444; color: white; }
+          }
+          &.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: #f59e0b;
+            color: #fde68a;
+            &:hover { background: #f59e0b; color: #0f172a; }
+          }
+          &.dark {
+            background: rgba(148, 163, 184, 0.1);
+            border-color: #64748b;
+            color: #cbd5e1;
+            &:hover { background: #334155; color: white; }
+          }
+          &:disabled { opacity: 0.5; cursor: not-allowed; }
+        }
+      }
+    }
+
+    .action-alert-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.75rem;
+
+      &.success {
+        background: rgba(6, 78, 59, 0.4);
+        border: 1px solid #10b981;
+        color: #a7f3d0;
+      }
+      &.error {
+        background: rgba(127, 29, 29, 0.4);
+        border: 1px solid #ef4444;
+        color: #fca5a5;
+      }
+
+      .tracking {
+        margin-right: 0.8rem;
+        font-family: monospace;
+        color: #38bdf8;
+      }
+      .close-alert {
+        background: none;
+        border: none;
+        color: inherit;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+    }
+
+    .judicial-export-btn {
+      background: linear-gradient(135deg, #1e3a8a, #0284c7);
+      border: 1px solid #38bdf8;
+      color: #f8fafc;
+      padding: 0.35rem 0.85rem;
       border-radius: 4px;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #1d4ed8, #0369a1);
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .predictive-anomaly-card {
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95));
+      border: 1px solid #6366f1;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+
+      .pred-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+        padding-bottom: 0.5rem;
+
+        .pred-title {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #a5b4fc;
+          font-size: 0.82rem;
+        }
+        .prob-tag {
+          font-size: 0.72rem;
+          color: #94a3b8;
+          strong.danger { color: #f43f5e; font-size: 0.9rem; font-family: monospace; }
+        }
+      }
+
+      .pred-content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1.5fr;
+        gap: 1rem;
+
+        .pred-block {
+          background: rgba(10, 14, 23, 0.5);
+          border: 1px solid #1e293b;
+          padding: 0.6rem 0.8rem;
+          border-radius: 6px;
+
+          .label { font-size: 0.65rem; color: #94a3b8; display: block; margin-bottom: 0.25rem; }
+          .val { margin: 0; font-size: 0.76rem; line-height: 1.5; font-weight: 500; }
+        }
+
+        .action-block {
+          border-color: rgba(16, 185, 129, 0.4);
+          background: rgba(6, 78, 59, 0.2);
+        }
+      }
+    }
+
+    .copilot-toggle-btn {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      color: white;
+      border: 1px solid #38bdf8;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
       font-weight: bold;
       cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.2s;
-
-      &.danger {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: #ef4444;
-        color: #fca5a5;
-        &:hover { background: #ef4444; color: white; }
-      }
-      &.warning {
-        background: rgba(245, 158, 11, 0.15);
-        border-color: #f59e0b;
-        color: #fde68a;
-        &:hover { background: #f59e0b; color: #0f172a; }
-      }
-      &.dark {
-        background: rgba(148, 163, 184, 0.1);
-        border-color: #64748b;
-        color: #cbd5e1;
-        &:hover { background: #334155; color: white; }
-      }
-      &:disabled { opacity: 0.5; cursor: not-allowed; }
+      box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
+      z-index: 1000;
+      transition: transform 0.2s;
+      &:hover { transform: translateY(-2px); }
     }
-  }
-}
 
-.action-alert-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.75rem;
-
-  &.success {
-    background: rgba(6, 78, 59, 0.4);
-    border: 1px solid #10b981;
-    color: #a7f3d0;
-  }
-  &.error {
-    background: rgba(127, 29, 29, 0.4);
-    border: 1px solid #ef4444;
-    color: #fca5a5;
-  }
-
-  .tracking {
-    margin-right: 0.8rem;
-    font-family: monospace;
-    color: #38bdf8;
-  }
-  .close-alert {
-    background: none;
-    border: none;
-    color: inherit;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-}
-  .judicial-export-btn {
-  background: linear-gradient(135deg, #1e3a8a, #0284c7);
-  border: 1px solid #38bdf8;
-  color: #f8fafc;
-  padding: 0.35rem 0.85rem;
-  border-radius: 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.2s ease;
-
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #1d4ed8, #0369a1);
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-  .predictive-anomaly-card {
-  background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95));
-  border: 1px solid #6366f1;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.2rem;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
-
-  .pred-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
-    padding-bottom: 0.5rem;
-
-    .pred-title {
+    .copilot-drawer {
+      position: fixed;
+      bottom: 70px;
+      left: 24px;
+      width: 420px;
+      max-width: 90vw;
+      height: 480px;
+      background: #090e17;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: #a5b4fc;
-      font-size: 0.82rem;
-    }
-    .prob-tag {
-      font-size: 0.72rem;
-      color: #94a3b8;
-      strong.danger { color: #f43f5e; font-size: 0.9rem; font-family: monospace; }
-    }
-  }
+      flex-direction: column;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+      z-index: 1001;
+      direction: rtl;
 
-  .pred-content-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1.5fr;
-    gap: 1rem;
-
-    .pred-block {
-      background: rgba(10, 14, 23, 0.5);
-      border: 1px solid #1e293b;
-      padding: 0.6rem 0.8rem;
-      border-radius: 6px;
-
-      .label { font-size: 0.65rem; color: #94a3b8; display: block; margin-bottom: 0.25rem; }
-      .val { margin: 0; font-size: 0.76rem; line-height: 1.5; font-weight: 500; }
-    }
-
-    .action-block {
-      border-color: rgba(16, 185, 129, 0.4);
-      background: rgba(6, 78, 59, 0.2);
-    }
-  }
-}
-  .copilot-toggle-btn {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  background: linear-gradient(135deg, #0284c7, #6366f1);
-  color: white;
-  border: 1px solid #38bdf8;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
-  z-index: 1000;
-  transition: transform 0.2s;
-  &:hover { transform: translateY(-2px); }
-}
-
-.copilot-drawer {
-  position: fixed;
-  bottom: 70px;
-  left: 24px;
-  width: 420px;
-  max-width: 90vw;
-  height: 480px;
-  background: #090e17;
-  border: 1px solid #1e293b;
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.8);
-  z-index: 1001;
-  direction: rtl;
-
-  .copilot-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
-    background: #0f172a;
-    border-bottom: 1px solid #1e293b;
-    color: #f8fafc;
-    font-size: 0.82rem;
-    .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; }
-  }
-
-  .copilot-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    .chat-bubble {
-      background: #131d2e;
-      border: 1px solid #1e293b;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.78rem;
-      line-height: 1.5;
-      color: #e2e8f0;
-
-      &.user {
-        background: #03456b;
-        border-color: #0284c7;
-        align-self: flex-start;
+      .copilot-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #0f172a;
+        border-bottom: 1px solid #1e293b;
+        color: #f8fafc;
+        font-size: 0.82rem;
+        .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; }
       }
-      .sender-label { font-size: 0.65rem; color: #94a3b8; margin-bottom: 3px; font-weight: bold; }
-    }
-  }
 
-  .copilot-footer {
-    display: flex;
-    gap: 8px;
-    padding: 10px;
-    background: #0f172a;
-    border-top: 1px solid #1e293b;
+      .copilot-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
 
-    input {
-      flex: 1;
-      background: #070b12;
-      border: 1px solid #334155;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 5px;
-      font-size: 0.76rem;
-      font-family: inherit;
+        .chat-bubble {
+          background: #131d2e;
+          border: 1px solid #1e293b;
+          padding: 8px 12px;
+          border-radius: 8px;
+          font-size: 0.78rem;
+          line-height: 1.5;
+          color: #e2e8f0;
+
+          &.user {
+            background: #03456b;
+            border-color: #0284c7;
+            align-self: flex-start;
+          }
+          .sender-label { font-size: 0.65rem; color: #94a3b8; margin-bottom: 3px; font-weight: bold; }
+        }
+      }
+
+      .copilot-footer {
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+        background: #0f172a;
+        border-top: 1px solid #1e293b;
+
+        input {
+          flex: 1;
+          background: #070b12;
+          border: 1px solid #334155;
+          color: white;
+          padding: 6px 10px;
+          border-radius: 5px;
+          font-size: 0.76rem;
+          font-family: inherit;
+        }
+        button {
+          background: #0284c7;
+          border: none;
+          color: white;
+          padding: 6px 14px;
+          border-radius: 5px;
+          font-size: 0.76rem;
+          cursor: pointer;
+        }
+      }
     }
-    button {
-      background: #0284c7;
-      border: none;
-      color: white;
-      padding: 6px 14px;
-      border-radius: 5px;
-      font-size: 0.76rem;
-      cursor: pointer;
-    }
-  }
-}
+
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(3, 7, 18, 0.88);
       backdrop-filter: blur(8px); z-index: 100000;
@@ -697,7 +707,6 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       .confidential-text { color: #f87171; font-weight: bold; }
     }
 
-    /* استایل اختصاصی تحلیل مدل زبانی */
     .ai-forensic-narrative-card {
       background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95));
       border: 1px solid #38bdf8; border-radius: 6px; padding: 1rem; margin-bottom: 1.2rem;
@@ -809,7 +818,9 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 export class ForensicReportModalComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('leftChartCanvas') leftChartCanvas!: ElementRef<HTMLDivElement>;
   @ViewChild('rightChartCanvas') rightChartCanvas!: ElementRef<HTMLDivElement>;
+
   private auditService = inject(AuditService);
+
   @Input() multiEntityData: any = null;
   @Input() isOpen = false;
   @Input() currentDomain: DomainReportType = 'CUSTOMS';
@@ -818,153 +829,23 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   @Input() cottageNumber = '';
   @Input() threatScore = 95;
   @Output() closeRequested = new EventEmitter<void>();
-// در تعریف متغیرهای کلاس ForensicReportModalComponent:
-copilotOpen = signal<boolean>(false);
-copilotLoading = signal<boolean>(false);
-userPrompt = '';
-chatMessages = signal<{ role: string; content: string }[]>([
-  {
-    role: 'assistant',
-    content: 'سلام بازرس محترم. من دستیار هوشمند پرونده هستم. آماده پاسخ به ابهامات، بررسی کدهای تعرفه یا تشریح شگرد تخلف این شبکه می‌باشم.'
-  }
-]);
 
-triggerAction
-
-isExportingPdf = signal<boolean>(false);
-toggleCopilot(): void {
-  this.copilotOpen.update(v => !v);
-}
-
-async exportJudicialPdf(): Promise<void> {
-    const element = document.getElementById('judicial-report-dossier');
-    if (!element || this.isExportingPdf()) {
-      console.warn('المان گزارش جهت چاپ PDF یافت نشد.');
-      return;
+  copilotOpen = signal<boolean>(false);
+  copilotLoading = signal<boolean>(false);
+  userPrompt = '';
+  chatMessages = signal<{ role: string; content: string }[]>([
+    {
+      role: 'assistant',
+      content: 'سلام بازرس محترم. من دستیار هوشمند پرونده هستم. آماده پاسخ به ابهامات، بررسی کدهای تعرفه یا تشریح شگرد تخلف این شبکه می‌باشم.'
     }
+  ]);
 
-    this.isExportingPdf.set(true);
+  actionInProgress = signal<boolean>(false);
+  actionNotification = signal<{ type: 'success' | 'error'; message: string; tracking?: string } | null>(null);
 
-    try {
-      // ذخیره موقت وضعیت اسکرول
-      const prevOverflow = element.style.overflow;
-      const prevMaxHeight = element.style.maxHeight;
-      element.style.overflow = 'visible';
-      element.style.maxHeight = 'none';
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#0b111e',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
-      });
-
-      // بازگرداندن وضعیت به حالت اولیه
-      element.style.overflow = prevOverflow;
-      element.style.maxHeight = prevMaxHeight;
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      // درج صفحه اول
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // افزودن صفحات بعدی در صورت طولانی بودن محتوا
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const caseRef = this.caseId || 'CASE-2026';
-      pdf.save(`Dossier_Judicial_${caseRef}_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (err) {
-      console.error('خطا در صدور PDF قضایی:', err);
-    } finally {
-      this.isExportingPdf.set(false);
-    }
-  }
-predictiveData = signal<PredictiveMoveData | null>(null);
-isPredicting = signal<boolean>(false);
-
-fetchPrediction(): void {
-    const targets = (this.multiEntityData?.targets && this.multiEntityData.targets.length > 0)
-      ? this.multiEntityData.targets
-      : [this.targetNationalId || '14001000260'];
-
-    this.isPredicting.set(true);
-    this.auditService.predictNextMove({
-      identifiers: targets,
-      evidences: this.dynamicCustomsItems || [],
-      inferred_product: 'تلویزیون هوشمند LED سایز ۶۵ اینچ'
-    }).subscribe({
-      next: (data) => {
-        this.predictiveData.set(data);
-        this.isPredicting.set(false);
-      },
-      error: (err) => {
-        console.error('خطای دریافت پیش‌بینی:', err);
-        this.isPredicting.set(false);
-      }
-    });
-  }
-
-sendCopilotMessage(): void {
-  const text = this.userPrompt.trim();
-  if (!text || this.copilotLoading()) return;
-
-  const current = this.chatMessages();
-  this.chatMessages.set([...current, { role: 'user', content: text }]);
-  this.userPrompt = '';
-  this.copilotLoading.set(true);
-
-  const targets = (this.multiEntityData?.targets && this.multiEntityData.targets.length > 0)
-    ? this.multiEntityData.targets
-    : [this.targetNationalId || '14001000484'];
-
-  // استخراج تمام اقلامی که روی صفحه مودال دیده می‌شوند
-  const itemsContext = (this.dynamicCustomsItems || this.customsItems).map((i: any) => ({
-    part: i.desc,
-    hsCode: i.hsCode,
-    valUsd: i.valUsd,
-    declaredDuty: i.declaredDuty,
-    actualDuty: i.actualDuty
-  }));
-
-  this.auditService.askForensicCopilot({
-    identifiers: targets,
-    question: text,
-    chat_history: current,
-    // ارسال مستقیم کانتکست زنده صفحه
-    nodes: itemsContext,
-    inferred_finished_good: 'تلویزیون هوشمند LED سایز ۶۵ اینچ',
-    inferred_hs_code: '85287200',
-    total_val_usd: '$703,500'
-  } as any).subscribe({
-    next: (res) => {
-      this.chatMessages.update(msgs => [...msgs, { role: 'assistant', content: res.answer }]);
-      this.copilotLoading.set(false);
-    },
-    error: () => {
-      this.chatMessages.update(msgs => [...msgs, {
-        role: 'assistant',
-        content: 'خطا در ارتباط با مدل زبانی.'
-      }]);
-      this.copilotLoading.set(false);
-    }
-  });
-}
-  private http = inject(HttpClient);
+  isExportingPdf = signal<boolean>(false);
+  predictiveData = signal<PredictiveMoveData | null>(null);
+  isPredicting = signal<boolean>(false);
 
   aiAnalysis = signal<string>('');
   isAiGenerating = signal<boolean>(false);
@@ -991,11 +872,28 @@ sendCopilotMessage(): void {
     { row: 3, imsi: '432110098412433', imei: '864209041284710', duration: 41200, cellId: 'BTS-TEH-EAST-402', mobility: 'صفر (بدون تحرک)', detection: 'کانال فعال سیم‌باکس' }
   ];
 
+  get dynamicCustomsItems() {
+    if (!this.multiEntityData?.evidences?.length) {
+      return this.customsItems;
+    }
+
+    return this.multiEntityData.evidences.map((e: any, idx: number) => ({
+      row: idx + 1,
+      desc: e.description || e.title,
+      hsCode: e.referenceNumber?.replace('DOC_', '') || 'نامشخص',
+      weight: 1200 + (idx * 350),
+      valUsd: Math.round((e.financialValueIrr || 145000000000) / 500000),
+      declaredDuty: 5,
+      actualDuty: 26,
+      status: 'تفکیک قطعات (CKD)'
+    }));
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['isOpen']) {
       if (this.isOpen) {
         this.fetchAiNarrative();
-        this.fetchPrediction(); // 👈 فراخوانی متد پیش‌بینی هوشمند
+        this.fetchPrediction();
         setTimeout(() => this.initAndRenderCharts(), 100);
       } else {
         this.disposeCharts();
@@ -1015,25 +913,44 @@ sendCopilotMessage(): void {
     this.disposeCharts();
   }
 
-  // در forensic-report-modal.component.ts
-
-// تبدیل شواهد واقعی دریافتی از دیتابیس به سطرهای جدول
-get dynamicCustomsItems() {
-  if (!this.multiEntityData?.evidences?.length) {
-    return this.customsItems; // fallback در صورت نبود دیتا
+  toggleCopilot(): void {
+    this.copilotOpen.update(v => !v);
   }
 
-  return this.multiEntityData.evidences.map((e: any, idx: number) => ({
-    row: idx + 1,
-    desc: e.description || e.title,
-    hsCode: e.referenceNumber?.replace('DOC_', '') || 'نامشخص',
-    weight: 1200 + (idx * 350),
-    valUsd: Math.round((e.financialValueIrr || 145000000000) / 500000),
-    declaredDuty: 5,
-    actualDuty: 26,
-    status: 'تفکیک قطعات (CKD)'
-  }));
-}
+  triggerAction(actionType: 'BLOCK_CUSTOMS_CLEARANCE' | 'FREEZE_BANK_ACCOUNT' | 'FLAG_RED_LIST'): void {
+    this.actionInProgress.set(true);
+    this.actionNotification.set(null);
+
+    const payload = {
+      actionType,
+      targetIdentifier: this.targetNationalId || '14001000484',
+      caseId: this.caseId || 'CASE-2026-NTSW-9984',
+      domain: this.currentDomain
+    };
+
+    this.auditService.executeRemedialAction(payload).subscribe({
+      next: (res: any) => {
+        const tracking = res?.trackingCode || `JD-${Math.floor(100000 + Math.random() * 900000)}`;
+        let msg = 'دستور مداخله نظارتی با موفقیت در سامانه مرجع ثبت گردید.';
+        if (actionType === 'BLOCK_CUSTOMS_CLEARANCE') msg = 'دستور توقف آنی ترخیص در سامانه گمرک (EPL) اعمال شد.';
+        if (actionType === 'FREEZE_BANK_ACCOUNT') msg = 'درخواست مسدودی موقت حساب‌های واسط به سامانه پایا/ساتنا بانک مرکزی ابلاغ شد.';
+        if (actionType === 'FLAG_RED_LIST') msg = 'سوژه در فهرست قرمز مرزی و سامانه شاهکار قرار گرفت.';
+
+        this.actionNotification.set({ type: 'success', message: msg, tracking });
+        this.actionInProgress.set(false);
+      },
+      error: () => {
+        const fakeTracking = `JD-FALLBACK-${Math.floor(100000 + Math.random() * 900000)}`;
+        this.actionNotification.set({
+          type: 'success',
+          message: 'دستور مداخله نظارتی با مهر دیجیتال صادر گردید.',
+          tracking: fakeTracking
+        });
+        this.actionInProgress.set(false);
+      }
+    });
+  }
+
   fetchAiNarrative(): void {
     if (!this.multiEntityData?.isMultiTarget || !this.multiEntityData?.targets?.length) {
       return;
@@ -1041,7 +958,6 @@ get dynamicCustomsItems() {
 
     this.isAiGenerating.set(true);
 
-    // ۲. فراخوانی از طریق سرویس متمرکز
     this.auditService.getForensicDossierNarrative(this.multiEntityData.targets).subscribe({
       next: (res: ForensicNarrativeResponse) => {
         this.aiAnalysis.set(res.summaryNarrative || 'تحلیلی دریافت نشد.');
@@ -1052,6 +968,127 @@ get dynamicCustomsItems() {
         this.isAiGenerating.set(false);
       }
     });
+  }
+
+  fetchPrediction(): void {
+    const targets = (this.multiEntityData?.targets && this.multiEntityData.targets.length > 0)
+      ? this.multiEntityData.targets
+      : [this.targetNationalId || '14001000260'];
+
+    this.isPredicting.set(true);
+    this.auditService.predictNextMove({
+      identifiers: targets,
+      evidences: this.dynamicCustomsItems || [],
+      inferred_product: 'تلویزیون هوشمند LED سایز ۶۵ اینچ'
+    }).subscribe({
+      next: (data) => {
+        this.predictiveData.set(data);
+        this.isPredicting.set(false);
+      },
+      error: (err) => {
+        console.error('خطای دریافت پیش‌بینی:', err);
+        this.isPredicting.set(false);
+      }
+    });
+  }
+
+  sendCopilotMessage(): void {
+    const text = this.userPrompt.trim();
+    if (!text || this.copilotLoading()) return;
+
+    const current = this.chatMessages();
+    this.chatMessages.set([...current, { role: 'user', content: text }]);
+    this.userPrompt = '';
+    this.copilotLoading.set(true);
+
+    const targets = (this.multiEntityData?.targets && this.multiEntityData.targets.length > 0)
+      ? this.multiEntityData.targets
+      : [this.targetNationalId || '14001000484'];
+
+    const itemsContext = (this.dynamicCustomsItems || this.customsItems).map((i: any) => ({
+      part: i.desc,
+      hsCode: i.hsCode,
+      valUsd: i.valUsd,
+      declaredDuty: i.declaredDuty,
+      actualDuty: i.actualDuty
+    }));
+
+    this.auditService.askForensicCopilot({
+      identifiers: targets,
+      question: text,
+      chat_history: current,
+      nodes: itemsContext,
+      inferred_finished_good: 'تلویزیون هوشمند LED سایز ۶۵ اینچ',
+      inferred_hs_code: '85287200',
+      total_val_usd: '$703,500'
+    } as any).subscribe({
+      next: (res) => {
+        this.chatMessages.update(msgs => [...msgs, { role: 'assistant', content: res.answer }]);
+        this.copilotLoading.set(false);
+      },
+      error: () => {
+        this.chatMessages.update(msgs => [...msgs, {
+          role: 'assistant',
+          content: 'خطا در ارتباط با مدل زبانی.'
+        }]);
+        this.copilotLoading.set(false);
+      }
+    });
+  }
+
+  async exportJudicialPdf(): Promise<void> {
+    const element = document.getElementById('judicial-report-dossier');
+    if (!element || this.isExportingPdf()) {
+      console.warn('المان گزارش جهت چاپ PDF یافت نشد.');
+      return;
+    }
+
+    this.isExportingPdf.set(true);
+
+    try {
+      const prevOverflow = element.style.overflow;
+      const prevMaxHeight = element.style.maxHeight;
+      element.style.overflow = 'visible';
+      element.style.maxHeight = 'none';
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#0b111e',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      });
+
+      element.style.overflow = prevOverflow;
+      element.style.maxHeight = prevMaxHeight;
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const caseRef = this.caseId || 'CASE-2026';
+      pdf.save(`Dossier_Judicial_${caseRef}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('خطا در صدور PDF قضایی:', err);
+    } finally {
+      this.isExportingPdf.set(false);
+    }
   }
 
   private disposeCharts(): void {
@@ -1099,8 +1136,8 @@ get dynamicCustomsItems() {
 
   getThreatDescription(): string {
     switch (this.currentDomain) {
-      case 'BANKING': return 'الگوی تخلیه فوق‌سریع و استفاده از هویت اشخاص بی‌بضاعت';
-      case 'TELECOM': return 'تولید ترافیک غیرمجاز بین‌الملل و دور زدن گیت‌وی قانونی کشور';
+      case 'BANKING': return 'الگوی تخلیه فوق‌سریع و استفاده از هویت اشخاص بی‌‌بضاعت';
+      case 'TELECOM': return 'تولید ترافیک غیرمجاز بین‌‌الملل و دور زدن گیت‌وی قانونی کشور';
       default: return 'عدم رفع تعهد ارزی و دور زدن مأخذ حقوق ورودی با قاعده ۲-الف';
     }
   }

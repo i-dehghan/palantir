@@ -6,8 +6,36 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# تنظیمات پیش‌فرض اتصال به مدل زبانی
-DEFAULT_LLM_API_KEY = os.getenv("LLM_API_KEY", "your-deepseek-api-key")
+
+def _load_secret_fallback() -> tuple[Optional[str], Optional[str]]:
+    """
+    بررسی و استخراج امن کلیدهای احراز هویت از فایل محلی secrets.txt
+    خارج از پوشه ریپازیتوری گیت جهت ممانعت از افشای کلیدهای محرمانه.
+    """
+    secret_path = r"D:\project\Dideban\secrets.txt"
+    deepseek_key = None
+    google_key = None
+
+    if os.path.exists(secret_path):
+        try:
+            with open(secret_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line_clean = line.strip()
+                    if not line_clean or line_clean.startswith("#"):
+                        continue
+                    if line_clean.startswith("sk-") and not deepseek_key:
+                        deepseek_key = line_clean.split("=")[0].strip()
+                    elif line_clean.startswith("AIza") and not google_key:
+                        google_key = line_clean.split("=")[0].strip()
+        except Exception as e:
+            logger.warning(f"عدم امکان خواندن فایل کلیدهای محلی: {e}")
+
+    return deepseek_key, google_key
+
+
+_local_deepseek, _local_google = _load_secret_fallback()
+
+DEFAULT_LLM_API_KEY = os.getenv("LLM_API_KEY", _local_deepseek or "your-deepseek-api-key")
 DEFAULT_LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
 DEFAULT_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-chat")
 
@@ -44,7 +72,6 @@ class ForensicNarrativeEngine:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        # verify=False جهت ممانعت از خطای [SSL: CERTIFICATE_VERIFY_FAILED] در شبکه‌های سازمانی
         async with httpx.AsyncClient(timeout=90.0, verify=False) as client:
             try:
                 response = await client.post(
@@ -127,14 +154,12 @@ class ForensicNarrativeEngine:
 
         messages = [{"role": "system", "content": system_prompt}]
 
-        # درج کانتکست زنده صفحه در ابتدای مکالمه
         if context_data:
             messages.append({
                 "role": "system",
                 "content": f"شواهد و اقلام جاری پرونده روی صفحه:\n{json.dumps(context_data, ensure_ascii=False)}",
             })
 
-        # درج تاریخچه پیام‌های قبلی کاربر و دستیار
         if chat_history:
             for msg in chat_history[-6:]:
                 role = "assistant" if msg.get("role") == "assistant" else "user"
@@ -209,5 +234,4 @@ class ForensicNarrativeEngine:
         return result
 
 
-# نمونه سراسری جهت تزریق در اندپوینت‌های FastAPI
 forensic_narrative_engine = ForensicNarrativeEngine()

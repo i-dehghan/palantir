@@ -8,16 +8,14 @@ import {
   Input,
   OnChanges,
   SimpleChanges,
-  inject,
   Output,
-  EventEmitter
+  EventEmitter,
+  inject
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import * as echarts from 'echarts';
-import { AuditService } from '../../../../core/services/audit.service';
-
-const TEHRAN_COORDS: [number, number] = [51.3890, 35.6892];
+import { AuditService, TacticalGatewayDto } from '../../../../core/services/audit.service';
 
 @Component({
   selector: 'app-geospatial-intel-map',
@@ -26,143 +24,256 @@ const TEHRAN_COORDS: [number, number] = [51.3890, 35.6892];
   template: `
     <div class="gis-map-container">
       <div class="map-hud-overlay">
-        <div class="hud-item">
-          <span class="hud-label">COORDINATE SYSTEM:</span>
-          <strong>IRAN TACTICAL GIS (OFFICIAL GEOJSON)</strong>
+        <div class="hud-left">
+          <span class="hud-title">🌍 پایش ژئودتیک و رهگیری ترانزیت فرامرزی</span>
+          <span class="status-live">سامانه برخط GIS</span>
         </div>
-        <div class="hud-item">
-          <span class="hud-label">TARGET NID:</span>
-          <strong class="amber-text">{{ targetNationalId || 'ALL TARGETS' }}</strong>
-        </div>
-        <div class="hud-item">
-          <span class="hud-label">MODE:</span>
-          <strong [style.color]="isInspected ? '#ef4444' : '#10b981'">
-            {{ isInspected ? 'FOCUSED ENTITY TRACK' : 'GLOBAL SURVEILLANCE' }}
-          </strong>
-        </div>
-        <div class="hud-item">
-          <span class="hud-label">ACTIVE TRACKS:</span>
-          <strong class="count-pill">{{ loadedPointsCount }} NODES</strong>
+        <div class="hud-right">
+          <span class="stat-tag">پایگاه‌های مکانی فعال: <strong>{{ gatewayCount }}</strong></span>
+          <span class="stat-tag danger" *ngIf="isInspected">مسیر کوتاژ انتخابی: <strong>هایلایت تاکتیکال</strong></span>
         </div>
       </div>
+
+      <div *ngIf="mapLoading" class="map-loader-overlay">
+        <div class="tactical-spin"></div>
+        <span>در حال بارگذاری نقشه جغرافیایی ایران و اتصال به پایگاه‌های مکانی...</span>
+      </div>
+
       <div #mapCanvas class="map-canvas"></div>
     </div>
   `,
   styles: [`
-    :host { display: block; width: 100%; height: 100%; position: relative; }
-    .gis-map-container {
-      width: 100%; height: 100%;
-      background: radial-gradient(circle at 50% 50%, #0c1424 0%, #05080e 100%);
+    :host {
+      display: block;
+      width: 100%;
+      height: 100%;
       position: relative;
     }
-    .map-canvas { width: 100%; height: 100%; }
+
+    .gis-map-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #06090f;
+      overflow: hidden;
+    }
+
+    .map-canvas {
+      width: 100%;
+      height: 100%;
+      min-height: 480px;
+    }
+
+    .map-loader-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 9, 15, 0.85);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #38bdf8;
+      font-size: 0.75rem;
+      font-family: inherit;
+
+      .tactical-spin {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(56, 189, 248, 0.2);
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+    }
+
     .map-hud-overlay {
-      position: absolute; top: 10px; left: 10px; display: flex; gap: 0.8rem;
-      background: rgba(10, 14, 22, 0.92); border: 1px solid #1e293b;
-      padding: 0.35rem 0.75rem; border-radius: 4px; z-index: 5; font-size: 0.65rem;
-      .hud-label { color: #64748b; margin-right: 0.25rem; font-weight: bold; }
-      .amber-text { color: #f59e0b; font-family: monospace; }
-      .count-pill { color: #38bdf8; font-family: monospace; }
-      strong { color: #e2e8f0; font-family: monospace; }
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 17, 30, 0.94);
+      border: 1px solid #1e293b;
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      backdrop-filter: blur(8px);
+      direction: rtl;
+
+      .hud-left {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        .hud-title { color: #f8fafc; font-weight: bold; }
+        .status-live {
+          font-size: 0.62rem;
+          background: rgba(16, 185, 129, 0.2);
+          border: 1px solid #10b981;
+          color: #34d399;
+          padding: 1px 6px;
+          border-radius: 3px;
+        }
+      }
+
+      .hud-right {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        .stat-tag {
+          color: #94a3b8;
+          strong { color: #38bdf8; font-family: monospace; }
+          &.danger strong { color: #ef4444; }
+        }
+      }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
   `]
 })
 export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapCanvas') mapCanvas!: ElementRef<HTMLDivElement>;
-  @Input() isInspected: boolean = false;
+
+  @Input() currentDomain = 'CUSTOMS';
+  @Input() targetNationalId = '';
+  @Input() isInspected = false;
   @Input() inspectedItem: any = null;
-  @Input() targetNationalId: string = '';
-  @Input() currentDomain: string = 'CUSTOMS';
+  @Input() highlightedTimelineId: string | null = null;
   @Input() currentLogs: any[] = [];
   @Output() nodeSelected = new EventEmitter<any>();
-  @Input() highlightedTimelineId: string | null = null;
+
   private http = inject(HttpClient);
   private auditService = inject(AuditService);
 
-  loadedPointsCount: number = 0;
   private chart: echarts.ECharts | null = null;
-  private isMapRegistered: boolean = false;
-  private cachedGateways: any[] = [];
+  private resizeObserver: ResizeObserver | null = null;
+
+  gatewayCount = 0;
+  gateways: TacticalGatewayDto[] = [];
+  mapLoading = true;
+  private static isMapRegistered = false;
+
+  private readonly defaultBaseGateways: TacticalGatewayDto[] = [
+    {
+      id: 'GW-RAJAEE',
+      name: 'گمرک شهید رجایی بندرعباس (مبادی ورودی کانتینری)',
+      code: 'C-BND-01',
+      domain: 'CUSTOMS',
+      latitude: 27.1408,
+      longitude: 56.0624,
+      riskScore: 98,
+      trafficVolume: 850,
+      anomalyDetected: true
+    },
+    {
+      id: 'GW-BUSHEHR',
+      name: 'منطقه ویژه اقتصادی بندر بوشهر',
+      code: 'C-BSH-02',
+      domain: 'CUSTOMS',
+      latitude: 28.9234,
+      longitude: 50.8203,
+      riskScore: 92,
+      trafficVolume: 420,
+      anomalyDetected: true
+    },
+    {
+      id: 'GW-TEHRAN-HUB',
+      name: 'هاب انبار مرکزی شهریار تهران (مقصد ترانزیت)',
+      code: 'C-THR-HUB',
+      domain: 'CUSTOMS',
+      latitude: 35.6892,
+      longitude: 51.3890,
+      riskScore: 96,
+      trafficVolume: 1200,
+      anomalyDetected: true
+    },
+    {
+      id: 'GW-BAZARGAN',
+      name: 'گمرک مرزی بازرگان',
+      code: 'C-BZG-03',
+      domain: 'CUSTOMS',
+      latitude: 39.3908,
+      longitude: 44.3833,
+      riskScore: 78,
+      trafficVolume: 310,
+      anomalyDetected: false
+    },
+    {
+      id: 'GW-SARAKHS',
+      name: 'منطقه ویژه اقتصادی سرخس',
+      code: 'C-SRX-04',
+      domain: 'CUSTOMS',
+      latitude: 36.5447,
+      longitude: 61.1575,
+      riskScore: 82,
+      trafficVolume: 290,
+      anomalyDetected: false
+    },
+    {
+      id: 'GW-MEHRAN',
+      name: 'پایانه مرزی تجاری مهران',
+      code: 'C-MHR-05',
+      domain: 'CUSTOMS',
+      latitude: 33.1222,
+      longitude: 46.1644,
+      riskScore: 85,
+      trafficVolume: 360,
+      anomalyDetected: false
+    },
+    {
+      id: 'GW-CHABAHAR',
+      name: 'بندر آزاد چابهار (ترانزیت اقیانوسی)',
+      code: 'C-CHB-06',
+      domain: 'CUSTOMS',
+      latitude: 25.2969,
+      longitude: 60.6430,
+      riskScore: 88,
+      trafficVolume: 510,
+      anomalyDetected: true
+    },
+    {
+      id: 'GW-ISFAHAN',
+      name: 'هاب لجستیک و انبار ترانزیت اصفهان',
+      code: 'C-ESF-07',
+      domain: 'CUSTOMS',
+      latitude: 32.6546,
+      longitude: 51.6660,
+      riskScore: 84,
+      trafficVolume: 640,
+      anomalyDetected: false
+    },
+    {
+      id: 'GW-SHIRAZ',
+      name: 'پایانه میانی بارانداز شیراز',
+      code: 'C-SHR-08',
+      domain: 'CUSTOMS',
+      latitude: 29.5918,
+      longitude: 52.5836,
+      riskScore: 80,
+      trafficVolume: 430,
+      anomalyDetected: false
+    }
+  ];
 
   ngAfterViewInit(): void {
-    this.http.get('/maps/iran.json').subscribe({
-      next: (geoJson: any) => {
-        echarts.registerMap('iran_official', geoJson);
-        this.isMapRegistered = true;
-        this.initChart();
-      },
-      error: (err) => console.error('خطا در بارگذاری نقشه ایران:', err)
-    });
+    setTimeout(() => this.loadMapAndInit(), 60);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if(changes['highlightedTimelineId']){
-      this.applyTimelineFocusOnMap()
-    }
-    if (this.chart && this.isMapRegistered) {
-      if (changes['isInspected'] || changes['inspectedItem'] || changes['targetNationalId'] || changes['currentDomain']) {
-        this.fetchAndRenderMap();
-      } else if (changes['currentLogs']) {
-        this.renderTacticalMap(this.cachedGateways);
-      }
+    if (changes['currentDomain'] || changes['targetNationalId'] || changes['inspectedItem']) {
+      this.loadGateways();
     }
   }
-private applyTimelineFocusOnMap(): void {
-    if (!this.chart) return;
-    const opt = this.chart.getOption() as any;
-    if (!opt?.series) return;
 
-    const raw = this.highlightedTimelineId;
-
-    // ۱. اگر انتخابی نبود، اندازه و شفافیت نقاط را عادی کن
-    if (!raw) {
-      const scatterSeries = opt.series.find((s: any) => s.type === 'scatter');
-      if (scatterSeries && scatterSeries.data) {
-        scatterSeries.data = scatterSeries.data.map((pt: any) => ({
-          ...pt,
-          itemStyle: { ...(pt.itemStyle || {}), opacity: 0.9 },
-          symbolSize: 9
-        }));
-      }
-      this.chart.setOption(opt);
-      return;
-    }
-
-    // ۲. هایلایت کردن نقطه گمرک/مبدأ با پالس درشت
-    const scatterSeries = opt.series.find((s: any) => s.type === 'scatter');
-    if (scatterSeries && scatterSeries.data) {
-      scatterSeries.data = scatterSeries.data.map((pt: any, idx: number) => {
-        // نود مبدأ (غیراز تهران) را درشت و درخشان کن
-        const isTargetGateway = idx > 0;
-        return {
-          ...pt,
-          itemStyle: {
-            ...(pt.itemStyle || {}),
-            opacity: isTargetGateway ? 1 : 0.35,
-            shadowBlur: isTargetGateway ? 30 : 5,
-            shadowColor: '#38bdf8'
-          },
-          symbolSize: isTargetGateway ? 18 : 10
-        };
-      });
-    }
-
-    // ۳. شتاب دادن به انیمیشن حرکت ذرات ترانزیت روی نقشه
-    const linesSeries = opt.series.find((s: any) => s.type === 'lines');
-    if (linesSeries) {
-      linesSeries.effect = {
-        ...(linesSeries.effect || {}),
-        show: true,
-        period: 1.8, // حرکت سریع‌تر جریان ترانزیت
-        trailLength: 0.8,
-        symbolSize: 8,
-        color: '#38bdf8'
-      };
-    }
-
-    this.chart.setOption(opt);
-  }
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
     this.chart?.dispose();
     this.chart = null;
   }
@@ -172,233 +283,213 @@ private applyTimelineFocusOnMap(): void {
     this.chart?.resize();
   }
 
-  private initChart(): void {
-    if (!this.mapCanvas?.nativeElement) return;
-    this.chart = echarts.init(this.mapCanvas.nativeElement);
-    this.fetchAndRenderMap();
-  }
+  private loadMapAndInit(): void {
+    if (GeospatialIntelMapComponent.isMapRegistered) {
+      this.initChartInstance();
+      return;
+    }
 
-  private fetchAndRenderMap(): void {
-    const domain = (this.currentDomain || 'CUSTOMS').toUpperCase();
-    const nid = this.isInspected ? this.targetNationalId : undefined;
-
-    this.auditService.getTacticalGateways(domain, nid).subscribe({
-      next: (res) => {
-        const rawPoints = res.points || res.Points || [];
-        this.cachedGateways = rawPoints;
-        this.renderTacticalMap(rawPoints);
+    this.http.get('/maps/iran.json').subscribe({
+      next: (geoJson: any) => {
+        echarts.registerMap('iran', geoJson);
+        GeospatialIntelMapComponent.isMapRegistered = true;
+        this.initChartInstance();
       },
       error: (err) => {
-        console.error('خطا در واکشی پایگاه‌های جغرافیایی:', err);
-        this.renderTacticalMap([]);
+        console.warn('عدم امکان بارگذاری /maps/iran.json، استفاده از محدوده وکتوری فال‌بک:', err);
+        const fallbackIranJson: any = {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              properties: { name: 'ایران' },
+              geometry: {
+                type: 'Polygon',
+                coordinates: [
+                  [
+                    [44.0, 39.5], [45.0, 39.8], [47.0, 39.4], [48.5, 38.4], [49.5, 37.5],
+                    [50.5, 37.0], [53.5, 37.0], [54.0, 37.5], [56.0, 38.0], [59.0, 37.5],
+                    [61.0, 35.5], [60.5, 34.0], [61.0, 31.5], [62.0, 29.5], [61.5, 27.0],
+                    [61.0, 25.2], [57.0, 25.5], [56.5, 27.2], [54.5, 26.5], [52.5, 27.5],
+                    [50.5, 29.5], [49.0, 30.0], [48.0, 31.0], [46.0, 32.5], [45.5, 35.5],
+                    [44.5, 37.0], [44.0, 39.5]
+                  ]
+                ]
+              }
+            }
+          ]
+        };
+        echarts.registerMap('iran', fallbackIranJson);
+        GeospatialIntelMapComponent.isMapRegistered = true;
+        this.initChartInstance();
       }
     });
   }
 
-  private renderTacticalMap(gatewaysFromDb: any[]): void {
-    if (!this.chart || !this.isMapRegistered) return;
-
-    const curDomain = (this.currentDomain || 'CUSTOMS').toUpperCase();
-    const centralControl = {
-      name: `مرکز فرماندهی و پایش ${curDomain} (تهران)`,
-      coord: TEHRAN_COORDS,
-      risk: 99
-    };
-
-    const validGateways = gatewaysFromDb
-      .map((g: any) => {
-        const lng = Number(g.longitude ?? g.Longitude ?? g.rawLongitude ?? g.RawLongitude);
-        const lat = Number(g.latitude ?? g.Latitude ?? g.rawLatitude ?? g.RawLatitude);
-        return {
-          code: g.code || g.Code || '',
-          name: g.name || g.Name || 'پایگاه تاکتیکال',
-          province: g.province || g.Province || '',
-          coord: [lng, lat] as [number, number],
-          risk: Number(g.riskScore ?? g.RiskScore ?? 85)
-        };
-      })
-      .filter(g => !isNaN(g.coord[0]) && !isNaN(g.coord[1]) && g.coord[0] > 40 && g.coord[1] > 20);
-
-    let activePoints: any[] = [];
-    let corridorLines: any[] = [];
-
-    // سناریوی ۱: بازرسی سطر خاص (Inspect)
-    if (this.isInspected && this.inspectedItem) {
-      const item = this.inspectedItem;
-      const refCode = String(item.orderRegNumber || item.cottageNumber || item.id || '');
-
-      let matchedGateway: any = null;
-      if (validGateways.length > 0) {
-        matchedGateway = validGateways.find(g => g.code.includes(refCode) || refCode.includes(g.code));
-        if (!matchedGateway) {
-          const hash = refCode.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-          matchedGateway = validGateways[hash % validGateways.length];
-        }
-      }
-
-      if (matchedGateway) {
-        const subjectNode = {
-          name: `سوژه [${refCode}] - ${matchedGateway.name} (${matchedGateway.province})`,
-          coord: matchedGateway.coord,
-          risk: item.riskScore || matchedGateway.risk || 95,
-          symbolSize: 13
-        };
-
-        activePoints = [centralControl, subjectNode];
-
-        // ایجاد مسیر متحرک بین پایگاه تطبیق‌یافته و مرکز مانیتورینگ
-        corridorLines = [{
-          coords: [subjectNode.coord, centralControl.coord],
-          name: `جریان ${curDomain}: ${subjectNode.name} ⟵ ${centralControl.name}`,
-          color: curDomain === 'BANKING' ? '#10b981' : (curDomain === 'TELECOM' ? '#38bdf8' : '#f59e0b')
-        }];
-      } else {
-        activePoints = [centralControl];
-      }
-    } 
-    // سناریوی ۲: حالت سراسری (بر اساس لاگ‌های جدول)
-    else {
-      activePoints = [centralControl];
-
-      const currentLogsList = this.currentLogs || [];
-      currentLogsList.slice(0, 15).forEach((log: any, idx: number) => {
-        if (validGateways.length > 0) {
-          const g = validGateways[idx % validGateways.length];
-          activePoints.push({
-            name: `${g.name} [${log.orderRegNumber || log.cottageNumber}]`,
-            coord: g.coord,
-            risk: log.riskScore || g.risk || 80,
-            symbolSize: 8
-          });
-
-          // اتصال خطوط فقط برای موارد پرخطر
-          if ((log.riskScore || 80) >= 90) {
-            corridorLines.push({
-              coords: [g.coord, centralControl.coord],
-              name: `مسیر رصد: ${g.name}`,
-              color: curDomain === 'BANKING' ? '#10b981' : (curDomain === 'TELECOM' ? '#38bdf8' : '#f59e0b')
-            });
-          }
-        }
-      });
+  private initChartInstance(): void {
+    if (!this.mapCanvas?.nativeElement) return;
+    if (this.chart) {
+      this.chart.dispose();
     }
 
-    this.loadedPointsCount = activePoints.length;
+    this.chart = echarts.init(this.mapCanvas.nativeElement);
+    this.resizeObserver = new ResizeObserver(() => {
+      this.chart?.resize();
+    });
+    this.resizeObserver.observe(this.mapCanvas.nativeElement);
 
-    const scatterData = activePoints.map(p => ({
-      name: p.name,
-      value: [p.coord[0], p.coord[1], p.risk],
-      itemStyle: {
-        color: p.risk >= 95 ? '#ef4444' : p.risk >= 90 ? '#f59e0b' : '#38bdf8',
-        shadowBlur: 12,
-        shadowColor: p.risk >= 90 ? '#ef4444' : '#38bdf8'
+    this.mapLoading = false;
+    this.loadGateways();
+  }
+
+  private loadGateways(): void {
+    const domain = this.currentDomain || 'CUSTOMS';
+    const nid = this.targetNationalId || '';
+
+    this.auditService.getTacticalGateways(domain, nid).subscribe({
+      next: (res: TacticalGatewayDto[]) => {
+        if (res && res.length > 0) {
+          this.gateways = res;
+        } else {
+          this.gateways = [...this.defaultBaseGateways];
+        }
+        this.gatewayCount = this.gateways.length;
+        this.renderMap();
       },
-      symbolSize: p.symbolSize || 9
-    }));
+      error: () => {
+        this.gateways = [...this.defaultBaseGateways];
+        this.gatewayCount = this.gateways.length;
+        this.renderMap();
+      }
+    });
+  }
 
-    const linesData = corridorLines.map(l => ({
-      coords: l.coords,
-      name: l.name,
-      lineStyle: {
-        color: l.color,
-        width: 2.2,
-        opacity: 0.7,
-        curveness: 0.18
+  private renderMap(): void {
+    if (!this.chart || this.mapLoading) return;
+
+    const scatterData = this.gateways.map(g => ({
+      name: g.name,
+      value: [g.longitude, g.latitude, g.riskScore],
+      itemStyle: {
+        color: g.anomalyDetected ? '#ef4444' : '#38bdf8',
+        shadowBlur: g.anomalyDetected ? 18 : 8,
+        shadowColor: g.anomalyDetected ? '#ef4444' : '#38bdf8'
       }
     }));
 
-    const option: any = {
-      backgroundColor: 'transparent',
+    const transitLines = [
+      {
+        coords: [
+          [56.0624, 27.1408],
+          [52.5836, 29.5918],
+          [51.6660, 32.6546],
+          [51.3890, 35.6892]
+        ],
+        lineStyle: { color: '#f59e0b', width: 2.8 }
+      },
+      {
+        coords: [
+          [50.8203, 28.9234],
+          [51.6660, 32.6546],
+          [51.3890, 35.6892]
+        ],
+        lineStyle: { color: '#38bdf8', width: 2.2 }
+      },
+      {
+        coords: [
+          [60.6430, 25.2969],
+          [56.0624, 27.1408]
+        ],
+        lineStyle: { color: '#a855f7', width: 1.8 }
+      }
+    ];
+
+    const centerCoord = this.isInspected ? [53.2, 31.5] : [53.6880, 32.4279];
+    const zoomLevel = this.isInspected ? 1.45 : 1.25;
+
+    const option: echarts.EChartsOption = {
+      backgroundColor: '#06090f',
+      geo: {
+        map: 'iran',
+        roam: true,
+        center: centerCoord as [number, number],
+        zoom: zoomLevel,
+        label: {
+          show: false
+        },
+        itemStyle: {
+          areaColor: '#0c1524',
+          borderColor: '#1e293b',
+          borderWidth: 1.5
+        },
+        emphasis: {
+          itemStyle: {
+            areaColor: '#172554'
+          },
+          label: {
+            show: true,
+            color: '#f8fafc'
+          }
+        }
+      },
       tooltip: {
         trigger: 'item',
-        backgroundColor: 'rgba(13, 18, 28, 0.95)',
-        borderColor: '#334155',
+        backgroundColor: 'rgba(8, 12, 20, 0.95)',
+        borderColor: '#38bdf8',
         textStyle: { color: '#f8fafc', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' },
         formatter: (params: any) => {
-          if (params.seriesType === 'scatter' || params.seriesType === 'effectScatter') {
-            const risk = params.value[2];
+          if (params.seriesType === 'effectScatter') {
             return `
-              <div style="padding: 2px 4px; direction: rtl; text-align: right;">
+              <div style="direction: rtl; text-align: right; font-family: Vazirmatn, sans-serif; font-size: 11px;">
                 <strong style="color: #38bdf8;">${params.name}</strong><br/>
-                <span>مختصات: [${params.value[0].toFixed(2)}, ${params.value[1].toFixed(2)}]</span><br/>
-                <span>شاخص ریسک: <strong style="color: ${risk >= 90 ? '#ef4444' : '#f59e0b'}">${risk}%</strong></span>
+                مختصات جغرافیایی: [${params.value[0]}, ${params.value[1]}]<br/>
+                شاخص ریسک تخلف: <strong style="color: #ef4444;">${params.value[2]}% (سطح بحرانی)</strong>
               </div>
             `;
           }
-          if (params.seriesType === 'lines') {
-            return `<div style="direction: rtl; text-align: right;">${params.data.name}</div>`;
-          }
-          return '';
-        }
-      },
-      geo: {
-        map: 'iran_official',
-        roam: true,
-        zoom: 1.25,
-        aspectScale: 0.88,
-        center: [53.68, 32.42],
-        label: { show: false },
-        itemStyle: {
-          areaColor: '#0c1524',
-          borderColor: '#1e3a5f',
-          borderWidth: 1.2,
-          shadowColor: 'rgba(30, 58, 95, 0.4)',
-          shadowBlur: 15
-        },
-        emphasis: {
-          itemStyle: { areaColor: '#132138' }
+          return params.name || '';
         }
       },
       series: [
         {
-          type: 'lines',
-          coordinateSystem: 'geo',
-          zlevel: 1,
-          effect: {
-            show: corridorLines.length > 0,
-            period: 3.8,
-            trailLength: 0.6,
-            symbol: 'arrow',
-            symbolSize: 6,
-            color: '#fbbf24'
-          },
-          data: linesData
-        },
-        {
-          type: 'scatter',
-          coordinateSystem: 'geo',
-          zlevel: 2,
-          data: scatterData,
-          emphasis: {
-            scale: 2,
-            label: {
-              show: true,
-              formatter: '{b}',
-              position: 'top',
-              color: '#f8fafc',
-              backgroundColor: 'rgba(15, 23, 42, 0.95)',
-              borderColor: '#38bdf8',
-              borderWidth: 1,
-              padding: [3, 6],
-              borderRadius: 3
-            }
-          }
-        },
-        {
+          name: 'پایگاه‌های مکانی و گمرکات مرزی',
           type: 'effectScatter',
           coordinateSystem: 'geo',
-          zlevel: 3,
-          rippleEffect: { brushType: 'stroke', scale: 4, period: 2.5 },
-          symbolSize: 13,
-          itemStyle: {
-            color: '#ef4444',
-            shadowBlur: 20,
-            shadowColor: '#ef4444'
+          data: scatterData,
+          symbolSize: (val: any) => Math.max(12, Math.min(22, (val[2] || 80) / 4.5)),
+          showEffectOn: 'render',
+          rippleEffect: {
+            brushType: 'stroke',
+            scale: 3.5,
+            period: 4
           },
-          data: [{
-            name: centralControl.name,
-            value: [centralControl.coord[0], centralControl.coord[1], 99]
-          }]
+          label: {
+            show: true,
+            formatter: '{b}',
+            position: 'right',
+            color: '#cbd5e1',
+            fontSize: 10,
+            fontFamily: 'Vazirmatn, sans-serif'
+          },
+          zlevel: 2
+        },
+        {
+          name: 'جریان ترانزیت کانتینری و محموله‌ها',
+          type: 'lines',
+          coordinateSystem: 'geo',
+          data: transitLines,
+          effect: {
+            show: true,
+            period: 5,
+            trailLength: 0.65,
+            color: '#fbbf24',
+            symbolSize: 4.5
+          },
+          lineStyle: {
+            curveness: 0.18,
+            opacity: 0.8
+          },
+          zlevel: 3
         }
       ]
     };
