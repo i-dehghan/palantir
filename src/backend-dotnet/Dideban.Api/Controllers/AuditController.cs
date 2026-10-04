@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Dideban.Api.Domain.Entities;
 using Dideban.Api.Infrastructure.Data;
-using Dideban.Api.Domain.Entities;
+using Dideban.Api.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dideban.Api.Controllers;
 
@@ -139,6 +140,21 @@ public class AuditController : ControllerBase
             timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             message = "دستور مداخله نظارتی با مهر دیجیتال سامانه با موفقیت در کارتابل مراجع قضایی و تعزیراتی ابلاغ گردید."
         });
+    }
+
+    [HttpGet("transit-correlator")]
+    public async Task<IActionResult> CorrelateTransit(
+        [FromQuery] string cottageNumber,
+        [FromQuery] string driverMsisdn,
+        [FromServices] ITransitPathCorrelatorService correlatorService)
+    {
+        if (string.IsNullOrWhiteSpace(cottageNumber))
+        {
+            return BadRequest("شماره کوتاژ یا ثبت سفارش الزامی است.");
+        }
+
+        var result = await correlatorService.CorrelateTransitWithCdrAsync(cottageNumber, driverMsisdn);
+        return Ok(result);
     }
 }
 

@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { DiscrepancyLog, DomainType } from '../models/discrepancy.model';
@@ -159,5 +159,12 @@ export class AuditService {
         });
       })
     );
+  }
+
+  getTransitCorrelatorReport(cottageNumber: string, driverMsisdn: string = '09128457660'): Observable<any> {
+    const params = new HttpParams()
+      .set('cottageNumber', cottageNumber)
+      .set('driverMsisdn', driverMsisdn);
+    return this.http.get<any>(`${this.dotnetApiUrl}/transit-correlator`, { params });
   }
 }
