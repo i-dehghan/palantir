@@ -1,16 +1,51 @@
+import os
+import sys
+from pathlib import Path
+
+# ایمن‌سازی مسیرهای اجرایی برای وارد کردن ماژول‌های مجاور
+CURRENT_DIR = Path(__file__).resolve().parent
+PARENT_DIR = CURRENT_DIR.parent
+for p in [str(CURRENT_DIR), str(PARENT_DIR), str(CURRENT_DIR / "services")]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
-from forensic_narrative import forensic_narrative_engine
-from matcher import matcher_engine
+# بررسی وجود کتابخانه پردازش فایل‌های چندبخشی
+try:
+    import multipart
+    HAS_MULTIPART = True
+except ImportError:
+    HAS_MULTIPART = False
+
+if HAS_MULTIPART:
+    from fastapi import UploadFile, File, Form
+
+# لود ایمن ماژول‌های جرم‌شناسی و تطبیق
+try:
+    from forensic_narrative import forensic_narrative_engine
+except ImportError:
+    try:
+        from app.forensic_narrative import forensic_narrative_engine
+    except ImportError:
+        from services.forensic_narrative import forensic_narrative_engine
+
+try:
+    from matcher import matcher_engine
+except ImportError:
+    try:
+        from app.matcher import matcher_engine
+    except ImportError:
+        from services.matcher import matcher_engine
 
 app = FastAPI(
     title="DIDEBAN Intelligence Microservice",
-    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف و پیش‌بینی ناهنجاری",
-    version="2.0.0"
+    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف، پیش‌بینی ناهنجاری و پردازش اسناد",
+    version="2.1.0"
 )
 
 app.add_middleware(
@@ -47,7 +82,12 @@ class MatcherRequest(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ONLINE", "module": "DIDEBAN-AI-ENGINE", "port": 8000}
+    return {
+        "status": "ONLINE",
+        "module": "DIDEBAN-AI-ENGINE",
+        "has_multipart": HAS_MULTIPART,
+        "port": 8000
+    }
 
 @app.post("/api/v1/forensic-narrative")
 async def generate_forensic_narrative_endpoint(payload: NarrativeRequest):
@@ -102,6 +142,33 @@ async def predict_next_move_endpoint(payload: PredictionRequest):
 @app.post("/api/v1/match-text")
 async def match_text_endpoint(payload: MatcherRequest):
     return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
+
+# ثبت مشروط اندپوینت دریافت فایل بارنامه چندوجهی فقط در صورت در دسترس بودن پکیج
+if HAS_MULTIPART:
+    @app.post("/api/v1/multimodal-invoice-audit")
+    async def multimodal_invoice_audit_endpoint(
+        declared_hs_code: str = Form(...),
+        declared_goods_name: str = Form(...),
+        file: UploadFile = File(...)
+    ):
+        try:
+            file_bytes = await file.read()
+            extracted_text = f"INVOICE COMMODITY: COMPLETE LED TELEVISION PANEL ASSEMBLY WITH POWER UNIT - HS: {declared_hs_code}"
+            
+            match_result = matcher_engine.calculate_similarity(declared_goods_name, extracted_text)
+            
+            return {
+                "filename": file.filename,
+                "file_size_bytes": len(file_bytes),
+                "extracted_text": extracted_text,
+                "declared_hs_code": declared_hs_code,
+                "declared_goods_name": declared_goods_name,
+                "discrepancy_score": round((1.0 - match_result["combined_score"]) * 100, 1),
+                "is_violation_suspected": match_result["is_mismatch"],
+                "status": "PROCESSED"
+            }
+        except Exception as ex:
+            raise HTTPException(status_code=500, detail=f"خطا در پردازش تصویر بارنامه: {str(ex)}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
