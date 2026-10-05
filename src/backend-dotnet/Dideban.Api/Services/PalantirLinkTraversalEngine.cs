@@ -8,6 +8,7 @@ namespace Dideban.Api.Services;
 public interface IPalantirLinkTraversalEngine
 {
     Task<MultiHopDossierGraph> TraverseNetworkAsync(string nationalId, int maxDepth = 2);
+    Task<MultiHopDossierGraph> TraverseMultiEntityNetworkAsync(List<string> nationalIds, int maxDepth = 2);
     Task<MultiHopDossierGraph> ExpandNodeAsync(string nodeId);
     Task<PathfindingResultDto> FindShortestIntermediaryPathAsync(string sourceId, string targetId);
 }
@@ -23,122 +24,98 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
 
     public async Task<MultiHopDossierGraph> TraverseNetworkAsync(string nationalId, int maxDepth = 2)
     {
+        return await TraverseMultiEntityNetworkAsync(new List<string> { nationalId }, maxDepth);
+    }
+
+    public async Task<MultiHopDossierGraph> TraverseMultiEntityNetworkAsync(List<string> nationalIds, int maxDepth = 2)
+    {
+        var cleanIds = nationalIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct()
+            .ToList();
+
+        var primaryId = cleanIds.FirstOrDefault() ?? "0000000000";
+
         var graph = new MultiHopDossierGraph
         {
-            RootEntityId = $"PERSON_{nationalId}",
+            RootEntityId = $"PERSON_{primaryId}",
             ExploredDepth = maxDepth
         };
 
         var nodeMap = new Dictionary<string, OntologyNode>();
         var edgeSet = new HashSet<string>();
 
-        var rootNode = new OntologyNode
+        // ایجاد گره برای تمامی سوژه‌های واردشده
+        foreach (var nid in cleanIds)
         {
-            Id = $"PERSON_{nationalId}",
-            Type = EntityType.Person,
-            DisplayLabel = $"سوژه تحت رصد: {nationalId}",
-            RiskScore = 95,
-            Properties = new() { { "NationalId", nationalId }, { "Watchlist", true } }
-        };
-        nodeMap[rootNode.Id] = rootNode;
-
-        var bankAccounts = await _context.Database.SqlQueryRaw<string>(@"
-            SELECT DISTINCT source_account 
-            FROM bank_transactions 
-            WHERE customer_national_id = {0}
-        ", nationalId).ToListAsync();
-
-        var phoneLines = await _context.Database.SqlQueryRaw<string>(@"
-            SELECT DISTINCT caller_msisdn 
-            FROM telecom_cdrs 
-            WHERE caller_national_id = {0}
-            LIMIT 5
-        ", nationalId).ToListAsync();
-
-        var customsDocs = await _context.Database.SqlQueryRaw<string>(@"
-            SELECT DISTINCT order_reg_number 
-            FROM ntsw_orders 
-            WHERE importer_national_id = {0}
-            LIMIT 5
-        ", nationalId).ToListAsync();
-
-        foreach (var acc in bankAccounts)
-        {
-            var accId = $"ACC_{acc}";
-            nodeMap[accId] = new OntologyNode
+            var pId = $"PERSON_{nid}";
+            nodeMap[pId] = new OntologyNode
             {
-                Id = accId,
-                Type = EntityType.BankAccount,
-                DisplayLabel = $"حساب: {acc}",
-                RiskScore = 80,
-                Properties = new() { { "AccountNumber", acc } }
+                Id = pId,
+                Type = EntityType.Person,
+                DisplayLabel = $"سوژه تحت رصد: {nid}",
+                RiskScore = 96,
+                Properties = new() { { "NationalId", nid }, { "Watchlist", true } }
             };
-            AddEdge(graph, edgeSet, rootNode.Id, accId, "OWNS_BANK_ACCOUNT");
         }
 
-        foreach (var phone in phoneLines)
+        // واکشی حساب‌ها و اسناد برای هرکدام از سوژه‌ها
+        foreach (var nid in cleanIds)
         {
-            var phoneId = $"TEL_{phone}";
-            nodeMap[phoneId] = new OntologyNode
-            {
-                Id = phoneId,
-                Type = EntityType.TelecomEndpoint,
-                DisplayLabel = $"سیم‌کارت: {phone}",
-                RiskScore = 75,
-                Properties = new() { { "MSISDN", phone } }
-            };
-            AddEdge(graph, edgeSet, rootNode.Id, phoneId, "REGISTERED_SUBSCRIBER");
-        }
+            var pId = $"PERSON_{nid}";
 
-        foreach (var doc in customsDocs)
-        {
-            var docId = $"DOC_{doc}";
-            nodeMap[docId] = new OntologyNode
-            {
-                Id = docId,
-                Type = EntityType.CustomsDocument,
-                DisplayLabel = $"سند واردات: {doc}",
-                RiskScore = 85,
-                Properties = new() { { "OrderRegNumber", doc } }
-            };
-            AddEdge(graph, edgeSet, rootNode.Id, docId, "DECLARED_IMPORT");
-        }
+            var bankAccounts = await _context.Database.SqlQueryRaw<string>(@"
+                SELECT DISTINCT source_account 
+                FROM bank_transactions 
+                WHERE customer_national_id = {0}
+            ", nid).ToListAsync();
 
-        if (maxDepth >= 2)
-        {
-            if (bankAccounts.Any())
-            {
-                var accList = string.Join("','", bankAccounts);
-                var transfers = await _context.Database.SqlQueryRaw<TransferHopRecord>($@"
-                    SELECT source_account AS SourceAcc, dest_account AS DestAcc, amount_irr AS Amount
-                    FROM bank_transactions 
-                    WHERE source_account IN ('{accList}')
-                    LIMIT 10
-                ").ToListAsync();
+            var customsDocs = await _context.Database.SqlQueryRaw<string>(@"
+                SELECT DISTINCT order_reg_number 
+                FROM ntsw_orders 
+                WHERE importer_national_id = {0}
+                LIMIT 6
+            ", nid).ToListAsync();
 
-                foreach (var tx in transfers)
+            foreach (var acc in bankAccounts)
+            {
+                var accId = $"ACC_{acc}";
+                if (!nodeMap.ContainsKey(accId))
                 {
-                    var destId = $"MULE_{tx.DestAcc}";
-                    if (!nodeMap.ContainsKey(destId))
+                    nodeMap[accId] = new OntologyNode
                     {
-                        nodeMap[destId] = new OntologyNode
-                        {
-                            Id = destId,
-                            Type = EntityType.BankAccount,
-                            DisplayLabel = $"واسط/قاطر: {tx.DestAcc}",
-                            RiskScore = 90,
-                            Properties = new() { { "AccountNumber", tx.DestAcc }, { "Role", "Layering Entity" } }
-                        };
-                    }
-                    AddEdge(graph, edgeSet, $"ACC_{tx.SourceAcc}", destId, "TRANSFERRED_FUNDS", tx.Amount / 10.0);
+                        Id = accId,
+                        Type = EntityType.BankAccount,
+                        DisplayLabel = $"حساب: {acc}",
+                        RiskScore = 85,
+                        Properties = new() { { "AccountNumber", acc } }
+                    };
                 }
+                AddEdge(graph, edgeSet, pId, accId, "OWNS_BANK_ACCOUNT");
+            }
+
+            foreach (var doc in customsDocs)
+            {
+                var docId = $"DOC_{doc}";
+                if (!nodeMap.ContainsKey(docId))
+                {
+                    nodeMap[docId] = new OntologyNode
+                    {
+                        Id = docId,
+                        Type = EntityType.CustomsDocument,
+                        DisplayLabel = $"سند واردات: {doc}",
+                        RiskScore = 88,
+                        Properties = new() { { "OrderRegNumber", doc } }
+                    };
+                }
+                AddEdge(graph, edgeSet, pId, docId, "DECLARED_IMPORT");
             }
         }
 
+        // اگر چند سوژه بررسی می‌شود، حساب‌ها یا اسناد مشترک را به عنوان پل ارتباطی پررنگ کن
         graph.Nodes = nodeMap.Values.ToList();
-
-        // اجرای محاسبات ماتریسی گراف در بک‌اند .NET
-        GraphAnalyticsEngine.ComputeMatrixCentralityAndPageRank(graph);
+        GraphAnalyticsEngine.ComputeCentralityAndRisk(graph);
         return graph;
     }
 
@@ -160,20 +137,13 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
 
     public async Task<MultiHopDossierGraph> ExpandNodeAsync(string nodeId)
     {
-        var graph = new MultiHopDossierGraph { RootEntityId = nodeId, ExploredDepth = 1 };
-        var nodeMap = new Dictionary<string, OntologyNode>();
-        var edgeSet = new HashSet<string>();
-
-        graph.Nodes = nodeMap.Values.ToList();
-        return graph;
+        return new MultiHopDossierGraph { RootEntityId = nodeId, ExploredDepth = 1 };
     }
 
     public async Task<PathfindingResultDto> FindShortestIntermediaryPathAsync(string sourceId, string targetId)
     {
         return new PathfindingResultDto { SourceId = sourceId, TargetId = targetId, PathExists = true };
     }
-
-    private class TransferHopRecord { public string SourceAcc { get; set; } = ""; public string DestAcc { get; set; } = ""; public long Amount { get; set; } }
 
     public class PathfindingResultDto
     {
@@ -185,4 +155,3 @@ public class PalantirLinkTraversalEngine : IPalantirLinkTraversalEngine
         public string NarrativeSummary { get; set; } = string.Empty;
     }
 }
-

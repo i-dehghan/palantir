@@ -262,6 +262,43 @@ public class AuditController : ControllerBase
             return StatusCode(500, new { message = $"خطا در پردازش گراف دوزیر: {ex.Message}" });
         }
     }
+
+    [HttpPost("what-if/simulate")]
+    public async Task<IActionResult> SimulateWhatIf([FromBody] WhatIfRequestDto request, [FromServices] IWhatIfSimulationService service)
+    {
+        if (string.IsNullOrWhiteSpace(request.TargetId) || string.IsNullOrWhiteSpace(request.InterventionType))
+            return BadRequest(new { error = "شناسه هدف و نوع مداخله الزامی است." });
+
+        var result = await service.SimulateInterventionAsync(request.InterventionType, request.TargetId);
+        return Ok(result);
+    }
+
+    // در Controllers/AuditController.cs
+    [HttpPost("multi-entity-links")]
+    public async Task<IActionResult> GetMultiEntityLinks([FromBody] MultiEntityQueryDto request, [FromServices] IPalantirLinkTraversalEngine traversalEngine)
+    {
+        if (request == null || request.Identifiers == null || request.Identifiers.Count == 0)
+        {
+            return BadRequest(new { error = "ارسال حداقل یک شناسه یا کد ملی الزامی است." });
+        }
+
+        var resultGraph = await traversalEngine.TraverseMultiEntityNetworkAsync(request.Identifiers, request.MaxDepth);
+        return Ok(resultGraph);
+    }
+
+    public class MultiEntityQueryDto
+    {
+        public List<string> Identifiers { get; set; } = new();
+        public List<string> RelationTypes { get; set; } = new();
+        public int MaxDepth { get; set; } = 2;
+    }
+
+    public class WhatIfRequestDto
+    {
+        public string InterventionType { get; set; } = string.Empty;
+        public string TargetId { get; set; } = string.Empty;
+    }
+
 }
 
 public class RemedialActionCommand

@@ -136,6 +136,27 @@ async def predict_next_move_endpoint(payload: PredictionRequest):
 async def match_text_endpoint(payload: MatcherRequest):
     return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
 
+# intelligence-py/app/main.py (بخش اضافه شده برای شبیه‌ساز)
+from app.whatif_simulator import whatif_engine
+
+@app.post("/api/v1/what-if/simulate")
+async def simulate_what_if_endpoint(payload: dict):
+    """
+    اندپوینت شبیه‌سازی مداخلات نظارتی و تحلیل انتشار موج اختلال در شبکه پیوندی.
+    """
+    intervention_type = payload.get("intervention_type", "BLOCK_ACCOUNT")
+    target_id = payload.get("target_id", "14001000484")
+    graph_nodes = payload.get("graph_nodes", [])
+    graph_edges = payload.get("graph_edges", [])
+
+    result = whatif_engine.simulate_intervention(
+        intervention_type=intervention_type,
+        target_id=target_id,
+        graph_nodes=graph_nodes,
+        graph_edges=graph_edges
+    )
+    return result
+
 @app.post("/api/v1/multimodal/audit-document")
 async def audit_document(
     file: UploadFile = File(...),

@@ -3,21 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { AuditService } from '../../core/services/audit.service';
-import {
-  DiscrepancyLog,
-  CkdCase,
-  DomainType,
-  DomainOption,
-  WaybillCorrelationReport
-} from '../../core/models/discrepancy.model';
+import { DiscrepancyLog, CkdCase, DomainType, DomainOption } from '../../core/models/discrepancy.model';
 import { DossierService, MultiHopDossierGraph } from '../../core/services/dossier.service';
 import { PalantirDossierStudioComponent } from './components/palantir-dossier-studio/palantir-dossier-studio.component';
 import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/geospatial-intel-map.component';
 import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
 import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
-import { MultimodalOcrTabComponent } from './components/multimodal-ocr-tab/multimodal-ocr-tab.component';
-import { EntityProfileModalComponent } from './components/entity-profile-modal/entity-profile-modal.component';
+
 @Component({
   selector: 'app-audit-dashboard',
   standalone: true,
@@ -28,9 +21,7 @@ import { EntityProfileModalComponent } from './components/entity-profile-modal/e
     GeospatialIntelMapComponent,
     CaseTimelineBarComponent,
     ForensicReportModalComponent,
-    CkdGraphComponent,
-    MultimodalOcrTabComponent,
-    EntityProfileModalComponent
+    CkdGraphComponent
   ],
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss'
@@ -40,6 +31,9 @@ export class AuditDashboardComponent implements OnInit {
   @ViewChild(CaseTimelineBarComponent) timelineBar!: CaseTimelineBarComponent;
   @ViewChild('iranMapCanvas') iranMapCanvas!: ElementRef<HTMLDivElement>;
 
+  private auditService = inject(AuditService);
+  private dossierService = inject(DossierService);
+
   activePlaybackHour = signal<number | null>(null);
   timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>({
     startHour: 0,
@@ -47,10 +41,7 @@ export class AuditDashboardComponent implements OnInit {
     active: false
   });
 
-  private auditService = inject(AuditService);
-  private dossierService = inject(DossierService);
-
-  activeRightView = signal<'MAP' | 'GRAPH' | 'CKD' | 'OCR'>('GRAPH');
+  activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
   protected readonly Math = Math;
 
   logs = signal<DiscrepancyLog[]>([]);
@@ -67,29 +58,16 @@ export class AuditDashboardComponent implements OnInit {
   currentDomain = this.auditService.activeDomain;
   currentDossierData = signal<MultiHopDossierGraph | any>(null);
 
-  // وضعیت‌های هوش مصنوعی و بینایی ماشین بارنامه
-  isOcrProcessing = signal<boolean>(false);
-  ocrResult = signal<any | null>(null);
-  fullDocumentDossier = signal<any | null>(null);
-  graphInjectionData = signal<any | null>(null);
-  isGraphInjected = signal<boolean>(false);
-  selectedOcrFile = signal<File | null>(null);
-  ocrImagePreviewUrl = signal<string | null>(null);
-  ocrErrorMessage = signal<string | null>(null);
-
-  // نتایج تطبیق تاریخی سوابق
-  historicalCorrelationReport = signal<WaybillCorrelationReport | null>(null);
-  isCorrelatingHistory = signal<boolean>(false);
-
   domainOptions: readonly DomainOption[] = [
     { id: 'CUSTOMS', label: '🛃 گمرک و تجارت خارجی', desc: 'صمت، بانک مرکزی و کوتاژهای گمرک' },
     { id: 'BANKING', label: '💳 تراکنش‌های بانکی و AML', desc: 'سوئیچ شتاب، پولشویی و مغایرت هسته' },
     { id: 'TELECOM', label: '📡 ارتباطات و دیتای CDR', desc: 'سوئیچ مخابرات، سیم‌باکس و شاهکار' }
   ] as const;
 
-  showGalaxyGraph = signal<boolean>(false);
   focusedNationalId = signal<string>('');
   focusedOrderInGalaxy = signal<string | null>(null);
+
+  activeInvestigatedIds = signal<string[]>([]);
 
   inspectedItem = signal<any | null>(null);
   isReportModalOpen = signal(false);
@@ -100,8 +78,8 @@ export class AuditDashboardComponent implements OnInit {
   inspectingRowId = signal<string | null>(null);
 
   investigationTargets = signal<{ id: string; value: string }[]>([
-    { id: 'target_1', value: '14001000484' },
-    { id: 'target_2', value: '14001000260' }
+    { id: 'target_1', value: '' },
+    { id: 'target_2', value: '' }
   ]);
 
   noLinkWarning = signal<string | null>(null);
@@ -112,41 +90,12 @@ export class AuditDashboardComponent implements OnInit {
     customs: true
   });
 
-  private currentDossierSub: any = null;
-
-  // مدیریت وضعیت پروفایل سوژه
-isEntityProfileOpen = signal<boolean>(false);
-selectedEntityNationalId = signal<string>('');
-
-openEntityProfile(nid: string, event?: MouseEvent): void {
-  event?.stopPropagation();
-  if (!nid) return;
-  this.selectedEntityNationalId.set(nid);
-  this.isEntityProfileOpen.set(true);
-}
-
-closeEntityProfile(): void {
-  this.isEntityProfileOpen.set(false);
-}
-
   ngOnInit(): void {
     this.fetchLogs();
   }
 
   trackByTargetId(index: number, item: { id: string; value: string }): string {
     return item.id;
-  }
-
-  onTimeRangeChanged(event: TimelineRangeEvent): void {
-    if (event.preset === 'ALL') {
-      this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
-    } else {
-      this.timelineFilter.set({
-        startHour: event.startHour,
-        endHour: event.endHour,
-        active: true
-      });
-    }
   }
 
   addTargetInput(): void {
@@ -186,7 +135,8 @@ closeEntityProfile(): void {
 
     this.inspectedItem.set(null);
     this.selectedTableItem.set(null);
-    this.focusedNationalId.set(cleanIds.join(' , '));
+    this.focusedNationalId.set(cleanIds.join(' ⟷ '));
+    this.activeInvestigatedIds.set(cleanIds);
 
     const rel = this.selectedRelationTypes();
     const activeTypes: ('BANKING' | 'TELECOM' | 'CUSTOMS')[] = [];
@@ -216,7 +166,7 @@ closeEntityProfile(): void {
           rawNodes.forEach((node: any, idx: number) => {
             const isDoc = String(node.id).startsWith('DOC_') || node.type === 3;
             const isAcc = String(node.id).startsWith('ACC_') || String(node.id).includes('IR-ACC');
-
+            
             if (isDoc || isAcc) {
               const code = node.properties?.OrderRegNumber || node.id;
               tableRecords.push({
@@ -234,7 +184,6 @@ closeEntityProfile(): void {
           });
 
           if (tableRecords.length > 0) {
-            this.logs.set(tableRecords);
             this.selectedTableItem.set(tableRecords[0]);
           }
         }
@@ -244,138 +193,40 @@ closeEntityProfile(): void {
         this.isTimelineLoading.set(false);
       },
       error: (err) => {
-        console.error('خطا در واکشی استعلام چندسوژه‌ای:', err);
+        console.error('خطا در استعلام تقاطعی:', err);
         this.isDossierLoading.set(false);
         this.isTimelineLoading.set(false);
       }
     });
   }
 
-  switchRightView(view: 'MAP' | 'GRAPH' | 'CKD' | 'OCR'): void {
+  switchRightView(view: 'MAP' | 'GRAPH' | 'CKD'): void {
     this.activeRightView.set(view);
   }
 
-  onOcrFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      this.selectedOcrFile.set(file);
-      this.ocrErrorMessage.set(null);
-      this.ocrResult.set(null);
-      this.fullDocumentDossier.set(null);
-      this.historicalCorrelationReport.set(null);
-      this.isGraphInjected.set(false);
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.ocrImagePreviewUrl.set(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  correlateWaybillWithHistoricalImports(): void {
-    const dossier = this.fullDocumentDossier();
-    if (!dossier) return;
-
-    this.isCorrelatingHistory.set(true);
-    const targetNid = dossier.actors?.shipper?.national_code || '10102153202';
-    const serial = dossier.document?.serial_number || '512776';
-    const goods = dossier.cargo?.goods_description || 'انواع قطعات یدکی و واشر صنعتی';
-
-    this.auditService.correlateWaybillHistory({
-      consigneeOrShipperNationalId: targetNid,
-      waybillSerial: serial,
-      waybillGoodsDescription: goods
-    }).subscribe({
-      next: (report) => {
-        this.historicalCorrelationReport.set(report);
-        this.isCorrelatingHistory.set(false);
-      },
-      error: (err) => {
-        console.error('خطا در تطبیق سوابق تاریخی از بک‌اند دات‌‌نت:', err);
-        this.isCorrelatingHistory.set(false);
-      }
-    });
-  }
-
-  injectWaybillToGraph(): void {
-    const injection = this.graphInjectionData();
-    if (!injection || !injection.nodes || !injection.nodes.length) {
-      alert('ابتدا باید تصویر بارنامه را تحلیل نمایید.');
-      return;
-    }
-
-    const currentGraph = this.currentDossierData() || { nodes: [], edges: [] };
-    const existingNodeIds = new Set(currentGraph.nodes.map((n: any) => n.id));
-
-    const newNodes = [...currentGraph.nodes];
-    injection.nodes.forEach((node: any) => {
-      if (!existingNodeIds.has(node.id)) {
-        newNodes.push(node);
-        existingNodeIds.add(node.id);
-      }
-    });
-
-    const newEdges = [...(currentGraph.edges || [])];
-    const waybillNodeId = injection.nodes[0]?.id;
-    const hubNode = currentGraph.nodes.find((n: any) => n.isLeader || n.id.startsWith('HUB_') || n.id.startsWith('ENT_') || n.id.startsWith('PERSON_'));
-
-    if (waybillNodeId && hubNode) {
-      newEdges.push({
-        source: waybillNodeId,
-        target: hubNode.id,
-        predicate: 'CORRELATED_CARGO (محموله فیزیکی مرتبط با پرونده)',
-        value: 'تطبیق فیزیکی کوتاژ',
-        lineStyle: { color: '#f43f5e', width: 3.2, curveness: 0.2 }
-      });
-    }
-
-    injection.edges.forEach((e: any) => {
-      if (existingNodeIds.has(e.source) && existingNodeIds.has(e.target)) {
-        newEdges.push(e);
-      }
-    });
-
-    this.currentDossierData.set({
-      ...currentGraph,
-      nodes: newNodes,
-      edges: newEdges,
-      timestamp: Date.now()
-    });
-
-    this.isGraphInjected.set(true);
-    this.switchRightView('GRAPH');
-  }
-
-inspectCase(item: any, event?: MouseEvent): void {
+  inspectCase(item: any, event?: MouseEvent): void {
     event?.stopPropagation();
     if (!item) return;
 
-    const targetNid = String(item?.importerNationalId || this.focusedNationalId() || '14001000484').trim();
-    const caseId = item?.orderRegNumber || item?.cottageNumber || item?.id;
+    const targetNid = String(item?.importerNationalId || '14001000484');
+    const caseId = item?.orderRegNumber || item?.cottageNumber;
 
     this.inspectingRowId.set(caseId);
     this.isDossierLoading.set(true);
     this.isTimelineLoading.set(true);
 
-    // ۱. به‌روزرسانی حالت‌های واکنشی داشبورد (جهت تحریک نقشه و سایر ویجت‌ها)
+    this.activeInvestigatedIds.set([]);
     this.selectedTableItem.set(item);
     this.inspectedItem.set({ ...item });
     this.focusedNationalId.set(targetNid);
     this.focusedOrderInGalaxy.set(caseId);
-    this.selectedOrderForCkd.set(caseId);
-
-    if (this.currentDossierSub) {
-      this.currentDossierSub.unsubscribe();
-    }
+    this.selectedOrderForCkd.set(item?.orderRegNumber || null);
 
     setTimeout(() => {
       this.isTimelineLoading.set(false);
-    }, 150);
+    }, 200);
 
-    // ۲. واکشی گراف و اطلاعات جغرافیایی مرتبط با سوژه
-    this.currentDossierSub = this.dossierService.getDossier(targetNid, 2).subscribe({
+    this.dossierService.getDossier(targetNid, 2).subscribe({
       next: (data: any) => {
         this.currentDossierData.set({
           ...data,
@@ -392,13 +243,8 @@ inspectCase(item: any, event?: MouseEvent): void {
         this.currentDossierData.set({
           targetNid: targetNid,
           inspectedRecord: { ...item },
-          nodes: [
-            { id: `PERSON_${targetNid}`, displayLabel: `سوژه: ${targetNid}`, type: 0, riskScore: item.riskScore || 90 },
-            { id: `DOC_${caseId}`, displayLabel: `پرونده: ${caseId}`, type: 3, riskScore: item.riskScore || 85 }
-          ],
-          edges: [
-            { sourceId: `PERSON_${targetNid}`, targetId: `DOC_${caseId}`, predicate: item.ruleName || 'مورد بازرسی' }
-          ]
+          nodes: [],
+          edges: []
         });
         this.isDossierLoading.set(false);
         this.inspectingRowId.set(null);
@@ -406,214 +252,49 @@ inspectCase(item: any, event?: MouseEvent): void {
       }
     });
   }
+
+  clearInspection(): void {
+    this.inspectedItem.set(null);
+    this.focusedNationalId.set('');
+    this.focusedOrderInGalaxy.set(null);
+    this.selectedOrderForCkd.set(null);
+    this.highlightedTimelineId.set(null);
+    this.currentDossierData.set(null);
+    this.selectedTableItem.set(null);
+    this.activeInvestigatedIds.set([]);
+  }
+
   switchDomain(domain: DomainType): void {
     this.auditService.activeDomain.set(domain);
     this.inspectedItem.set(null);
     this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
-    this.selectedOrderForCkd.set(null);
+    this.currentDossierData.set(null);
+    this.selectedTableItem.set(null);
+    this.activeInvestigatedIds.set([]);
     this.currentPage.set(1);
-    this.fetchLogs(); // 👈 با تغییر حوزه، جدول و نقشه کاملاً بر اساس دیتای جدید بازنشانی می‌شوند
+    this.fetchLogs();
   }
-
-  executeDocumentOcrAudit(): void {
-    const file = this.selectedOcrFile();
-    if (!file) {
-      this.ocrErrorMessage.set('لطفاً ابتدا تصویر بارنامه یا فاکتور کاغذی را بارگذاری نمایید.');
-      return;
-    }
-
-    this.isOcrProcessing.set(true);
-    this.ocrErrorMessage.set(null);
-
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-
-    const activeItem = this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
-    const currentOrder = activeItem?.orderRegNumber || activeItem?.cottageNumber || 'NTSW-100K-100000';
-    const currentDesc = activeItem?.ruleName || 'بیش‌بود ارزش / قطعات منفصله الکترونیکی';
-    const importerName = activeItem?.importerNationalId ? `شرکت واردکننده ${activeItem.importerNationalId}` : 'شرکت بازرگانی واردات';
-
-    const systemData = {
-      order_reg_number: currentOrder,
-      goods_description: currentDesc,
-      total_usd: 85000.0,
-      importer_name: importerName
-    };
-
-    formData.append('system_data_json', JSON.stringify(systemData));
-
-    this.auditService.auditDocumentWaybill(formData).subscribe({
-      next: (res) => {
-        this.ocrResult.set(res);
-        this.fullDocumentDossier.set(res.document_dossier);
-        this.graphInjectionData.set(res.graph_injection);
-        this.isOcrProcessing.set(false);
-
-        // 🔗 همگام‌سازی واکنش‌گرای کامل داشبورد پس از استخراج سند OCR
-        const dossier = res.document_dossier;
-        if (dossier) {
-          const extractedNid = dossier.actors?.shipper?.national_code || '14001000484';
-          const serialNo = dossier.document?.serial_number || 'OCR-WAYBILL-01';
-          const cargoDesc = dossier.cargo?.goods_description || 'محموله فیزیکی بارنامه اسکن‌شده';
-
-          // تنظیم کدملی و اقلام جدید جهت تحریک سیگنال‌های نقشه و CKD
-          this.focusedNationalId.set(extractedNid);
-
-          const syntheticInspectedItem = {
-            id: `DOC_${serialNo}`,
-            orderRegNumber: serialNo,
-            importerNationalId: extractedNid,
-            cottageNumber: serialNo,
-            ruleName: cargoDesc,
-            description: `استخراج هوشمند از سند فیزیکی - انطباق با ضریب ریسک ${res.risk_score || 85}٪`,
-            riskScore: res.risk_score || 90,
-            detectedAt: new Date().toISOString(),
-            domainType: 'CUSTOMS'
-          };
-
-          this.inspectedItem.set(syntheticInspectedItem);
-          this.selectedTableItem.set(syntheticInspectedItem);
-          this.selectedOrderForCkd.set(serialNo);
-        }
-
-        this.correlateWaybillWithHistoricalImports();
-      },
-      error: (err) => {
-        console.error('خطای فراخوانی سرویس بینایی ماشین:', err);
-        this.ocrErrorMessage.set('خطا در پردازش تصویر بارنامه. سرور پایتون را بررسی کنید.');
-        this.isOcrProcessing.set(false);
-      }
-    });
-  }
-
-
-  selectRowItem(item: DiscrepancyLog): void {
-    this.selectedTableItem.set(item);
-    this.inspectCase(item);
-  }
-
-  clearInspection(): void {
-    this.inspectedItem.set(null);
-    this.focusedOrderInGalaxy.set(null);
-    this.selectedOrderForCkd.set(null);
-    this.highlightedTimelineId.set(null);
-    this.loadGlobalDossier();
-  }
-
-  loadGlobalDossier(): void {
-    this.inspectedItem.set(null);
-    this.buildGlobalDomainGraph(this.currentDomain(), this.logs());
-  }
-
-  private buildGlobalDomainGraph(domain: DomainType, rawLogs?: DiscrepancyLog[]): void {
-    const currentLogs = rawLogs && rawLogs.length > 0 ? rawLogs : this.logs();
-    if (!currentLogs || currentLogs.length === 0) return;
-
-    const topLogs = currentLogs.slice(0, 15);
-    const nodes: any[] = [];
-    const edges: any[] = [];
-    const addedNodeIds = new Set<string>();
-
-    const domainHubId = `HUB_${domain}`;
-    const hubLabels: Record<DomainType, string> = {
-      CUSTOMS: 'سامانه جامع پایش گمرک و تجارت',
-      BANKING: 'سامانه جامع نظارت بانکی و AML',
-      TELECOM: 'سامانه نظارت ترافیک مخابرات (CDR)'
-    };
-
-    nodes.push({
-      id: domainHubId,
-      displayLabel: hubLabels[domain],
-      type: 0,
-      riskScore: 95,
-      properties: { 'حوزه': domain, 'تعداد کل پرونده‌ها': currentLogs.length }
-    });
-    addedNodeIds.add(domainHubId);
-
-    topLogs.forEach((item, index) => {
-      const nid = item.importerNationalId || `ID_${index}`;
-      const entityId = `ENT_${nid}_${index}`;
-      if (!addedNodeIds.has(entityId)) {
-        addedNodeIds.add(entityId);
-        nodes.push({
-          id: entityId,
-          displayLabel: `${nid}`,
-          type: domain === 'CUSTOMS' ? 3 : domain === 'BANKING' ? 2 : 4,
-          riskScore: item.riskScore || 85,
-          properties: {
-            'شناسه پرونده': item.orderRegNumber,
-            'عنوان تخلف': item.ruleName,
-            'ریسک': `${item.riskScore}%`
-          }
-        });
-
-        edges.push({
-          sourceId: domainHubId,
-          targetId: entityId,
-          predicate: domain === 'CUSTOMS' ? 'اظهارنامه گمرکی' : domain === 'BANKING' ? 'گردش مالی مشکوک' : 'ترافیک سلولی',
-          weight: item.riskScore || 60
-        });
-      }
-    });
-
-    this.currentDossierData.set({
-      rootEntityId: domainHubId,
-      exploredDepth: 1,
-      nodes: [...nodes],
-      edges: [...edges]
-    });
-  }
-
 
   fetchLogs(): void {
     this.loading.set(true);
     const domain = this.currentDomain();
-
     this.auditService.getDiscrepancies(domain).subscribe({
       next: (data: any) => {
-        let rawList: any[] = [];
-        if (Array.isArray(data)) {
-          rawList = data;
-        } else if (data && Array.isArray(data.items)) {
-          rawList = data.items;
-        } else if (data && Array.isArray(data.data)) {
-          rawList = data.data;
-        }
-
-        const records: DiscrepancyLog[] = rawList.map((item: any, idx: number) => ({
-          id: item.id || item.Id || `LOG_${idx + 1}`,
-          orderRegNumber: item.orderRegNumber || item.OrderRegNumber || item.order_reg_number || `ORD-${1000 + idx}`,
-          importerNationalId: item.importerNationalId || item.ImporterNationalId || item.importer_national_id || '14001000484',
-          cottageNumber: item.cottageNumber || item.CottageNumber || item.cottage_number || `COT-${2000 + idx}`,
-          ruleName: item.ruleName || item.RuleName || item.rule_name || 'مغایرت قاعده ۲-الف در اسناد گمرکی',
-          description: item.description || item.Description || item.description_text || 'شرح تخلف احراز شده توسط موتور هوش مصنوعی',
-          riskScore: item.riskScore ?? item.RiskScore ?? item.risk_score ?? 90,
-          detectedAt: item.detectedAt || item.DetectedAt || item.detected_at || new Date().toISOString(),
-          domainType: item.domainType || item.DomainType || item.domain_type || domain
-        }));
+        const rawList = Array.isArray(data) ? data : (data?.items || []);
+        const records = Array.isArray(rawList) ? rawList : [];
 
         this.logs.set(records);
         this.currentPage.set(1);
         this.loading.set(false);
 
-        if (records.length > 0) {
-          const firstItem = records[0];
-          this.selectedTableItem.set(firstItem);
-          this.inspectedItem.set({ ...firstItem });
-          this.focusedNationalId.set(String(firstItem.importerNationalId));
-          this.focusedOrderInGalaxy.set(firstItem.orderRegNumber);
-          this.buildGlobalDomainGraph(domain, records);
-        } else {
-          this.selectedTableItem.set(null);
-          this.inspectedItem.set(null);
-          this.focusedNationalId.set('');
-        }
+        this.selectedTableItem.set(null);
+        this.focusedNationalId.set('');
+        this.inspectedItem.set(null);
+        this.currentDossierData.set(null);
+        this.activeInvestigatedIds.set([]);
       },
-      error: (err) => {
-        console.error('خطا در واکشی اطلاعات از دیتابیس:', err);
-        this.loading.set(false);
-      }
+      error: () => this.loading.set(false)
     });
   }
 
@@ -621,28 +302,16 @@ inspectCase(item: any, event?: MouseEvent): void {
     const currentLogs = this.filteredLogs();
     if (currentLogs.length === 0) return null;
 
-    const domain = this.currentDomain();
     const targetLog = this.selectedOrderForCkd()
       ? currentLogs.find(l => l.orderRegNumber === this.selectedOrderForCkd()) || currentLogs[0]
       : (this.inspectedItem() || currentLogs[0]);
 
     const relatedLogs = currentLogs.filter(l => l.importerNationalId === targetLog.importerNationalId);
 
-    let targetTitle = 'کالای کامل مشکوک به تفکیک به قطعات منفصله (قاعده ۲-الف)';
-    let roleTitle = `شرکت بازرگانی با شناسه ملی ${targetLog.importerNationalId}`;
-
-    if (domain === 'BANKING') {
-      targetTitle = 'هسته اصلی شبکه پولشویی و حساب تجمیع‌کننده (Mule Hub)';
-      roleTitle = `صاحب حساب سرشاخه با کدملی ${targetLog.importerNationalId}`;
-    } else if (domain === 'TELECOM') {
-      targetTitle = 'خوشه مشکوک به تقلب ترافیک و دستگاه سیم‌باکس (SIM-Box Cluster)';
-      roleTitle = `مشترک پرمصرف با کدملی ${targetLog.importerNationalId}`;
-    }
-
     return {
-      importerName: roleTitle,
+      importerName: `شرکت بازرگانی با شناسه ملی ${targetLog.importerNationalId}`,
       importerId: targetLog.importerNationalId,
-      targetProduct: targetTitle,
+      targetProduct: 'کالای کامل مشکوک به تفکیک به قطعات منفصله (قاعده ۲-الف)',
       totalValue: relatedLogs.reduce((acc, curr) => acc + 45000, 28890000),
       parts: (relatedLogs.length > 0 ? relatedLogs : currentLogs).slice(0, 5).map((l, idx) => ({
         orderNo: l.orderRegNumber,
@@ -654,16 +323,21 @@ inspectCase(item: any, event?: MouseEvent): void {
   });
 
   filteredLogs = computed(() => {
-    const currentLogs = this.logs();
-    const tf = this.timelineFilter();
+    let currentLogs = this.logs();
+    const activeIds = this.activeInvestigatedIds();
 
+    if (activeIds.length > 0) {
+      currentLogs = currentLogs.filter(log => activeIds.includes(String(log.importerNationalId)));
+    }
+
+    const tf = this.timelineFilter();
     if (!tf.active) {
       return currentLogs;
     }
 
     return currentLogs.filter(log => {
       const dt = log.detectedAt ? new Date(log.detectedAt) : null;
-      const hour = (dt && !isNaN(dt.getTime())) ? dt.getHours() : 12;
+      const hour = (dt && !isNaN(dt.getTime())) ? dt.getHours() : 0;
       return hour >= tf.startHour && hour <= tf.endHour;
     });
   });
@@ -683,7 +357,7 @@ inspectCase(item: any, event?: MouseEvent): void {
   });
 
   timelineFeedEvents = computed(() => {
-    const item = this.selectedTableItem() || this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
+    const item = this.selectedTableItem() || this.inspectedItem();
     if (!item) return [];
 
     const domain = (item.domainType || this.currentDomain() || 'CUSTOMS').toUpperCase();
@@ -696,7 +370,7 @@ inspectCase(item: any, event?: MouseEvent): void {
         { id: `STEP_FX_${rawCode}`, targetDocId: rawCode, time: '۱۰:۳۰', title: 'تخصیص و تأمین ارز نیمایی', domain: 'CUSTOMS', risk: 45, statusDesc: 'تأیید گواهی ثبت آماری توسط بانک عامل' },
         { id: `STEP_DECL_${rawCode}`, targetDocId: rawCode, time: '۱۱:۴۵', title: `اظهار و صدور کوتاژ ${item.cottageNumber || rawCode}`, domain: 'CUSTOMS', risk: 70, statusDesc: 'ورود محموله به گمرک مقصد/مرزی' },
         { id: `STEP_ANOMALY_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۰', title: item.ruleName || 'کشف مغایرت هوش مصنوعی (قاعده ۲-الف)', domain: 'CUSTOMS', risk: risk, statusDesc: 'انطباق اجزا با کالای کامل' },
-        { id: `STEP_FLAG_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌اظهاری حقوق ورودی' }
+        { id: `STEP_FLAG_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌‌اظهاری حقوق ورودی' }
       ];
     }
     if (domain === 'BANKING') {
@@ -708,10 +382,10 @@ inspectCase(item: any, event?: MouseEvent): void {
       ];
     }
     return [
-      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
+      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
       { id: `STEP_BURST_${rawCode}`, targetDocId: rawCode, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
-      { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
-      { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌‌وی قاچاق' }
+      { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
+      { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
     ];
   });
 
@@ -728,16 +402,29 @@ inspectCase(item: any, event?: MouseEvent): void {
     }
   }
 
+  onTimeRangeChanged(event: TimelineRangeEvent): void {
+    if (event.preset === 'ALL') {
+      this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
+    } else {
+      this.timelineFilter.set({
+        startHour: event.startHour,
+        endHour: event.endHour,
+        active: true
+      });
+    }
+  }
+
   openForensicReport(): void {
-    const targets = this.investigationTargets()
-      .map(t => t.value.trim())
-      .filter(v => v.length > 0);
+    const targets = this.activeInvestigatedIds().length > 0
+      ? this.activeInvestigatedIds()
+      : this.investigationTargets()
+          .map(t => t.value.trim())
+          .filter(v => v.length > 0);
 
     this.activeProjectionFields.set({
       isMultiTarget: targets.length >= 2,
-      targets: targets.length >= 2 ? targets : [this.focusedNationalId() || '14001000484'],
-      dossierGraph: this.currentDossierData(),
-      evidences: this.filteredLogs()
+      targets: targets.length >= 1 ? targets : [this.focusedNationalId() || '14001000484'],
+      dossierGraph: this.currentDossierData()
     });
 
     this.isReportModalOpen.set(true);
@@ -747,17 +434,9 @@ inspectCase(item: any, event?: MouseEvent): void {
     this.isReportModalOpen.set(false);
   }
 
-  goToPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page);
-  }
-
-  nextPage(): void {
-    if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1);
-  }
-
-  prevPage(): void {
-    if (this.currentPage() > 1) this.currentPage.update(p => p - 1);
-  }
+  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page); }
+  nextPage(): void { if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1); }
+  prevPage(): void { if (this.currentPage() > 1) this.currentPage.update(p => p - 1); }
 
   exportToExcel(): void {
     const records = this.filteredLogs();

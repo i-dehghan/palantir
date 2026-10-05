@@ -13,11 +13,12 @@ import {
   inject
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import * as echarts from 'echarts';
+import { AuditService, ForensicNarrativeResponse, PredictiveMoveData } from '../../../../core/services/audit.service';
+import { FormsModule } from '@angular/forms';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { AuditService, ForensicNarrativeResponse, PredictiveMoveData } from '../../../../core/services/audit.service';
 
 export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 
@@ -29,7 +30,6 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
     <div class="modal-backdrop" *ngIf="isOpen" (click)="close()">
       <div id="judicial-report-dossier" class="forensic-paper" (click)="$event.stopPropagation()">
         
-        <!-- دکمه و دراور دستیار هوشمند پرونده (Copilot) -->
         <button class="copilot-toggle-btn" (click)="toggleCopilot()">
           <span>💬 دستیار هوشمند پرونده (AI Copilot)</span>
         </button>
@@ -63,7 +63,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </div>
         </div>
 
-        <!-- هدر رسمی گزارش قضایی -->
+        <!-- هدر رسمی گزارش -->
         <header class="paper-header">
           <div class="header-right">
             <div class="national-emblem">⚖️</div>
@@ -102,7 +102,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </div>
         </div>
 
-        <!-- بنر بازخورد نتیجه اقدام فوری -->
+        <!-- بنر بازخورد نتیجه اقدام -->
         <div *ngIf="actionNotification()" class="action-alert-banner" [ngClass]="actionNotification()?.type">
           <div class="alert-content">
             <strong>{{ actionNotification()?.message }}</strong>
@@ -113,21 +113,21 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           <button class="close-alert" (click)="actionNotification.set(null)">✕</button>
         </div>
 
-        <!-- کارت تحلیل جرم‌شناسی مدل زبانی (LLM) -->
-        <section class="ai-forensic-narrative-card">
+        <!-- بخش تحلیل و استنتاج مدل زبانی (LLM) برای چند سوژه -->
+        <section class="ai-forensic-narrative-card" *ngIf="multiEntityData?.isMultiTarget">
           <div class="card-head">
             <div class="head-left">
               <span class="ai-sparkle-icon">🤖</span>
               <strong>تحلیل جرم‌شناسی مدل زبانی (شگرد و زنجیره پیوند بین افراد)</strong>
             </div>
             <span class="target-chip-pill">
-              سوژه‌ها: {{ getTargetsLabel() }}
+              سوژه‌ها: {{ multiEntityData?.targets?.join(' ⟷ ') }}
             </span>
           </div>
 
           <div *ngIf="isAiGenerating()" class="ai-loading-state">
             <div class="ai-pulse-bar"></div>
-            <span>مدل زبانی در حال تحلیل تقاطعی گراف و تدوین متن کارشناسی...</span>
+            <span>مدل زبانی در حال جرم‌یابی و تفسیر روابط گراف و تراکنش‌ها...</span>
           </div>
 
           <div *ngIf="!isAiGenerating()" class="ai-narrative-body">
@@ -135,12 +135,12 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </div>
         </section>
 
-        <!-- شاخص‌های کلیدی پرونده -->
+        <!-- شاخص‌های کلیدی سوژه متناسب با هر حوزه -->
         <section class="dossier-summary-grid">
           <div class="summary-card">
             <span class="label">{{ currentDomain === 'TELECOM' ? 'شماره سرشاخه / IMSI:' : 'سوژه اصلی (کد ملی / شناسه):' }}</span>
-            <div class="val highlight">{{ targetNationalId || '14001000260' }}</div>
-            <span class="sub">{{ currentDomain === 'BANKING' ? 'حساب تجمیع‌کننده ارزی' : (currentDomain === 'TELECOM' ? 'خوشه سیم‌کارت‌های بی‌نام' : 'شرکت بازرگانی واردات') }}</span>
+            <div class="val highlight">{{ targetNationalId || '14001000484' }}</div>
+            <span class="sub">{{ currentDomain === 'BANKING' ? 'حساب تجمیع‌کننده ارزی' : (currentDomain === 'TELECOM' ? 'خوشه سیم‌کارت‌های بی‌نام' : 'شرکت بازرگانی واردات آریا') }}</span>
           </div>
 
           <div class="summary-card">
@@ -162,8 +162,8 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </div>
         </section>
 
-        <!-- سناریوی هوشمند گمرکی (قاعده ۲-الف) -->
-        <ng-container *ngIf="currentDomain === 'CUSTOMS'">
+        <!-- سناریوی گمرک -->
+        <ng-container *ngIf="currentDomain === 'CUSTOMS' && !multiEntityData?.isMultiTarget">
           <section class="ai-inference-banner customs-theme">
             <div class="banner-header">
               <div class="ai-chip">
@@ -195,11 +195,11 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
         </ng-container>
 
         <!-- سناریوی بانکی -->
-        <ng-container *ngIf="currentDomain === 'BANKING'">
+        <ng-container *ngIf="currentDomain === 'BANKING' && !multiEntityData?.isMultiTarget">
           <section class="ai-inference-banner banking-theme">
             <div class="banner-header">
               <div class="ai-chip">
-                <span class="sparkle">✦</span> مدل کشف هوشمند لایه‌‌بندی پولشویی (AML Layering & Mule Detection)
+                <span class="sparkle">✦</span> مدل کشف هوشمند لایه‌بندی پولشویی (AML Layering & Mule Detection)
               </div>
               <span class="confidence-score">شاخص همپوشانی تراکنش‌ها: <strong>۹۶.۷٪</strong></span>
             </div>
@@ -226,7 +226,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
         </ng-container>
 
         <!-- سناریوی تلکام -->
-        <ng-container *ngIf="currentDomain === 'TELECOM'">
+        <ng-container *ngIf="currentDomain === 'TELECOM' && !multiEntityData?.isMultiTarget">
           <section class="ai-inference-banner telecom-theme">
             <div class="banner-header">
               <div class="ai-chip">
@@ -238,7 +238,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
             <div class="assembly-detection-box">
               <div class="assembled-product-target">
                 <span class="target-label">ناهنجاری احراز شده شبکه:</span>
-                <h3 class="target-name">درگاه قاچاق مکالمات بین‌الملل (SIM-Box Bypass Gateway)</h3>
+                <h3 class="target-name">درگاه قاچاق مکالمات بین‌‌الملل (SIM-Box Bypass Gateway)</h3>
                 <span class="target-hscode mono">سلول رادیویی فعال: <strong>BTS-TEH-EAST-402</strong> (ترافیک نامتعارف)</span>
               </div>
               <div class="assembly-flow-arrow">⟵ شواهد فنی</div>
@@ -251,7 +251,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
 
             <div class="legal-inference-note">
               <strong>شرح تخلف ارتباطی:</strong> 
-              دستگاه‌های سیم‌باکس با استفاده از سیم‌کارت‌های فعال‌شده با هویت‌های نامعتبر، تماس‌های ورودی بین‌المللی ارزی را به مکالمه محلی تبدیل کرده و باعث تضییع درآمدهای ارتباطی کشور شده‌اند.
+              دستگاه‌های سیم‌‌باکس با استفاده از سیم‌کارت‌های فعال‌شده با هویت‌های نامعتبر، تماس‌های ورودی بین‌المللی ارزی را به مکالمه محلی تبدیل کرده و باعث تضییع درآمدهای ارتباطی کشور شده‌اند.
             </div>
           </section>
         </ng-container>
@@ -261,7 +261,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           <div class="pred-header">
             <div class="pred-title">
               <span class="pulse-radar">📡</span>
-              <strong>پیش‌بینی هوشمند اقدام آتی سوژه (Predictive Anomaly Forecast)</strong>
+              <strong>پیش‌‌بینی هوشمند اقدام آتی سوژه (Predictive Anomaly Forecast)</strong>
             </div>
             <div class="prob-tag">
               احتمال وقوع: <strong class="danger">{{ predictiveData()?.probability_percent }}٪</strong>
@@ -285,7 +285,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </div>
         </section>
 
-        <!-- نمودارهای تحلیلی ECharts بازطراحی‌شده با تم تاکتیکال -->
+        <!-- نمودارهای تحلیلی -->
         <section class="visual-analytics-grid">
           <div class="chart-container-box">
             <div class="chart-title">
@@ -385,7 +385,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
           </table>
         </section>
 
-        <!-- فوتر رسمی و ابزارهای پرینت و خروجی PDF -->
+        <!-- پاورقی رسمی -->
         <footer class="paper-footer">
           <div class="sign-block">
             <span>مهر دیجیتال پرونده:</span>
@@ -412,16 +412,11 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       display: flex; justify-content: space-between; align-items: center;
       background: rgba(30, 41, 59, 0.6); border: 1px solid #334155;
       border-radius: 6px; padding: 0.5rem 0.8rem; margin-bottom: 1rem;
-
-      .strip-label {
-        display: flex; align-items: center; gap: 0.4rem;
-        font-size: 0.75rem; font-weight: bold; color: #f8fafc;
-      }
+      .strip-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: bold; color: #f8fafc; }
       .buttons-group {
         display: flex; gap: 0.5rem;
         .act-btn {
-          padding: 0.35rem 0.75rem; border-radius: 4px; font-size: 0.7rem;
-          font-weight: bold; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+          padding: 0.35rem 0.75rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
           &.danger { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #fca5a5; &:hover { background: #ef4444; color: white; } }
           &.warning { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #fde68a; &:hover { background: #f59e0b; color: #0f172a; } }
           &.dark { background: rgba(148, 163, 184, 0.1); border-color: #64748b; color: #cbd5e1; &:hover { background: #334155; color: white; } }
@@ -429,40 +424,24 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
         }
       }
     }
-
     .action-alert-banner {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.6rem 0.9rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.75rem;
+      display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.9rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.75rem;
       &.success { background: rgba(6, 78, 59, 0.4); border: 1px solid #10b981; color: #a7f3d0; }
       &.error { background: rgba(127, 29, 29, 0.4); border: 1px solid #ef4444; color: #fca5a5; }
       .tracking { margin-right: 0.8rem; font-family: monospace; color: #38bdf8; }
       .close-alert { background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; }
     }
-
     .judicial-export-btn {
-      background: linear-gradient(135deg, #1e3a8a, #0284c7);
-      border: 1px solid #38bdf8; color: #f8fafc; padding: 0.35rem 0.85rem;
-      border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;
-      &:hover:not(:disabled) {
-        background: linear-gradient(135deg, #1d4ed8, #0369a1);
-        box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-      }
+      background: linear-gradient(135deg, #1e3a8a, #0284c7); border: 1px solid #38bdf8; color: #f8fafc; padding: 0.35rem 0.85rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease;
+      &:hover:not(:disabled) { background: linear-gradient(135deg, #1d4ed8, #0369a1); box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
       &:disabled { opacity: 0.6; cursor: not-allowed; }
     }
-
     .predictive-anomaly-card {
-      background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95));
-      border: 1px solid #6366f1; border-radius: 8px; padding: 1rem; margin-bottom: 1.2rem;
-      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95)); border: 1px solid #6366f1; border-radius: 8px; padding: 1rem; margin-bottom: 1.2rem; box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
       .pred-header {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;
-        border-bottom: 1px solid rgba(99, 102, 241, 0.3); padding-bottom: 0.5rem;
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(99, 102, 241, 0.3); padding-bottom: 0.5rem;
         .pred-title { display: flex; align-items: center; gap: 0.5rem; color: #a5b4fc; font-size: 0.82rem; }
-        .prob-tag {
-          font-size: 0.72rem; color: #94a3b8;
-          strong.danger { color: #f43f5e; font-size: 0.9rem; font-family: monospace; }
-        }
+        .prob-tag { font-size: 0.72rem; color: #94a3b8; strong.danger { color: #f43f5e; font-size: 0.9rem; font-family: monospace; } }
       }
       .pred-content-grid {
         display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 1rem;
@@ -474,61 +453,38 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
         .action-block { border-color: rgba(16, 185, 129, 0.4); background: rgba(6, 78, 59, 0.2); }
       }
     }
-
     .copilot-toggle-btn {
-      position: fixed; bottom: 24px; left: 24px;
-      background: linear-gradient(135deg, #0284c7, #6366f1);
-      color: white; border: 1px solid #38bdf8; padding: 8px 16px; border-radius: 20px;
-      font-size: 0.8rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
-      z-index: 1000; transition: transform 0.2s;
+      position: fixed; bottom: 24px; left: 24px; background: linear-gradient(135deg, #0284c7, #6366f1); color: white; border: 1px solid #38bdf8; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4); z-index: 1000; transition: transform 0.2s;
       &:hover { transform: translateY(-2px); }
     }
-
     .copilot-drawer {
-      position: fixed; bottom: 70px; left: 24px; width: 420px; max-width: 90vw; height: 480px;
-      background: #090e17; border: 1px solid #1e293b; border-radius: 10px; display: flex;
-      flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.8); z-index: 1001; direction: rtl;
+      position: fixed; bottom: 70px; left: 24px; width: 420px; max-width: 90vw; height: 480px; background: #090e17; border: 1px solid #1e293b; border-radius: 10px; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.8); z-index: 1001; direction: rtl;
       .copilot-header {
-        display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;
-        background: #0f172a; border-bottom: 1px solid #1e293b; color: #f8fafc; font-size: 0.82rem;
+        display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; color: #f8fafc; font-size: 0.82rem;
         .close-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; }
       }
       .copilot-body {
         flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;
         .chat-bubble {
-          background: #131d2e; border: 1px solid #1e293b; padding: 8px 12px; border-radius: 8px;
-          font-size: 0.78rem; line-height: 1.5; color: #e2e8f0;
+          background: #131d2e; border: 1px solid #1e293b; padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; line-height: 1.5; color: #e2e8f0;
           &.user { background: #03456b; border-color: #0284c7; align-self: flex-start; }
           .sender-label { font-size: 0.65rem; color: #94a3b8; margin-bottom: 3px; font-weight: bold; }
         }
       }
       .copilot-footer {
         display: flex; gap: 8px; padding: 10px; background: #0f172a; border-top: 1px solid #1e293b;
-        input {
-          flex: 1; background: #070b12; border: 1px solid #334155; color: white;
-          padding: 6px 10px; border-radius: 5px; font-size: 0.76rem; font-family: inherit;
-        }
-        button {
-          background: #0284c7; border: none; color: white; padding: 6px 14px;
-          border-radius: 5px; font-size: 0.76rem; cursor: pointer;
-        }
+        input { flex: 1; background: #070b12; border: 1px solid #334155; color: white; padding: 6px 10px; border-radius: 5px; font-size: 0.76rem; font-family: inherit; }
+        button { background: #0284c7; border: none; color: white; padding: 6px 14px; border-radius: 5px; font-size: 0.76rem; cursor: pointer; }
       }
     }
-
     .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(3, 7, 18, 0.88);
-      backdrop-filter: blur(8px); z-index: 100000;
-      display: flex; align-items: center; justify-content: center;
-      direction: rtl; text-align: right;
+      position: fixed; inset: 0; background: rgba(3, 7, 18, 0.88); backdrop-filter: blur(8px); z-index: 100000; display: flex; align-items: center; justify-content: center; direction: rtl; text-align: right;
     }
     .forensic-paper {
-      width: 1100px; max-width: 95vw; max-height: 92vh; overflow-y: auto;
-      background: #0b111e; border: 1px solid #1e293b; border-radius: 8px;
-      box-shadow: 0 25px 60px rgba(0,0,0,0.9); padding: 1.5rem; color: #f1f5f9;
+      width: 1100px; max-width: 95vw; max-height: 92vh; overflow-y: auto; background: #0b111e; border: 1px solid #1e293b; border-radius: 8px; box-shadow: 0 25px 60px rgba(0,0,0,0.9); padding: 1.5rem; color: #f1f5f9;
     }
     .paper-header {
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 2px solid #1e293b; padding-bottom: 1rem; margin-bottom: 1.2rem;
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e293b; padding-bottom: 1rem; margin-bottom: 1.2rem;
     }
     .header-right { display: flex; align-items: center; gap: 0.8rem; }
     .national-emblem { font-size: 2.2rem; }
@@ -545,34 +501,20 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       strong { color: #cbd5e1; }
       .confidential-text { color: #f87171; font-weight: bold; }
     }
-
     .ai-forensic-narrative-card {
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95));
-      border: 1px solid #38bdf8; border-radius: 6px; padding: 1rem; margin-bottom: 1.2rem;
-      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.95)); border: 1px solid #38bdf8; border-radius: 6px; padding: 1rem; margin-bottom: 1.2rem; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
       .card-head {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;
         .head-left { display: flex; align-items: center; gap: 0.4rem; color: #38bdf8; font-size: 0.8rem; }
-        .target-chip-pill {
-          background: #0f172a; border: 1px solid #1e293b; color: #f59e0b;
-          font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 3px; font-family: monospace;
-        }
+        .target-chip-pill { background: #0f172a; border: 1px solid #1e293b; color: #f59e0b; font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 3px; font-family: monospace; }
       }
       .ai-loading-state {
         display: flex; align-items: center; gap: 0.6rem; color: #94a3b8; font-size: 0.75rem; padding: 0.5rem 0;
-        .ai-pulse-bar {
-          width: 14px; height: 14px; border: 2px solid #38bdf8; border-top-color: transparent;
-          border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
+        .ai-pulse-bar { width: 14px; height: 14px; border: 2px solid #38bdf8; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
       }
-      .ai-narrative-body p {
-        margin: 0; font-size: 0.78rem; line-height: 1.8; color: #e2e8f0; text-align: justify;
-      }
+      .ai-narrative-body p { margin: 0; font-size: 0.78rem; line-height: 1.8; color: #e2e8f0; text-align: justify; }
     }
-
-    .dossier-summary-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.2rem;
-    }
+    .dossier-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.2rem; }
     .summary-card {
       background: #131d2e; border: 1px solid #1e293b; border-radius: 6px; padding: 0.6rem 0.8rem;
       .label { font-size: 0.68rem; color: #94a3b8; display: block; margin-bottom: 0.25rem; }
@@ -583,7 +525,6 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       .val.mono { font-family: monospace; }
       .sub { font-size: 0.62rem; color: #64748b; margin-top: 0.2rem; display: block; }
     }
-
     .ai-inference-banner {
       border-radius: 8px; padding: 1rem; margin-bottom: 1.2rem;
       &.customs-theme { background: linear-gradient(135deg, rgba(88, 28, 135, 0.25), rgba(15, 23, 42, 0.95)); border: 1px solid #a855f7; }
@@ -591,14 +532,10 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       &.telecom-theme { background: linear-gradient(135deg, rgba(120, 53, 15, 0.25), rgba(15, 23, 42, 0.95)); border: 1px solid #f59e0b; }
     }
     .banner-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-    .ai-chip {
-      font-size: 0.75rem; font-weight: bold; color: #f8fafc; display: flex; align-items: center; gap: 0.35rem;
-      .sparkle { color: #fbbf24; }
-    }
+    .ai-chip { font-size: 0.75rem; font-weight: bold; color: #f8fafc; display: flex; align-items: center; gap: 0.35rem; .sparkle { color: #fbbf24; } }
     .confidence-score { font-size: 0.72rem; color: #94a3b8; strong { color: #34d399; font-family: monospace; } }
     .assembly-detection-box {
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(10, 14, 23, 0.6); border: 1px solid #334155; border-radius: 6px; padding: 0.8rem 1rem; gap: 1rem;
+      display: flex; align-items: center; justify-content: space-between; background: rgba(10, 14, 23, 0.6); border: 1px solid #334155; border-radius: 6px; padding: 0.8rem 1rem; gap: 1rem;
     }
     .assembled-product-target {
       .target-label { font-size: 0.68rem; color: #94a3b8; display: block; }
@@ -608,22 +545,16 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
     .assembly-flow-arrow { font-size: 0.85rem; color: #cbd5e1; font-weight: bold; }
     .detected-parts-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; max-width: 55%; }
     .part-pill {
-      font-size: 0.68rem; padding: 0.25rem 0.6rem; border-radius: 4px;
-      background: rgba(168, 85, 247, 0.15); border: 1px solid #9333ea; color: #e9d5ff;
+      font-size: 0.68rem; padding: 0.25rem 0.6rem; border-radius: 4px; background: rgba(168, 85, 247, 0.15); border: 1px solid #9333ea; color: #e9d5ff;
       &.aml { background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #a7f3d0; }
       &.telecom { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #fde68a; }
     }
     .legal-inference-note {
-      margin-top: 0.75rem; font-size: 0.7rem; color: #cbd5e1; line-height: 1.6;
-      border-top: 1px dashed rgba(148, 163, 184, 0.2); padding-top: 0.5rem;
+      margin-top: 0.75rem; font-size: 0.7rem; color: #cbd5e1; line-height: 1.6; border-top: 1px dashed rgba(148, 163, 184, 0.2); padding-top: 0.5rem;
       strong { color: #f59e0b; }
     }
-
     .visual-analytics-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 1.2rem; margin-bottom: 1.2rem; }
-    .chart-container-box {
-      background: #0d1527; border: 1px solid #1e293b; border-radius: 8px;
-      padding: 0.85rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-    }
+    .chart-container-box { background: #0d1527; border: 1px solid #1e293b; border-radius: 8px; padding: 0.85rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
     .chart-title { font-size: 0.78rem; font-weight: bold; color: #38bdf8; margin-bottom: 0.4rem; }
     .chart-canvas { width: 100%; height: 240px; }
     .section-title { font-size: 0.85rem; font-weight: bold; color: #38bdf8; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
@@ -642,10 +573,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       }
     }
     .paper-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1e293b; padding-top: 1rem; }
-    .sign-stamp {
-      font-family: monospace; font-size: 0.7rem; color: #10b981; margin-top: 0.2rem;
-      border: 1px dashed #10b981; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block;
-    }
+    .sign-stamp { font-family: monospace; font-size: 0.7rem; color: #10b981; margin-top: 0.2rem; border: 1px dashed #10b981; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; }
     .sign-block span { font-size: 0.72rem; color: #94a3b8; }
     .actions { display: flex; gap: 0.6rem; }
     .btn {
@@ -653,10 +581,7 @@ export type DomainReportType = 'CUSTOMS' | 'BANKING' | 'TELECOM';
       &.print { background: #0284c7; border: 1px solid #38bdf8; color: white; }
       &.close { background: #334155; border: 1px solid #475569; color: #f1f5f9; }
     }
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   `]
 })
 export class ForensicReportModalComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -664,6 +589,7 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   @ViewChild('rightChartCanvas') rightChartCanvas!: ElementRef<HTMLDivElement>;
 
   private auditService = inject(AuditService);
+  private http = inject(HttpClient);
 
   @Input() multiEntityData: any = null;
   @Input() isOpen = false;
@@ -697,7 +623,6 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   private leftChart: echarts.ECharts | null = null;
   private rightChart: echarts.ECharts | null = null;
 
-  // اقلام واقعی و متناسب با قاعده ۲-الف جهت جلوگیری از تکرار سطرهای بی‌معنی
   customsItems = [
     { row: 1, desc: 'ماژول پردازشی اصلی مادربرد اسمبل نشده', hsCode: '85423100', weight: 1450, valUsd: 485000, declaredDuty: 5, actualDuty: 26, status: 'تفکیک قطعات (CKD)' },
     { row: 2, desc: 'پنل نمایشگر تصویر Open-Cell', hsCode: '85299065', weight: 3200, valUsd: 112000, declaredDuty: 5, actualDuty: 26, status: 'انحراف تعرفه به ۵٪' },
@@ -708,7 +633,7 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   bankingItems = [
     { row: 1, account: 'IR650170000000140029381', bank: 'بانک ملت', amountRials: 185000000000, retentionTime: '۳ دقیقه و ۲۰ ثانیه', risk: 98, type: 'حساب واسط سریع (Rapid Mule)' },
     { row: 2, account: 'IR890120000000140087412', bank: 'بانک صادرات', amountRials: 142000000000, retentionTime: '۴ دقیقه و ۴۰ ثانیه', risk: 94, type: 'تغذیه صرافی مرزی' },
-    { row: 3, account: 'IR120190000000140055210', bank: 'بانک تجارت', amountRials: 98000000000, retentionTime: '۲ دقیقه و ۱۵ ثانیه', risk: 91, type: 'حساب قرض‌‌الحسنه نامتعارف' }
+    { row: 3, account: 'IR120190000000140055210', bank: 'بانک تجارت', amountRials: 98000000000, retentionTime: '۲ دقیقه و ۱۵ ثانیه', risk: 91, type: 'حساب قرض‌الحسنه نامتعارف' }
   ];
 
   telecomItems = [
@@ -717,23 +642,45 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
     { row: 3, imsi: '432110098412433', imei: '864209041284710', duration: 41200, cellId: 'BTS-TEH-EAST-402', mobility: 'صفر (بدون تحرک)', detection: 'کانال فعال سیم‌باکس' }
   ];
 
+  triggerAction(actionType: 'BLOCK_CUSTOMS_CLEARANCE' | 'FREEZE_BANK_ACCOUNT' | 'FLAG_RED_LIST'): void {
+    this.actionInProgress.set(true);
+    const target = this.targetNationalId || (this.multiEntityData?.targets?.[0]) || '14001000484';
+
+    this.auditService.simulateWhatIf({
+      interventionType: actionType,
+      targetId: target
+    }).subscribe({
+      next: (res: any) => {
+        this.actionInProgress.set(false);
+        const trackingCode = `SIM-${Math.floor(Math.random() * 89999 + 10000)}`;
+        this.actionNotification.set({
+          message: res.recommendationSummary || `مداخله [${actionType}] شبیه‌سازی شد.`,
+          tracking: trackingCode,
+          type: 'success'
+        });
+      },
+      error: () => {
+        this.actionInProgress.set(false);
+        this.actionNotification.set({
+          message: 'خطا در ارتباط با موتور شبیه‌سازی What-If.',
+          type: 'error'
+        });
+      }
+    });
+  }
+
+  toggleCopilot(): void {
+    this.copilotOpen.update(v => !v);
+  }
+
   get dynamicCustomsItems() {
-    // اگر لیست شواهد تکراری یا نامشخص بود، از مدل واقعی قطعات CKD استفاده کن تا نمودار خراب نشود
     if (!this.multiEntityData?.evidences?.length) {
       return this.customsItems;
     }
-
-    const evs = this.multiEntityData.evidences;
-    const isRedundant = evs.length > 3 && evs.every((e: any) => e.description === evs[0].description);
-
-    if (isRedundant) {
-      return this.customsItems;
-    }
-
-    return evs.slice(0, 5).map((e: any, idx: number) => ({
+    return this.multiEntityData.evidences.map((e: any, idx: number) => ({
       row: idx + 1,
-      desc: e.description || e.title || `قطعه اظهارشده شماره ${idx + 1}`,
-      hsCode: e.referenceNumber?.replace('DOC_', '') || (idx === 0 ? '85423100' : (idx === 1 ? '85299065' : '85287200')),
+      desc: e.description || e.title,
+      hsCode: e.referenceNumber?.replace('DOC_', '') || 'نامشخص',
       weight: 1200 + (idx * 350),
       valUsd: Math.round((e.financialValueIrr || 145000000000) / 500000),
       declaredDuty: 5,
@@ -747,18 +694,18 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
       if (this.isOpen) {
         this.fetchAiNarrative();
         this.fetchPrediction();
-        setTimeout(() => this.initAndRenderCharts(), 120);
+        setTimeout(() => this.initAndRenderCharts(), 100);
       } else {
         this.disposeCharts();
       }
     } else if (this.isOpen && changes['currentDomain']) {
-      setTimeout(() => this.initAndRenderCharts(), 60);
+      setTimeout(() => this.initAndRenderCharts(), 50);
     }
   }
 
   ngAfterViewInit(): void {
     if (this.isOpen) {
-      setTimeout(() => this.initAndRenderCharts(), 120);
+      setTimeout(() => this.initAndRenderCharts(), 100);
     }
   }
 
@@ -766,49 +713,13 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
     this.disposeCharts();
   }
 
-  getTargetsLabel(): string {
-    if (this.multiEntityData?.targets?.length) {
-      return this.multiEntityData.targets.join(' ⟷ ');
-    }
-    return this.targetNationalId || '14001000260';
-  }
-
-  triggerAction(actionType: 'BLOCK_CUSTOMS_CLEARANCE' | 'FREEZE_BANK_ACCOUNT' | 'FLAG_RED_LIST'): void {
-    this.actionInProgress.set(true);
-    const trackingCode = `ACT-${Date.now().toString().slice(-6)}`;
-
-    setTimeout(() => {
-      this.actionInProgress.set(false);
-      let msg = '';
-      if (actionType === 'BLOCK_CUSTOMS_CLEARANCE') {
-        msg = 'دستور توقف ترخیص و پرچم‌گذاری قرمز در سامانه EPL با موفقیت ثبت شد.';
-      } else if (actionType === 'FREEZE_BANK_ACCOUNT') {
-        msg = 'درخواست انسداد اضطراری حساب به سامانه سیاح بانک مرکزی مخابره گردید.';
-      } else {
-        msg = 'سوژه در فهرست سیاه گیت‌‌وی‌های مرزی و رصد پلیس امنیت اقتصادی درج شد.';
-      }
-
-      this.actionNotification.set({
-        message: msg,
-        tracking: trackingCode,
-        type: 'success'
-      });
-    }, 700);
-  }
-
-  toggleCopilot(): void {
-    this.copilotOpen.update(v => !v);
-  }
-
   fetchAiNarrative(): void {
-    const rawTargets = this.multiEntityData?.targets || [this.targetNationalId || '14001000260'];
-    const targets = Array.isArray(rawTargets) ? rawTargets : [String(rawTargets)];
-
+    const targets = this.multiEntityData?.targets || [this.targetNationalId || '14001000484'];
     this.isAiGenerating.set(true);
 
-    this.auditService.getForensicDossierNarrative(targets, this.dynamicCustomsItems).subscribe({
+    this.auditService.getForensicDossierNarrative(targets).subscribe({
       next: (res: ForensicNarrativeResponse) => {
-        this.aiAnalysis.set(res.summaryNarrative || res.summary_narrative || 'تحلیلی از سوی مدل ارائه نشد.');
+        this.aiAnalysis.set(res.summaryNarrative || res.summary_narrative || 'تحلیلی دریافت نشد.');
         this.isAiGenerating.set(false);
       },
       error: () => {
@@ -819,8 +730,7 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   }
 
   fetchPrediction(): void {
-    const rawTargets = this.multiEntityData?.targets || [this.targetNationalId || '14001000260'];
-    const targets = Array.isArray(rawTargets) ? rawTargets : [String(rawTargets)];
+    const targets = this.multiEntityData?.targets || [this.targetNationalId || '14001000260'];
 
     this.isPredicting.set(true);
     this.auditService.predictNextMove({
@@ -848,9 +758,7 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
     this.userPrompt = '';
     this.copilotLoading.set(true);
 
-    const rawTargets = this.multiEntityData?.targets || [this.targetNationalId || '14001000260'];
-    const targets = Array.isArray(rawTargets) ? rawTargets : [String(rawTargets)];
-
+    const targets = this.multiEntityData?.targets || [this.targetNationalId || '14001000484'];
     const itemsContext = this.dynamicCustomsItems.map((i: any) => ({
       part: i.desc,
       hsCode: i.hsCode,
@@ -935,38 +843,29 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
   }
 
   private disposeCharts(): void {
-    if (this.leftChart) {
-      this.leftChart.dispose();
-      this.leftChart = null;
-    }
-    if (this.rightChart) {
-      this.rightChart.dispose();
-      this.rightChart = null;
-    }
+    if (this.leftChart) { this.leftChart.dispose(); this.leftChart = null; }
+    if (this.rightChart) { this.rightChart.dispose(); this.rightChart = null; }
   }
 
   private initAndRenderCharts(): void {
-    if (!this.leftChartCanvas?.nativeElement || !this.rightChartCanvas?.nativeElement) {
-      return;
-    }
+    if (!this.leftChartCanvas?.nativeElement || !this.rightChartCanvas?.nativeElement) return;
 
     this.disposeCharts();
-
     this.leftChart = echarts.init(this.leftChartCanvas.nativeElement);
     this.rightChart = echarts.init(this.rightChartCanvas.nativeElement);
 
-    if (this.currentDomain === 'CUSTOMS') {
-      this.renderCustomsCharts();
-    } else if (this.currentDomain === 'BANKING') {
-      this.renderBankingCharts();
-    } else {
-      this.renderTelecomCharts();
-    }
+    if (this.currentDomain === 'CUSTOMS') this.renderCustomsCharts();
+    else if (this.currentDomain === 'BANKING') this.renderBankingCharts();
+    else this.endTelecomChartsSafe();
 
     requestAnimationFrame(() => {
       this.leftChart?.resize();
       this.rightChart?.resize();
     });
+  }
+
+  private endTelecomChartsSafe(): void {
+    this.renderTelecomCharts();
   }
 
   getDomainTitle(): string {
@@ -1025,136 +924,28 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
     }
   }
 
-  /**
-   * بازطراحی حرفه‌ای نمودارهای گمرکی با استاندارد Palantir Gotham
-   */
   private renderCustomsCharts(): void {
-    const items = this.dynamicCustomsItems;
-
-    // پالت رنگ تاکتیکال مدرن برای قطعات تفکیک‌شده
-    const colors = ['#38bdf8', '#a855f7', '#f59e0b', '#10b981', '#ec4899'];
-
-    // نمودار دونات ارزش دلاری: به جای ریختن لیبل‌های درهم روی برش‌ها، لیبل راهنما در کناره‌ها قرار می‌گیرد
     this.leftChart?.setOption({
       backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: 'rgba(10, 15, 26, 0.95)',
-        borderColor: '#38bdf8',
-        borderWidth: 1,
-        textStyle: { color: '#f8fafc', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' },
-        formatter: (params: any) => `
-          <div style="direction: rtl; text-align: right;">
-            <strong style="color: #38bdf8;">${params.name}</strong><br/>
-            ارزش: <b>\$${params.value?.toLocaleString()}</b><br/>
-            سهم از کوتاژ: <b style="color: #fbbf24;">${params.percent}%</b>
-          </div>
-        `
-      },
-      legend: {
-        orient: 'vertical',
-        right: '4%',
-        top: 'middle',
-        itemWidth: 10,
-        itemHeight: 10,
-        textStyle: { color: '#94a3b8', fontSize: 10, fontFamily: 'Vazirmatn, sans-serif' },
-        formatter: (name: string) => name.length > 16 ? name.slice(0, 16) + '...' : name
-      },
+      tooltip: { trigger: 'item', formatter: '{b}: ${c} ({d}%)' },
       series: [{
         type: 'pie',
-        radius: ['52%', '78%'],
-        center: ['35%', '50%'],
-        avoidLabelOverlap: true,
-        itemStyle: {
-          borderRadius: 6,
-          borderColor: '#0b111e',
-          borderWidth: 3
-        },
-        label: {
-          show: false
-        },
-        emphasis: {
-          scale: true,
-          scaleSize: 8,
-          label: {
-            show: true,
-            position: 'center',
-            formatter: '{b}\n{d}%',
-            fontSize: 12,
-            fontWeight: 'bold',
-            color: '#f8fafc'
-          }
-        },
-        data: items.map((i: any, idx: number) => ({
-          name: i.desc,
-          value: i.valUsd,
-          itemStyle: { color: colors[idx % colors.length] }
-        }))
+        radius: ['45%', '75%'],
+        itemStyle: { borderRadius: 4, borderColor: '#0b111e', borderWidth: 2 },
+        label: { show: true, position: 'inside', formatter: '{d}%', fontSize: 10, color: '#fff' },
+        data: this.customsItems.map(i => ({ name: i.desc.slice(0, 15) + '...', value: i.valUsd }))
       }]
     }, true);
 
-    // نمودار میله‌ای مقایسه‌ای: میله‌های خوشه‌ای با فاصله بهینه و خطوط راهنمای افقی
     this.rightChart?.setOption({
       backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        backgroundColor: 'rgba(10, 15, 26, 0.95)',
-        borderColor: '#38bdf8',
-        textStyle: { color: '#f8fafc', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' }
-      },
-      legend: {
-        data: ['مأخذ اظهاری قطعه (۵٪)', 'مأخذ واقعی کالای کامل (۲۶٪)'],
-        top: 0,
-        left: 'center',
-        textStyle: { color: '#94a3b8', fontSize: 10, fontFamily: 'Vazirmatn, sans-serif' }
-      },
-      grid: {
-        top: 40,
-        right: 15,
-        bottom: 25,
-        left: 35,
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: items.map((i: any) => i.hsCode),
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 9.5, fontFamily: 'monospace' }
-      },
-      yAxis: {
-        type: 'value',
-        max: 30,
-        axisLabel: { formatter: '{value}٪', color: '#64748b', fontSize: 9 },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
-      },
+      legend: { data: ['مأخذ اظهاری (۵٪)', 'مأخذ واقعی تلویزیون (۲۶٪)'], textStyle: { color: '#94a3b8', fontSize: 10 } },
+      grid: { top: 35, right: 15, bottom: 25, left: 35 },
+      xAxis: { type: 'category', data: this.customsItems.map(i => i.hsCode), axisLabel: { color: '#94a3b8', fontSize: 9 } },
+      yAxis: { type: 'value', axisLabel: { formatter: '{value}٪', color: '#64748b' }, splitLine: { lineStyle: { color: '#1e293b' } } },
       series: [
-        {
-          name: 'مأخذ اظهاری قطعه (۵٪)',
-          type: 'bar',
-          barWidth: 14,
-          data: items.map((i: any) => i.declaredDuty),
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#38bdf8' },
-              { offset: 1, color: '#0284c7' }
-            ]),
-            borderRadius: [4, 4, 0, 0]
-          }
-        },
-        {
-          name: 'مأخذ واقعی کالای کامل (۲۶٪)',
-          type: 'bar',
-          barWidth: 14,
-          data: items.map((i: any) => i.actualDuty),
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#f43f5e' },
-              { offset: 1, color: '#be123c' }
-            ]),
-            borderRadius: [4, 4, 0, 0]
-          }
-        }
+        { name: 'مأخذ اظهاری (۵٪)', type: 'bar', data: this.customsItems.map(i => i.declaredDuty), itemStyle: { color: '#0284c7' }, barWidth: 14 },
+        { name: 'مأخذ واقعی تلویزیون (۲۶٪)', type: 'bar', data: this.customsItems.map(i => i.actualDuty), itemStyle: { color: '#ef4444' }, barWidth: 14 }
       ]
     }, true);
   }
@@ -1165,9 +956,9 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
       tooltip: { trigger: 'item', formatter: '{b}: {c} میلیارد ریال' },
       series: [{
         type: 'pie',
-        radius: ['50%', '75%'],
-        itemStyle: { borderRadius: 5, borderColor: '#0b111e', borderWidth: 2 },
-        label: { show: true, position: 'outside', color: '#94a3b8', fontSize: 10 },
+        radius: ['45%', '75%'],
+        itemStyle: { borderRadius: 4, borderColor: '#0b111e', borderWidth: 2 },
+        label: { show: true, position: 'inside', formatter: '{d}%', fontSize: 10, color: '#fff' },
         data: this.bankingItems.map(i => ({ name: i.bank, value: i.amountRials / 1000000000 }))
       }]
     }, true);
@@ -1183,7 +974,7 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
         type: 'bar',
         data: [200, 280, 135],
         itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] },
-        barWidth: 16
+        barWidth: 20
       }]
     }, true);
   }
@@ -1194,9 +985,9 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
       tooltip: { trigger: 'item', formatter: '{b}: {c} دقیقه' },
       series: [{
         type: 'pie',
-        radius: ['50%', '75%'],
-        itemStyle: { borderRadius: 5, borderColor: '#0b111e', borderWidth: 2 },
-        label: { show: false },
+        radius: ['45%', '75%'],
+        itemStyle: { borderRadius: 4, borderColor: '#0b111e', borderWidth: 2 },
+        label: { show: true, position: 'inside', formatter: '{d}%', fontSize: 10, color: '#fff' },
         data: this.telecomItems.map((i, idx) => ({ name: `کانال ${idx + 1}`, value: i.duration }))
       }]
     }, true);
@@ -1212,8 +1003,8 @@ export class ForensicReportModalComponent implements AfterViewInit, OnChanges, O
         type: 'line',
         smooth: true,
         data: [450, 480, 520, 610, 580, 640],
-        lineStyle: { color: '#f59e0b', width: 2.8 },
-        areaStyle: { color: 'rgba(245, 158, 11, 0.15)' }
+        lineStyle: { color: '#f59e0b', width: 3 },
+        areaStyle: { color: 'rgba(245, 158, 11, 0.2)' }
       }]
     }, true);
   }

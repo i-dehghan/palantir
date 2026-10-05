@@ -500,10 +500,20 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         });
       }
     } else {
-      // در حالت گلکسی، نمایش تفکیک‌شده لاگ‌های سراسری
-      const galaxy = this.buildGalaxy(this.currentLogs, width, height);
-      galaxy.nodes.forEach(n => nodesMap.set(n.id, n));
-      galaxy.edges.forEach(e => rawEdges.push(e));
+      this.nodeCount = 0;
+      this.edgeCount = 0;
+      this.chart.setOption({
+        backgroundColor: '#070b12',
+        title: {
+          text: '⬡ استودیو گراف در انتظار انتخاب پرونده (Standby State)',
+          subtext: 'لطفاً یک سند را از جدول بازرسی (Inspect) کنید یا از بالای صفحه «کشف حلقه پیوند» را اجرا نمایید.',
+          left: 'center',
+          top: 'center',
+          textStyle: { color: '#38bdf8', fontSize: 13, fontFamily: 'Vazirmatn, sans-serif' },
+          subtextStyle: { color: '#64748b', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' }
+        }
+      }, true);
+      return;
     }
 
     const finalNodes = Array.from(nodesMap.values());
