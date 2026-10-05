@@ -23,7 +23,7 @@ const SVG_ICONS: Record<string, string> = {
   BTS_TOWER: 'path://M12 2c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-5.39C20.26 15.07 21 13.12 21 11c0-4.97-4.03-9-9-9zm0 13.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 6.5 12 6.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z'
 };
 
-export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
+export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 
 @Component({
   selector: 'app-palantir-dossier-studio',
@@ -31,7 +31,7 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
   imports: [CommonModule],
   template: `
     <div class="studio-container">
-      <div class="studio-hud">
+      <div class="studio-hud" *ngIf="dossierData?.nodes && dossierData.nodes.length > 0">
         <div class="hud-item">
           <span class="hud-label">GRAPH:</span>
           <strong [style.color]="isInspected ? '#ef4444' : '#38bdf8'">
@@ -40,12 +40,12 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
         </div>
 
         <div class="layout-selector">
-          <span class="layout-label">چینش توپولوژی:</span>
+          <span class="layout-label">چینش جریان:</span>
           <button 
             class="layout-btn" 
-            [class.active]="activeLayout === 'FORCE'" 
-            (click)="setLayout('FORCE')">
-            شبکه‌ای آزاد (Force)
+            [class.active]="activeLayout === 'HIERARCHY'" 
+            (click)="setLayout('HIERARCHY')">
+            سلسله‌مراتبی (جریان فرآیند)
           </button>
           <button 
             class="layout-btn" 
@@ -55,22 +55,31 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
           </button>
           <button 
             class="layout-btn" 
-            [class.active]="activeLayout === 'HIERARCHY'" 
-            (click)="setLayout('HIERARCHY')">
-            سلسله‌مراتبی
+            [class.active]="activeLayout === 'FORCE'" 
+            (click)="setLayout('FORCE')">
+            شبکه‌ای آزاد
           </button>
         </div>
 
         <div class="hud-stats">
           <span>نودها: <strong>{{ nodeCount }}</strong></span>
           <span>یال‌ها: <strong>{{ edgeCount }}</strong></span>
-          <span class="cluster-tag font-mono">خوشه‌ها: <strong>{{ detectedClustersCount() }}</strong></span>
         </div>
       </div>
 
+      <!-- بوم گراف -->
       <div #graphCanvas class="graph-canvas"></div>
 
-      <!-- دراور بازرسی نود با متریک‌های سرور دات‌نت -->
+      <!-- حالت Standby هماهنگ با دیزاین GIS و CKD -->
+      <div class="standby-overlay" *ngIf="!dossierData || !dossierData.nodes || dossierData.nodes.length === 0">
+        <div class="standby-box">
+          <div class="standby-icon">🕸️</div>
+          <h3>استودیو گراف (Standby State) در انتظار انتخاب پرونده</h3>
+          <p>لطفاً یک سند را از جدول بازرسی انتخاب نموده یا دکمه (Inspect) را کلیک کنید.</p>
+        </div>
+      </div>
+
+      <!-- دراور بازرسی نود -->
       <div class="node-inspector-drawer" *ngIf="selectedNode">
         <div class="drawer-header">
           <div class="header-title">
@@ -83,38 +92,22 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
         </div>
 
         <div class="drawer-body">
-          <div class="badges-row" *ngIf="selectedNode.isCriticalBridge || selectedNode.isLeader">
-            <span class="bridge-badge" *ngIf="selectedNode.isCriticalBridge">⚡ شاهراه واسطه تبانی (Critical Bridge)</span>
-            <span class="leader-badge" *ngIf="selectedNode.isLeader">★ سرشبکه محوری</span>
+          <div class="stat-pill cluster-pill">
+            <span class="label">خوشه‌های تبانی:</span>
+            <strong class="text-cyan-400">{{ detectedClustersCount() }} حلقه مجزا</strong>
           </div>
-
-          <div class="stat-pills-grid">
-            <div class="stat-pill">
-              <span class="p-label">PageRank نفوذ:</span>
-              <strong class="font-mono text-cyan-400">{{ selectedNode.pageRank || '۰.۰۲۴' }}</strong>
-            </div>
-            <div class="stat-pill">
-              <span class="p-label">مرکزیت بینابینی (Betweenness):</span>
-              <strong class="font-mono text-amber-400">{{ selectedNode.betweenness || '۰.۴۲' }}</strong>
-            </div>
-          </div>
-
           <div class="meta-row">
-            <span class="label">شناسه موجودیت:</span>
+            <span class="label">شناسه پرونده / سند:</span>
             <span class="val mono">{{ selectedNode.id }}</span>
           </div>
           <div class="meta-row">
-            <span class="label">شاخص ریسک هوشمند:</span>
+            <span class="label">درجه ریسک:</span>
             <span class="val risk" [style.color]="selectedNode.risk >= 90 ? '#ef4444' : '#f59e0b'">
               {{ selectedNode.risk }}%
             </span>
           </div>
           <div class="meta-row">
-            <span class="label">خوشه انتسابی:</span>
-            <span class="val font-mono text-cyan-300">{{ selectedNode.clusterLabel || 'خوشه اصلی' }}</span>
-          </div>
-          <div class="meta-row">
-            <span class="label">شرح وضعیت:</span>
+            <span class="label">عنوان عملیات:</span>
             <span class="val">{{ selectedNode.title }}</span>
           </div>
         </div>
@@ -150,11 +143,24 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
       }
     }
 
-    .hud-stats { display: flex; gap: 0.8rem; color: #64748b; font-size: 0.68rem; align-items: center; }
-    .cluster-tag strong { color: #a855f7; }
+    .hud-stats { display: flex; gap: 0.8rem; color: #64748b; font-size: 0.68rem; }
+
+    /* استایل کارت Standby کاملاً هماهنگ با GIS و CKD */
+    .standby-overlay {
+      position: absolute; inset: 0; background: #070b13;
+      display: flex; align-items: center; justify-content: center; z-index: 20;
+      direction: rtl; text-align: center;
+      .standby-box {
+        background: #0f172a; border: 1px solid #1e293b; padding: 2.5rem 3rem;
+        border-radius: 10px; max-width: 460px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .standby-icon { font-size: 2.8rem; margin-bottom: 0.8rem; }
+        h3 { color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.5rem; font-weight: bold; }
+        p { color: #94a3b8; font-size: 0.76rem; line-height: 1.6; margin: 0; }
+      }
+    }
 
     .node-inspector-drawer {
-      position: absolute; bottom: 12px; right: 12px; width: 420px; max-width: 90%;
+      position: absolute; bottom: 12px; right: 12px; width: 400px; max-width: 90%;
       background: rgba(13, 18, 30, 0.98); border: 1px solid #38bdf8;
       border-radius: 6px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.8);
       backdrop-filter: blur(10px); direction: rtl; text-align: right;
@@ -173,25 +179,6 @@ export type GraphLayoutType = 'FORCE' | 'CIRCULAR' | 'HIERARCHY';
     }
     .drawer-body {
       padding: 0.75rem; font-size: 0.75rem; color: #cbd5e1;
-      .badges-row {
-        display: flex; gap: 0.4rem; margin-bottom: 0.6rem;
-        .bridge-badge {
-          background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5;
-          padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;
-        }
-        .leader-badge {
-          background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fde68a;
-          padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;
-        }
-      }
-      .stat-pills-grid {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;
-        .stat-pill {
-          background: rgba(15, 23, 42, 0.8); border: 1px solid #1e293b; padding: 0.35rem 0.5rem;
-          border-radius: 4px; display: flex; flex-direction: column; gap: 2px;
-          .p-label { font-size: 0.62rem; color: #94a3b8; }
-        }
-      }
       .meta-row {
         display: flex; justify-content: space-between; margin-bottom: 0.4rem;
         .label { color: #64748b; }
@@ -211,7 +198,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   @Output() nodeSelected = new EventEmitter<any>();
 
   detectedClustersCount = signal<number>(1);
-  activeLayout: GraphLayoutType = 'FORCE'; // به طور پیش‌فرض روی چینش باز Force قرار می‌گیرد
+  activeLayout: GraphLayoutType = 'HIERARCHY';
   nodeCount = 0;
   edgeCount = 0;
   selectedNode: any = null;
@@ -220,18 +207,27 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   private resizeObserver: ResizeObserver | null = null;
 
   private clusterPalette: string[] = [
-    '#38bdf8', '#a855f7', '#22c55e', '#f97316', '#ec4899', '#eab308'
+    '#38bdf8',
+    '#a855f7',
+    '#22c55e',
+    '#f97316',
+    '#ec4899',
+    '#eab308'
   ];
+
+  private stepHoursMap: Record<number, number> = {
+    0: 8,
+    1: 10,
+    2: 11,
+    3: 12,
+    4: 12
+  };
 
   @Input() set activePlaybackHour(hour: number | null) {
     if (hour !== null && this.chart) {
       this.filterGraphByHour(hour);
     }
   }
-
-  private stepHoursMap: Record<number, number> = {
-    0: 8, 1: 10, 2: 11, 3: 12, 4: 12
-  };
 
   private filterGraphByHour(currentHour: number): void {
     const currentOption = this.chart?.getOption() as any;
@@ -243,11 +239,15 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     let docIdx = 0;
     const updatedNodes = nodes.map((n: any) => {
       if (n.category === 'PERSON') {
-        return { ...n, itemStyle: { ...(n.itemStyle || {}), opacity: 1 } };
+        return {
+          ...n,
+          itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
+        };
       }
 
       const assignedHour = this.stepHoursMap[docIdx] ?? 12;
       docIdx++;
+
       const isReached = assignedHour <= currentHour;
       const isCurrentlyActive = assignedHour === currentHour;
 
@@ -331,9 +331,10 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     nodes.forEach(node => {
       const cId = nodeClusterMap.get(node.id) || 1;
       const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
+      
       node.clusterId = cId;
 
-      if (!node.isLeader && !node.isCriticalBridge) {
+      if (!node.isLeader) {
         node.itemStyle = {
           ...(node.itemStyle || {}),
           borderColor: clusterColor,
@@ -427,11 +428,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         const isPerson = n.category === 'PERSON' || n.type === 0 || idStr.includes('PERSON');
         const isTarget = this.targetNationalId ? this.targetNationalId.includes(idStr.replace('PERSON_', '')) : false;
 
-        const props = n.properties || {};
-        const isBridge = props.IsCriticalBridge === true || (props.NormalizedBetweenness && props.NormalizedBetweenness > 0.45);
-        const pr = props.PageRank !== undefined ? props.PageRank : 0.035;
-        const bc = props.NormalizedBetweenness !== undefined ? props.NormalizedBetweenness : 0.28;
-
         nodesMap.set(idStr, {
           id: idStr,
           name: idStr,
@@ -440,17 +436,12 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
           category: isPerson ? 'PERSON' : (idStr.includes('ACC') ? 'BANK_ACCOUNT' : 'CARGO'),
           entityType: isPerson ? 'سوژه تحت رصد' : (idStr.includes('ACC') ? 'حساب بانکی' : 'کوتاژ / سند'),
           symbol: isPerson ? SVG_ICONS['PERSON'] : (idStr.includes('ACC') ? SVG_ICONS['BANK_ACCOUNT'] : SVG_ICONS['CUSTOMS_CARGO']),
-          symbolSize: isPerson ? 42 : (isBridge ? 34 : 28),
+          symbolSize: isPerson ? 42 : 28,
           risk: n.riskScore || 85,
-          isCriticalBridge: isBridge,
-          pageRank: pr,
-          betweenness: bc,
           itemStyle: {
-            color: isPerson ? (isTarget ? '#ef4444' : '#f59e0b') : (isBridge ? '#f43f5e' : '#38bdf8'),
-            borderColor: isBridge ? '#f43f5e' : '#ffffff',
-            borderWidth: isBridge ? 3 : (isPerson ? 2 : 1),
-            shadowBlur: isBridge ? 20 : 0,
-            shadowColor: isBridge ? '#f43f5e' : undefined
+            color: isPerson ? (isTarget ? '#ef4444' : '#f59e0b') : '#38bdf8',
+            borderColor: '#ffffff',
+            borderWidth: isPerson ? 2 : 1
           }
         });
       });
@@ -472,7 +463,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         }
       });
 
-      // در صورت انتخاب چیدمان سلسله‌مراتبی، چیدمان نرم‌تر با فاصله خطی متناسب
       if (this.activeLayout === 'HIERARCHY') {
         const allNodes = Array.from(nodesMap.values());
         const personNodes = allNodes.filter(n => n.category === 'PERSON');
@@ -485,35 +475,18 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
           p.fixed = true;
         });
 
-        // توزیع چندستونه اقلام غیرشخصی جهت جلوگیری از انباشتگی عمودی
-        const columnsCount = Math.min(3, Math.ceil(otherNodes.length / 8));
-        const perCol = Math.ceil(otherNodes.length / columnsCount);
-
+        const stepOtherY = height / (otherNodes.length + 1);
         otherNodes.forEach((o, idx) => {
-          const colIndex = Math.floor(idx / perCol);
-          const rowIndex = idx % perCol;
-          const stepY = height / (perCol + 1);
-
-          o.x = Math.round(width * (0.55 + colIndex * 0.2));
-          o.y = Math.round(stepY * (rowIndex + 1));
+          o.x = width * 0.78;
+          o.y = Math.round(stepOtherY * (idx + 1));
           o.fixed = true;
         });
       }
-    } else {
-      this.nodeCount = 0;
-      this.edgeCount = 0;
-      this.chart.setOption({
-        backgroundColor: '#070b12',
-        title: {
-          text: '⬡ استودیو گراف در انتظار انتخاب پرونده (Standby State)',
-          subtext: 'لطفاً یک سند را از جدول بازرسی (Inspect) کنید یا از بالای صفحه «کشف حلقه پیوند» را اجرا نمایید.',
-          left: 'center',
-          top: 'center',
-          textStyle: { color: '#38bdf8', fontSize: 13, fontFamily: 'Vazirmatn, sans-serif' },
-          subtextStyle: { color: '#64748b', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' }
-        }
-      }, true);
-      return;
+    } 
+    else if (this.currentLogs && this.currentLogs.length > 0 && this.isInspected) {
+      const galaxy = this.buildGalaxy(this.currentLogs, width, height);
+      galaxy.nodes.forEach(n => nodesMap.set(n.id, n));
+      galaxy.edges.forEach(e => rawEdges.push(e));
     }
 
     const finalNodes = Array.from(nodesMap.values());
@@ -537,13 +510,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         links: validEdges,
         edgeSymbol: ['none', 'arrow'],
         edgeSymbolSize: [0, 8],
-        roam: true, // امکان زوم و حرکت آزاد با موس در گراف
-        force: {
-          repulsion: 450,       // نیروی دافعه بالا جهت باز شدن و تنفس گره‌ها
-          edgeLength: [90, 180], // طول یال مناسب برای ممانعت از هم‌پوشانی
-          gravity: 0.12,
-          friction: 0.85
-        },
         label: {
           show: true,
           position: 'bottom',
@@ -557,13 +523,6 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         }
       }]
     }, true);
-
-    this.chart.on('click', (params: any) => {
-      if (params.dataType === 'node') {
-        this.selectedNode = params.data;
-        this.nodeSelected.emit(params.data);
-      }
-    });
   }
 
   private applyHighlightFocus(): void {
@@ -578,12 +537,23 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     if (!rawTargetId) {
       const resetNodes = nodes.map((n: any) => ({
         ...n,
-        itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
+        itemStyle: {
+          ...(n.itemStyle || {}),
+          opacity: 1,
+          shadowBlur: n.isLeader ? 25 : 0
+        }
       }));
+
       const resetLinks = links.map((l: any) => ({
         ...l,
-        lineStyle: { ...(l.lineStyle || {}), opacity: 0.85, width: 1.8 }
+        lineStyle: {
+          ...(l.lineStyle || {}),
+          opacity: 0.85,
+          width: 1.8,
+          color: 'rgba(245, 158, 11, 0.45)'
+        }
       }));
+
       this.chart.setOption({ series: [{ data: resetNodes, links: resetLinks }] });
       return;
     }
@@ -602,6 +572,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const updatedNodes = nodes.map((n: any) => {
       const nId = String(n.id || '');
       const nLabel = String(n.displayLabel || '');
+
       const isMatchingDoc = (selectedDocId && nId === selectedDocId) ||
                             (cleanTargetId && (nId.includes(cleanTargetId) || nLabel.includes(cleanTargetId)));
       const isPersonHub = n.category === 'PERSON';
@@ -636,7 +607,10 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     });
 
     this.chart.setOption({
-      series: [{ data: updatedNodes, links: updatedLinks }]
+      series: [{
+        data: updatedNodes,
+        links: updatedLinks
+      }]
     });
   }
 
@@ -701,10 +675,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const nodesMap = new Map<string, any>();
     const edges: any[] = [];
 
-    // محدود کردن به ۱۰ مورد برجسته برای خلوت و روان بودن گراف در حالت کلان‌داده
-    const displayLogs = (logs || []).slice(0, 10);
-
-    displayLogs.forEach((log) => {
+    logs.forEach((log) => {
       const personId = `PERSON_${log.importerNationalId}`;
       const docId = `DOC_${log.orderRegNumber || log.cottageNumber || log.id}`;
 
@@ -746,6 +717,24 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       });
     });
 
-    return { nodes: Array.from(nodesMap.values()), edges };
+    const nodes = Array.from(nodesMap.values());
+    const personNodes = nodes.filter(n => n.category === 'PERSON');
+    const docNodes = nodes.filter(n => n.category === 'CARGO');
+
+    const stepPersonY = height / (personNodes.length + 1);
+    personNodes.forEach((p, idx) => {
+      p.x = width * 0.25;
+      p.y = Math.round(stepPersonY * (idx + 1));
+      p.fixed = true;
+    });
+
+    const stepDocY = height / (docNodes.length + 1);
+    docNodes.forEach((d, idx) => {
+      d.x = width * 0.75;
+      d.y = Math.round(stepDocY * (idx + 1));
+      d.fixed = true;
+    });
+
+    return { nodes, edges };
   }
 }

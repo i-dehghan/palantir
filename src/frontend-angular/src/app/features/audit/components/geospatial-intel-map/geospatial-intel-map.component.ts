@@ -1,3 +1,5 @@
+// مسیر کامل فایل: src/app/features/audit/components/geospatial-intel-map/geospatial-intel-map.component.ts
+
 import {
   Component,
   ElementRef,
@@ -18,7 +20,6 @@ import * as echarts from 'echarts';
 import { HttpClient } from '@angular/common/http';
 import { AuditService, TransitCorrelatorReport } from '../../../../core/services/audit.service';
 
-// آیکون‌های SVG استاندارد و بهینه شده
 const MAP_ICONS = {
   CUSTOMS: 'path://M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
   BTS_TOWER: 'path://M12 2c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-5.39C20.26 15.07 21 13.12 21 11c0-4.97-4.03-9-9-9zm0 13.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 6.5 12 6.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z',
@@ -31,7 +32,7 @@ const MAP_ICONS = {
   imports: [CommonModule],
   template: `
     <div class="tactical-map-wrapper">
-      <div class="map-hud">
+      <div class="map-hud" *ngIf="isInspected || targetNationalId">
         <div class="hud-col">
           <span class="hud-label">GIS & INTEL HIERARCHY:</span>
           <strong class="text-cyan-400">تحلیل سلسله‌مراتبی مسیر ترانزیت، شماره حساب‌ها و ردپای سلولی</strong>
@@ -47,12 +48,21 @@ const MAP_ICONS = {
         </div>
       </div>
 
-      <!-- بنر تحلیلی تفکیکی گام‌به‌گام با جزئیات کارت‌ها، حساب‌ها و دکل‌ها -->
-      <div class="anomaly-warning-banner" *ngIf="transitData()?.isPrematureDischargeDetected">
+      <!-- بنر تحلیلی تفکیکی گام‌‌به‌گام -->
+      <div class="anomaly-warning-banner" *ngIf="(isInspected || targetNationalId) && transitData()?.isPrematureDischargeDetected">
         <span class="icon">🚨</span>
         <div class="banner-body">
           <strong>تحلیل تفکیکی گام‌به‌گام جریان بین سوژه‌ها ({{ targetNationalId || '14001000000 ⟷ 14001000474' }}):</strong>
           <span class="desc">{{ transitData()?.judicialDescription }}</span>
+        </div>
+      </div>
+
+      <!-- حالت Standby هماهنگ با گراف -->
+      <div class="standby-overlay" *ngIf="!isInspected && !targetNationalId">
+        <div class="standby-box">
+          <div class="standby-icon">🗺️</div>
+          <h3>نقشه جغرافیایی (Standby State) در انتظار انتخاب پرونده</h3>
+          <p>لطفاً یک سند را از جدول بازرسی انتخاب نموده یا دکمه (Inspect) را کلیک کنید.</p>
         </div>
       </div>
 
@@ -90,6 +100,18 @@ const MAP_ICONS = {
         .desc { color: #cbd5e1; font-family: monospace; }
       }
     }
+    .standby-overlay {
+      position: absolute; inset: 0; background: #070b13;
+      display: flex; align-items: center; justify-content: center; z-index: 20;
+      direction: rtl; text-align: center;
+      .standby-box {
+        background: #0f172a; border: 1px solid #1e293b; padding: 2.5rem 3rem;
+        border-radius: 10px; max-width: 460px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .standby-icon { font-size: 2.8rem; margin-bottom: 0.8rem; }
+        h3 { color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.5rem; font-weight: bold; }
+        p { color: #94a3b8; font-size: 0.76rem; line-height: 1.6; margin: 0; }
+      }
+    }
   `]
 })
 export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -115,8 +137,13 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['inspectedItem'] || changes['currentDomain'] || changes['targetNationalId']) && this.isMapRegistered) {
-      this.fetchAndRenderTransitCorrelator();
+    const hasInspectedChanged = changes['inspectedItem'] && !changes['inspectedItem'].firstChange;
+    const hasTargetChanged = changes['targetNationalId'] && !changes['targetNationalId'].firstChange;
+
+    if ((hasInspectedChanged || hasTargetChanged || changes['currentDomain']) && this.isMapRegistered) {
+      if (this.isInspected || this.targetNationalId) {
+        this.fetchAndRenderTransitCorrelator();
+      }
     }
   }
 
@@ -141,14 +168,14 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
       next: (geoJson: any) => {
         echarts.registerMap('iran', geoJson);
         this.isMapRegistered = true;
-        this.fetchAndRenderTransitCorrelator();
+        this.renderEmptyMap();
       },
       error: () => {
         this.http.get('/maps/iran.json').subscribe({
           next: (geoJson: any) => {
             echarts.registerMap('iran', geoJson);
             this.isMapRegistered = true;
-            this.fetchAndRenderTransitCorrelator();
+            this.renderEmptyMap();
           },
           error: (err) => {
             console.error('فایل نقشه iran.json در دسترس نیست:', err);
@@ -156,6 +183,22 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
         });
       }
     });
+  }
+
+  private renderEmptyMap(): void {
+    if (!this.chart || !this.isMapRegistered) return;
+    const option: any = {
+      backgroundColor: '#070b13',
+      geo: {
+        map: 'iran',
+        roam: true,
+        zoom: 6.2,
+        center: [53.4, 31.0],
+        itemStyle: { areaColor: '#0f172a', borderColor: '#1e293b', borderWidth: 1.2 }
+      },
+      series: []
+    };
+    this.chart.setOption(option, true);
   }
 
   private fetchAndRenderTransitCorrelator(): void {
@@ -174,15 +217,15 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
           destination: { lat: 35.6892, lng: 51.3890, title: 'گمرک مقصد تهران' },
           isPrematureDischargeDetected: true,
           confidenceScore: 98.6,
-          judicialDescription: `گام‌‌به‌گام تحلیل جریان سوژه‌ها (${targetsLabel}): 
+          judicialDescription: `گام‌به‌گام تحلیل جریان سوژه‌ها (${targetsLabel}): 
           [۱] شروع اظهار و ثبت کوتاژ ${cottageNo} از گمرک مبدأ شهید رجایی ➔ 
-          [۲] انتقال وجوه نامتعارف با کارت بانکی شماره ۶۰۳۷۹971...۴۱ از حساب سوژه به حساب واسط (Mule) در صرافی اصفهان ➔ 
-          [۳] برقراری ارتباط سلولی و سوئیچینگ از طریق دکل BTS-TEH-EAST-402 و ➔ 
+          [۲] انتقال وجوه نامتعارف با کارت بانکی از حساب سوژه به حساب واسط ➔ 
+          [۳] برقراری ارتباط سلولی از طریق دکل BTS-TEH-EAST-402 ➔ 
           [۴] تخلیه غیرمجاز بارنامه در انبار متفرقه خارج از کریدور گمرکی.`,
           waypoints: [
             { lat: 27.1492, lng: 56.0640, cellId: 'گام [۱]: گمرک شهید رجایی', isDeviated: false, anomalyType: 'ثبت اظهارنامه و کوتاژ' },
-            { lat: 32.6539, lng: 51.6660, cellId: 'گام [۲]: صرافی اصفهان (کارت ...۴۱)', isDeviated: true, anomalyType: 'لایه‌بندی وجه با حساب واسط' },
-            { lat: 34.2539, lng: 50.8660, cellId: 'گام [۳]: دکل BTS #412 (ارتباط سلولی)', isDeviated: true, anomalyType: 'انحراف مسیر ترانزیت و مکالمه' },
+            { lat: 32.6539, lng: 51.6660, cellId: 'گام [۲]: صرافی اصفهان', isDeviated: true, anomalyType: 'لایه‌بندی وجه با حساب واسط' },
+            { lat: 34.2539, lng: 50.8660, cellId: 'گام [۳]: دکل BTS #412', isDeviated: true, anomalyType: 'انحراف مسیر ترانزیت' },
             { lat: 35.6892, lng: 51.3890, cellId: 'گام [۴]: انبار متفرقه تهران', isDeviated: true, anomalyType: 'تخلیه زودهنگام کالا' }
           ]
         };
@@ -194,14 +237,9 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
 
   private renderTransitMap(data: any): void {
     if (!this.chart || !this.isMapRegistered) return;
-
     const waypoints = data.waypoints || [];
-    let sumLat = 0;
-    let sumLng = 0;
-    waypoints.forEach((wp: any) => {
-      sumLat += wp.lat;
-      sumLng += wp.lng;
-    });
+    let sumLat = 0, sumLng = 0;
+    waypoints.forEach((wp: any) => { sumLat += wp.lat; sumLng += wp.lng; });
     const centerLng = waypoints.length ? sumLng / waypoints.length : 53.4;
     const centerLat = waypoints.length ? sumLat / waypoints.length : 31.0;
 
@@ -218,85 +256,19 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
         anomalyType: wp.anomalyType,
         symbol: isTower ? MAP_ICONS.BTS_TOWER : (isHub ? MAP_ICONS.FINANCIAL_HUB : MAP_ICONS.CUSTOMS),
         symbolSize: wp.isDeviated ? 24 : 20,
-        itemStyle: {
-          color: wp.isDeviated ? '#ef4444' : '#38bdf8',
-          shadowBlur: 8,
-          shadowColor: wp.isDeviated ? '#ef4444' : '#38bdf8'
-        }
+        itemStyle: { color: wp.isDeviated ? '#ef4444' : '#38bdf8' }
       };
     });
 
     const routeCoords = waypoints.map((wp: any) => [wp.lng, wp.lat]);
 
-    const option: any = {
+    this.chart.setOption({
       backgroundColor: '#070b13',
-      geo: {
-        map: 'iran',
-        roam: true,
-        zoom: 6.2,
-        center: [centerLng, centerLat],
-        itemStyle: {
-          areaColor: '#0f172a',
-          borderColor: '#1e293b',
-          borderWidth: 1.2
-        },
-        emphasis: {
-          itemStyle: { areaColor: '#1e293b' },
-          label: { show: false }
-        }
-      },
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderColor: '#38bdf8',
-        textStyle: { color: '#f8fafc', fontSize: 11, fontFamily: 'Vazirmatn, sans-serif' },
-        formatter: (params: any) => {
-          if (params.seriesType === 'scatter' || params.seriesType === 'effectScatter') {
-            const d = params.data;
-            return `
-              <div style="direction: rtl; text-align: right; padding: 6px; line-height: 1.6;">
-                مرحله جریان: <strong style="color: #fbbf24;">گام شماره [${d.step}]</strong><br/>
-                موقعیت و کارت/دکل: <strong style="color: #38bdf8;">${d.name}</strong><br/>
-                سوژه مرتبط: <strong style="color: #a5b4fc;">${this.targetNationalId || '14001000000 ⟷ 14001000474'}</strong><br/>
-                شرح رویداد: <span style="color: ${d.isDeviated ? '#ef4444' : '#10b981'}; font-weight: bold;">${d.anomalyType}</span>
-              </div>
-            `;
-          }
-          return params.name;
-        }
-      },
+      geo: { map: 'iran', roam: true, zoom: 6.2, center: [centerLng, centerLat], itemStyle: { areaColor: '#0f172a', borderColor: '#1e293b', borderWidth: 1.2 } },
       series: [
-        {
-          type: 'lines',
-          coordinateSystem: 'geo',
-          zlevel: 2,
-          effect: { show: true, period: 4, trailLength: 0.6, color: '#38bdf8', symbolSize: 5 },
-          lineStyle: { color: '#0284c7', width: 2.5, opacity: 0.85, curveness: 0.08 },
-          data: [{ coords: routeCoords }]
-        },
-        {
-          type: 'effectScatter',
-          coordinateSystem: 'geo',
-          zlevel: 4,
-          data: scatterData,
-          rippleEffect: { brushType: 'stroke', scale: 2.8, period: 2.5 },
-          label: {
-            show: true,
-            formatter: (params: any) => `🔵 [گام ${params.data.step}]\n${params.data.cellId || params.data.name}`,
-            position: 'top',
-            color: '#f8fafc',
-            fontSize: 9,
-            fontFamily: 'Vazirmatn, sans-serif',
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-            padding: [4, 7],
-            borderRadius: 4,
-            borderColor: '#334155',
-            borderWidth: 1
-          }
-        }
+        { type: 'lines', coordinateSystem: 'geo', data: [{ coords: routeCoords }], lineStyle: { color: '#0284c7', width: 2.5 } },
+        { type: 'effectScatter', coordinateSystem: 'geo', data: scatterData, rippleEffect: { scale: 2.8 } }
       ]
-    };
-
-    this.chart.setOption(option, true);
+    }, true);
   }
 }

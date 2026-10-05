@@ -3,11 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { AuditService } from '../../core/services/audit.service';
-import { DiscrepancyLog, CkdCase, DomainType, DomainOption } from '../../core/models/discrepancy.model';
+import { DiscrepancyLog, CkdCase, DomainType, DomainOption, MultiEntityLinkGraph } from '../../core/models/discrepancy.model';
 import { DossierService, MultiHopDossierGraph } from '../../core/services/dossier.service';
 import { PalantirDossierStudioComponent } from './components/palantir-dossier-studio/palantir-dossier-studio.component';
 import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/geospatial-intel-map.component';
-import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
+import { CaseTimelineBarComponent, QuickDatePreset, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
 import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
 
@@ -26,13 +26,11 @@ import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss'
 })
+
 export class AuditDashboardComponent implements OnInit {
   @ViewChild(PalantirDossierStudioComponent) dossierStudio?: PalantirDossierStudioComponent;
   @ViewChild(CaseTimelineBarComponent) timelineBar!: CaseTimelineBarComponent;
   @ViewChild('iranMapCanvas') iranMapCanvas!: ElementRef<HTMLDivElement>;
-
-  private auditService = inject(AuditService);
-  private dossierService = inject(DossierService);
 
   activePlaybackHour = signal<number | null>(null);
   timelineFilter = signal<{ startHour: number; endHour: number; active: boolean }>({
@@ -40,6 +38,9 @@ export class AuditDashboardComponent implements OnInit {
     endHour: 23,
     active: false
   });
+
+  private auditService = inject(AuditService);
+  private dossierService = inject(DossierService);
 
   activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
   protected readonly Math = Math;
@@ -64,10 +65,23 @@ export class AuditDashboardComponent implements OnInit {
     { id: 'TELECOM', label: '📡 ارتباطات و دیتای CDR', desc: 'سوئیچ مخابرات، سیم‌باکس و شاهکار' }
   ] as const;
 
+  showGalaxyGraph = signal<boolean>(false);
   focusedNationalId = signal<string>('');
   focusedOrderInGalaxy = signal<string | null>(null);
 
-  activeInvestigatedIds = signal<string[]>([]);
+  selectedTimeWindow = signal<{
+    preset: 'TODAY' | 'YESTERDAY' | 'LAST_7D' | 'ALL';
+    startHour: string;
+    endHour: string;
+    start: string;
+    end: string;
+  }>({
+    preset: 'TODAY',
+    startHour: '00:00',
+    endHour: '22:00',
+    start: '00:00',
+    end: '22:00'
+  });
 
   inspectedItem = signal<any | null>(null);
   isReportModalOpen = signal(false);
@@ -77,6 +91,10 @@ export class AuditDashboardComponent implements OnInit {
   isTimelineLoading = signal<boolean>(false);
   inspectingRowId = signal<string | null>(null);
 
+  searchQuery = signal<string>('');
+  selectedAnalysisDepth = signal<number>(2);
+  linkFilterDomains = signal<DomainType[]>(['CUSTOMS', 'BANKING', 'TELECOM']);
+
   investigationTargets = signal<{ id: string; value: string }[]>([
     { id: 'target_1', value: '' },
     { id: 'target_2', value: '' }
@@ -84,18 +102,20 @@ export class AuditDashboardComponent implements OnInit {
 
   noLinkWarning = signal<string | null>(null);
 
-  selectedRelationTypes = signal<{ banking: boolean; telecom: boolean; customs: boolean }>({
-    banking: true,
-    telecom: true,
-    customs: true
-  });
-
-  ngOnInit(): void {
-    this.fetchLogs();
-  }
-
   trackByTargetId(index: number, item: { id: string; value: string }): string {
     return item.id;
+  }
+
+  onTimeRangeChanged(event: TimelineRangeEvent): void {
+    if (event.preset === 'ALL') {
+      this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
+    } else {
+      this.timelineFilter.set({
+        startHour: event.startHour,
+        endHour: event.endHour,
+        active: true
+      });
+    }
   }
 
   addTargetInput(): void {
@@ -119,6 +139,12 @@ export class AuditDashboardComponent implements OnInit {
     }
   }
 
+  selectedRelationTypes = signal<{ banking: boolean; telecom: boolean; customs: boolean }>({
+    banking: true,
+    telecom: true,
+    customs: true
+  });
+
   runMultiTargetInvestigation(): void {
     const cleanIds = this.investigationTargets()
       .map(x => x.value.trim())
@@ -135,8 +161,7 @@ export class AuditDashboardComponent implements OnInit {
 
     this.inspectedItem.set(null);
     this.selectedTableItem.set(null);
-    this.focusedNationalId.set(cleanIds.join(' ⟷ '));
-    this.activeInvestigatedIds.set(cleanIds);
+    this.focusedNationalId.set(cleanIds.join(' , '));
 
     const rel = this.selectedRelationTypes();
     const activeTypes: ('BANKING' | 'TELECOM' | 'CUSTOMS')[] = [];
@@ -184,6 +209,7 @@ export class AuditDashboardComponent implements OnInit {
           });
 
           if (tableRecords.length > 0) {
+            this.logs.set(tableRecords);
             this.selectedTableItem.set(tableRecords[0]);
           }
         }
@@ -193,11 +219,17 @@ export class AuditDashboardComponent implements OnInit {
         this.isTimelineLoading.set(false);
       },
       error: (err) => {
-        console.error('خطا در استعلام تقاطعی:', err);
+        console.error('خطا در واکشی استعلام:', err);
         this.isDossierLoading.set(false);
         this.isTimelineLoading.set(false);
       }
     });
+  }
+
+  private currentDossierSub: any = null;
+
+  ngOnInit(): void {
+    this.fetchLogs();
   }
 
   switchRightView(view: 'MAP' | 'GRAPH' | 'CKD'): void {
@@ -215,18 +247,30 @@ export class AuditDashboardComponent implements OnInit {
     this.isDossierLoading.set(true);
     this.isTimelineLoading.set(true);
 
-    this.activeInvestigatedIds.set([]);
     this.selectedTableItem.set(item);
     this.inspectedItem.set({ ...item });
     this.focusedNationalId.set(targetNid);
     this.focusedOrderInGalaxy.set(caseId);
     this.selectedOrderForCkd.set(item?.orderRegNumber || null);
 
+    if (this.currentDossierSub) {
+      this.currentDossierSub.unsubscribe();
+    }
+
     setTimeout(() => {
       this.isTimelineLoading.set(false);
     }, 200);
 
-    this.dossierService.getDossier(targetNid, 2).subscribe({
+    const currentData = this.currentDossierData();
+    if (currentData?.isMultiTarget) {
+      setTimeout(() => {
+        this.isDossierLoading.set(false);
+        this.inspectingRowId.set(null);
+      }, 150);
+      return;
+    }
+
+    this.currentDossierSub = this.dossierService.getDossier(targetNid, 2).subscribe({
       next: (data: any) => {
         this.currentDossierData.set({
           ...data,
@@ -253,15 +297,108 @@ export class AuditDashboardComponent implements OnInit {
     });
   }
 
+  executePersonLinkAnalysis(identifier: string): void {
+    const cleanId = (identifier || '').trim();
+    if (!cleanId) return;
+
+    this.isDossierLoading.set(true);
+    this.focusedNationalId.set(cleanId);
+    this.activeRightView.set('GRAPH');
+
+    this.dossierService.getMultiHopEntityLinks(cleanId, 2).subscribe({
+      next: (graphData: MultiHopDossierGraph) => {
+        const formattedNodes = (graphData.nodes || []).map(node => {
+          const isTarget = node.id === cleanId || node.id === graphData.rootEntityId;
+          const isPhone = node.id.startsWith('09') || node.type === 4;
+          const isBank = node.type === 2 || node.id.startsWith('IR') || node.displayLabel.includes('حساب');
+
+          let iconType = 'PERSON';
+          let nodeColor = isTarget ? '#ef4444' : '#f59e0b';
+
+          if (isPhone) {
+            iconType = 'BTS_TOWER';
+            nodeColor = '#38bdf8';
+          } else if (isBank) {
+            iconType = 'BANK_ACCOUNT';
+            nodeColor = '#10b981';
+          }
+
+          return {
+            id: node.id,
+            name: node.id,
+            displayLabel: node.displayLabel || node.id,
+            category: iconType,
+            entityType: isPhone ? 'شماره همراه / ارتباط مخابراتی' : isBank ? 'حساب بانکی / تراکنش AML' : 'سوژه انسانی / شرکت',
+            risk: node.riskScore || 85,
+            title: node.displayLabel,
+            symbolSize: isTarget ? 42 : 28,
+            itemStyle: {
+              color: nodeColor,
+              borderColor: isTarget ? '#38bdf8' : '#ffffff',
+              borderWidth: isTarget ? 3 : 1
+            }
+          };
+        });
+
+        const formattedEdges = (graphData.edges || []).map(edge => {
+          const pred = edge.predicate || '';
+          let edgeColor = '#94a3b8';
+
+          if (pred.includes('تماس') || pred.includes('پیامک') || pred.includes('سلولی')) {
+            edgeColor = '#38bdf8';
+          } else if (pred.includes('واریز') || pred.includes('ساتنا') || pred.includes('انتقال')) {
+            edgeColor = '#10b981';
+          } else if (pred.includes('گمرک') || pred.includes('کوتاژ') || pred.includes('سفارش')) {
+            edgeColor = '#f59e0b';
+          }
+
+          return {
+            source: edge.sourceId,
+            target: edge.targetId,
+            value: edge.predicate,
+            lineStyle: {
+              color: edgeColor,
+              width: Math.min(4, Math.max(1.5, (edge.weight || 20) / 25)),
+              curveness: 0.12
+            }
+          };
+        });
+
+        this.currentDossierData.set({
+          targetNid: cleanId,
+          rootEntityId: graphData.rootEntityId,
+          nodes: formattedNodes,
+          edges: formattedEdges
+        });
+
+        this.isDossierLoading.set(false);
+      },
+      error: () => {
+        this.isDossierLoading.set(false);
+      }
+    });
+  }
+
+  selectRowItem(item: DiscrepancyLog): void {
+    this.selectedTableItem.set(item);
+    this.inspectCase(item);
+  }
+
   clearInspection(): void {
     this.inspectedItem.set(null);
     this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
     this.selectedOrderForCkd.set(null);
     this.highlightedTimelineId.set(null);
+    this.loadGlobalDossier();
+  }
+
+  loadGlobalDossier(): void {
+    this.inspectedItem.set(null);
+    this.focusedNationalId.set('');
+    this.focusedOrderInGalaxy.set(null);
+    // خالی نگه‌داشتن گراف تا زمان انتخاب سوژه
     this.currentDossierData.set(null);
-    this.selectedTableItem.set(null);
-    this.activeInvestigatedIds.set([]);
   }
 
   switchDomain(domain: DomainType): void {
@@ -269,9 +406,6 @@ export class AuditDashboardComponent implements OnInit {
     this.inspectedItem.set(null);
     this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
-    this.currentDossierData.set(null);
-    this.selectedTableItem.set(null);
-    this.activeInvestigatedIds.set([]);
     this.currentPage.set(1);
     this.fetchLogs();
   }
@@ -291,8 +425,9 @@ export class AuditDashboardComponent implements OnInit {
         this.selectedTableItem.set(null);
         this.focusedNationalId.set('');
         this.inspectedItem.set(null);
+
+        // جلوگیری از رسم گراف پیش‌فرض عمومی در لود اولیه
         this.currentDossierData.set(null);
-        this.activeInvestigatedIds.set([]);
       },
       error: () => this.loading.set(false)
     });
@@ -300,18 +435,32 @@ export class AuditDashboardComponent implements OnInit {
 
   selectedCkdCase = computed<CkdCase | null>(() => {
     const currentLogs = this.filteredLogs();
-    if (currentLogs.length === 0) return null;
+    if (currentLogs.length === 0 || !this.inspectedItem()) return null;
 
+    const domain = this.currentDomain();
     const targetLog = this.selectedOrderForCkd()
-      ? currentLogs.find(l => l.orderRegNumber === this.selectedOrderForCkd()) || currentLogs[0]
-      : (this.inspectedItem() || currentLogs[0]);
+      ? currentLogs.find(l => l.orderRegNumber === this.selectedOrderForCkd()) || this.inspectedItem()
+      : this.inspectedItem();
+
+    if (!targetLog) return null;
 
     const relatedLogs = currentLogs.filter(l => l.importerNationalId === targetLog.importerNationalId);
 
+    let targetTitle = 'کالای کامل مشکوک به تفکیک به قطعات منفصله (قاعده ۲-الف)';
+    let roleTitle = `شرکت بازرگانی با شناسه ملی ${targetLog.importerNationalId}`;
+
+    if (domain === 'BANKING') {
+      targetTitle = 'هسته اصلی شبکه پولشویی و حساب تجمیع‌کننده (Mule Hub)';
+      roleTitle = `صاحب حساب سرشاخه با کدملی ${targetLog.importerNationalId}`;
+    } else if (domain === 'TELECOM') {
+      targetTitle = 'خوشه مشکوک به تقلب ترافیک و دستگاه سیم‌باکس (SIM-Box Cluster)';
+      roleTitle = `مشترک پرمصرف با کدملی ${targetLog.importerNationalId}`;
+    }
+
     return {
-      importerName: `شرکت بازرگانی با شناسه ملی ${targetLog.importerNationalId}`,
+      importerName: roleTitle,
       importerId: targetLog.importerNationalId,
-      targetProduct: 'کالای کامل مشکوک به تفکیک به قطعات منفصله (قاعده ۲-الف)',
+      targetProduct: targetTitle,
       totalValue: relatedLogs.reduce((acc, curr) => acc + 45000, 28890000),
       parts: (relatedLogs.length > 0 ? relatedLogs : currentLogs).slice(0, 5).map((l, idx) => ({
         orderNo: l.orderRegNumber,
@@ -323,14 +472,9 @@ export class AuditDashboardComponent implements OnInit {
   });
 
   filteredLogs = computed(() => {
-    let currentLogs = this.logs();
-    const activeIds = this.activeInvestigatedIds();
-
-    if (activeIds.length > 0) {
-      currentLogs = currentLogs.filter(log => activeIds.includes(String(log.importerNationalId)));
-    }
-
+    const currentLogs = this.logs();
     const tf = this.timelineFilter();
+    
     if (!tf.active) {
       return currentLogs;
     }
@@ -357,7 +501,7 @@ export class AuditDashboardComponent implements OnInit {
   });
 
   timelineFeedEvents = computed(() => {
-    const item = this.selectedTableItem() || this.inspectedItem();
+    const item = this.selectedTableItem() || this.inspectedItem() || (this.paginatedLogs().length > 0 ? this.paginatedLogs()[0] : null);
     if (!item) return [];
 
     const domain = (item.domainType || this.currentDomain() || 'CUSTOMS').toUpperCase();
@@ -370,7 +514,7 @@ export class AuditDashboardComponent implements OnInit {
         { id: `STEP_FX_${rawCode}`, targetDocId: rawCode, time: '۱۰:۳۰', title: 'تخصیص و تأمین ارز نیمایی', domain: 'CUSTOMS', risk: 45, statusDesc: 'تأیید گواهی ثبت آماری توسط بانک عامل' },
         { id: `STEP_DECL_${rawCode}`, targetDocId: rawCode, time: '۱۱:۴۵', title: `اظهار و صدور کوتاژ ${item.cottageNumber || rawCode}`, domain: 'CUSTOMS', risk: 70, statusDesc: 'ورود محموله به گمرک مقصد/مرزی' },
         { id: `STEP_ANOMALY_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۰', title: item.ruleName || 'کشف مغایرت هوش مصنوعی (قاعده ۲-الف)', domain: 'CUSTOMS', risk: risk, statusDesc: 'انطباق اجزا با کالای کامل' },
-        { id: `STEP_FLAG_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌‌اظهاری حقوق ورودی' }
+        { id: `STEP_FLAG_${rawCode}`, targetDocId: rawCode, time: '۱۲:۲۵', title: 'ارجاع به کارتابل بازرسی و توقف ترخیص', domain: 'CUSTOMS', risk: risk, statusDesc: 'صدور اخطار کم‌اظهاری حقوق ورودی' }
       ];
     }
     if (domain === 'BANKING') {
@@ -382,7 +526,7 @@ export class AuditDashboardComponent implements OnInit {
       ];
     }
     return [
-      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
+      { id: `STEP_REG_${rawCode}`, targetDocId: rawCode, time: '۰۶:۴۰', title: 'فعال‌‌سازی خوشه سیم‌کارت در شبکه', domain: 'TELECOM', risk: 40, statusDesc: 'اتصال همزمان ۳۲ عدد IMSI به یک دکل' },
       { id: `STEP_BURST_${rawCode}`, targetDocId: rawCode, time: '۰۷:۱۵', title: 'آغاز انفجار تماس‌های خروجی بین‌الملل', domain: 'TELECOM', risk: 78, statusDesc: 'ترافیک نامتعارف ۳۰۰ تماس همزمان' },
       { id: `STEP_SIMBOX_${rawCode}`, targetDocId: rawCode, time: '۰۷:۴۸', title: item.ruleName || 'احراز قطعیت درگاه سیم‌باکس (Bypass)', domain: 'TELECOM', risk: risk, statusDesc: 'عدم تحرک دکل (Zero Mobility Flag)' },
       { id: `STEP_TERMINATE_${rawCode}`, targetDocId: rawCode, time: '۰۸:۰۲', title: 'مسدودسازی شماره‌ها و گزارش به رگولاتوری', domain: 'TELECOM', risk: risk, statusDesc: 'قطع اتصال فیزیکی گیت‌وی قاچاق' }
@@ -402,28 +546,89 @@ export class AuditDashboardComponent implements OnInit {
     }
   }
 
-  onTimeRangeChanged(event: TimelineRangeEvent): void {
-    if (event.preset === 'ALL') {
-      this.timelineFilter.set({ startHour: 0, endHour: 23, active: false });
-    } else {
-      this.timelineFilter.set({
-        startHour: event.startHour,
-        endHour: event.endHour,
-        active: true
-      });
+  selectedTimeRange = signal<{ startHour: number; endHour: number; preset: string }>({
+    startHour: 0,
+    endHour: 23,
+    preset: 'ALL'
+  });
+
+  onTimelineFilterChanged(event: TimelineRangeEvent): void {
+    this.currentPage.set(1);
+    this.selectedTimeRange.set({
+      startHour: event.startHour,
+      endHour: event.endHour,
+      preset: event.preset
+    });
+
+    const activeLogs = this.filteredLogs();
+
+    if (this.currentDossierData()) {
+      const activeOrderNos = new Set(activeLogs.map(l => l.orderRegNumber || l.cottageNumber));
+      const activeNids = new Set(activeLogs.map(l => String(l.importerNationalId)));
+
+      const currentNodes = this.currentDossierData().nodes || [];
+      const currentEdges = this.currentDossierData().edges || [];
+
+      if (event.preset !== 'ALL' && activeLogs.length > 0) {
+        const filteredNodes = currentNodes.map((n: any) => {
+          const rawId = String(n.id).replace('PERSON_', '').replace('DOC_', '');
+          const isRelevant = activeOrderNos.has(rawId) || activeNids.has(rawId);
+
+          return {
+            ...n,
+            itemStyle: {
+              ...(n.itemStyle || {}),
+              opacity: isRelevant ? 1 : 0.15
+            }
+          };
+        });
+
+        const filteredEdges = currentEdges.map((e: any) => {
+          const src = String(e.sourceId || e.source).replace('PERSON_', '').replace('DOC_', '');
+          const tgt = String(e.targetId || e.target).replace('PERSON_', '').replace('DOC_', '');
+          const isEdgeActive = activeOrderNos.has(tgt) || activeOrderNos.has(src) || activeNids.has(src);
+
+          return {
+            ...e,
+            lineStyle: {
+              ...(e.lineStyle || {}),
+              opacity: isEdgeActive ? 0.95 : 0.08
+            }
+          };
+        });
+
+        this.currentDossierData.set({
+          ...this.currentDossierData(),
+          nodes: filteredNodes,
+          edges: filteredEdges
+        });
+      } else if (event.preset === 'ALL') {
+        const restoredNodes = currentNodes.map((n: any) => ({
+          ...n,
+          itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
+        }));
+        const restoredEdges = currentEdges.map((e: any) => ({
+          ...e,
+          lineStyle: { ...(e.lineStyle || {}), opacity: 0.9 }
+        }));
+
+        this.currentDossierData.set({
+          ...this.currentDossierData(),
+          nodes: restoredNodes,
+          edges: restoredEdges
+        });
+      }
     }
   }
 
   openForensicReport(): void {
-    const targets = this.activeInvestigatedIds().length > 0
-      ? this.activeInvestigatedIds()
-      : this.investigationTargets()
-          .map(t => t.value.trim())
-          .filter(v => v.length > 0);
+    const targets = this.investigationTargets()
+      .map(t => t.value.trim())
+      .filter(v => v.length > 0);
 
     this.activeProjectionFields.set({
       isMultiTarget: targets.length >= 2,
-      targets: targets.length >= 1 ? targets : [this.focusedNationalId() || '14001000484'],
+      targets: targets.length >= 2 ? targets : [this.focusedNationalId()],
       dossierGraph: this.currentDossierData()
     });
 
@@ -434,9 +639,17 @@ export class AuditDashboardComponent implements OnInit {
     this.isReportModalOpen.set(false);
   }
 
-  goToPage(page: number): void { if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page); }
-  nextPage(): void { if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1); }
-  prevPage(): void { if (this.currentPage() > 1) this.currentPage.update(p => p - 1); }
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) this.currentPage.set(page);
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages()) this.currentPage.update(p => p + 1);
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) this.currentPage.update(p => p - 1);
+  }
 
   exportToExcel(): void {
     const records = this.filteredLogs();
