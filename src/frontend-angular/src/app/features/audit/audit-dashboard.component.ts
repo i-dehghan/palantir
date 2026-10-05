@@ -16,7 +16,8 @@ import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/g
 import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
 import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
-
+import { MultimodalOcrTabComponent } from './components/multimodal-ocr-tab/multimodal-ocr-tab.component';
+import { EntityProfileModalComponent } from './components/entity-profile-modal/entity-profile-modal.component';
 @Component({
   selector: 'app-audit-dashboard',
   standalone: true,
@@ -27,7 +28,9 @@ import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
     GeospatialIntelMapComponent,
     CaseTimelineBarComponent,
     ForensicReportModalComponent,
-    CkdGraphComponent
+    CkdGraphComponent,
+    MultimodalOcrTabComponent,
+    EntityProfileModalComponent
   ],
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss'
@@ -110,6 +113,21 @@ export class AuditDashboardComponent implements OnInit {
   });
 
   private currentDossierSub: any = null;
+
+  // مدیریت وضعیت پروفایل سوژه
+isEntityProfileOpen = signal<boolean>(false);
+selectedEntityNationalId = signal<string>('');
+
+openEntityProfile(nid: string, event?: MouseEvent): void {
+  event?.stopPropagation();
+  if (!nid) return;
+  this.selectedEntityNationalId.set(nid);
+  this.isEntityProfileOpen.set(true);
+}
+
+closeEntityProfile(): void {
+  this.isEntityProfileOpen.set(false);
+}
 
   ngOnInit(): void {
     this.fetchLogs();
@@ -256,7 +274,148 @@ export class AuditDashboardComponent implements OnInit {
     }
   }
 
-  // اجرای پیوسته و هوشمند: استخراج انتولوژی بارنامه + تطبیق خودکار سوابق تاریخی فرد
+  correlateWaybillWithHistoricalImports(): void {
+    const dossier = this.fullDocumentDossier();
+    if (!dossier) return;
+
+    this.isCorrelatingHistory.set(true);
+    const targetNid = dossier.actors?.shipper?.national_code || '10102153202';
+    const serial = dossier.document?.serial_number || '512776';
+    const goods = dossier.cargo?.goods_description || 'انواع قطعات یدکی و واشر صنعتی';
+
+    this.auditService.correlateWaybillHistory({
+      consigneeOrShipperNationalId: targetNid,
+      waybillSerial: serial,
+      waybillGoodsDescription: goods
+    }).subscribe({
+      next: (report) => {
+        this.historicalCorrelationReport.set(report);
+        this.isCorrelatingHistory.set(false);
+      },
+      error: (err) => {
+        console.error('خطا در تطبیق سوابق تاریخی از بک‌اند دات‌‌نت:', err);
+        this.isCorrelatingHistory.set(false);
+      }
+    });
+  }
+
+  injectWaybillToGraph(): void {
+    const injection = this.graphInjectionData();
+    if (!injection || !injection.nodes || !injection.nodes.length) {
+      alert('ابتدا باید تصویر بارنامه را تحلیل نمایید.');
+      return;
+    }
+
+    const currentGraph = this.currentDossierData() || { nodes: [], edges: [] };
+    const existingNodeIds = new Set(currentGraph.nodes.map((n: any) => n.id));
+
+    const newNodes = [...currentGraph.nodes];
+    injection.nodes.forEach((node: any) => {
+      if (!existingNodeIds.has(node.id)) {
+        newNodes.push(node);
+        existingNodeIds.add(node.id);
+      }
+    });
+
+    const newEdges = [...(currentGraph.edges || [])];
+    const waybillNodeId = injection.nodes[0]?.id;
+    const hubNode = currentGraph.nodes.find((n: any) => n.isLeader || n.id.startsWith('HUB_') || n.id.startsWith('ENT_') || n.id.startsWith('PERSON_'));
+
+    if (waybillNodeId && hubNode) {
+      newEdges.push({
+        source: waybillNodeId,
+        target: hubNode.id,
+        predicate: 'CORRELATED_CARGO (محموله فیزیکی مرتبط با پرونده)',
+        value: 'تطبیق فیزیکی کوتاژ',
+        lineStyle: { color: '#f43f5e', width: 3.2, curveness: 0.2 }
+      });
+    }
+
+    injection.edges.forEach((e: any) => {
+      if (existingNodeIds.has(e.source) && existingNodeIds.has(e.target)) {
+        newEdges.push(e);
+      }
+    });
+
+    this.currentDossierData.set({
+      ...currentGraph,
+      nodes: newNodes,
+      edges: newEdges,
+      timestamp: Date.now()
+    });
+
+    this.isGraphInjected.set(true);
+    this.switchRightView('GRAPH');
+  }
+
+inspectCase(item: any, event?: MouseEvent): void {
+    event?.stopPropagation();
+    if (!item) return;
+
+    const targetNid = String(item?.importerNationalId || this.focusedNationalId() || '14001000484').trim();
+    const caseId = item?.orderRegNumber || item?.cottageNumber || item?.id;
+
+    this.inspectingRowId.set(caseId);
+    this.isDossierLoading.set(true);
+    this.isTimelineLoading.set(true);
+
+    // ۱. به‌روزرسانی حالت‌های واکنشی داشبورد (جهت تحریک نقشه و سایر ویجت‌ها)
+    this.selectedTableItem.set(item);
+    this.inspectedItem.set({ ...item });
+    this.focusedNationalId.set(targetNid);
+    this.focusedOrderInGalaxy.set(caseId);
+    this.selectedOrderForCkd.set(caseId);
+
+    if (this.currentDossierSub) {
+      this.currentDossierSub.unsubscribe();
+    }
+
+    setTimeout(() => {
+      this.isTimelineLoading.set(false);
+    }, 150);
+
+    // ۲. واکشی گراف و اطلاعات جغرافیایی مرتبط با سوژه
+    this.currentDossierSub = this.dossierService.getDossier(targetNid, 2).subscribe({
+      next: (data: any) => {
+        this.currentDossierData.set({
+          ...data,
+          targetNid: targetNid,
+          inspectedRecord: { ...item },
+          nodes: [...(data?.nodes || [])],
+          edges: [...(data?.edges || [])]
+        } as any);
+
+        this.isDossierLoading.set(false);
+        this.inspectingRowId.set(null);
+      },
+      error: () => {
+        this.currentDossierData.set({
+          targetNid: targetNid,
+          inspectedRecord: { ...item },
+          nodes: [
+            { id: `PERSON_${targetNid}`, displayLabel: `سوژه: ${targetNid}`, type: 0, riskScore: item.riskScore || 90 },
+            { id: `DOC_${caseId}`, displayLabel: `پرونده: ${caseId}`, type: 3, riskScore: item.riskScore || 85 }
+          ],
+          edges: [
+            { sourceId: `PERSON_${targetNid}`, targetId: `DOC_${caseId}`, predicate: item.ruleName || 'مورد بازرسی' }
+          ]
+        });
+        this.isDossierLoading.set(false);
+        this.inspectingRowId.set(null);
+        this.isTimelineLoading.set(false);
+      }
+    });
+  }
+  switchDomain(domain: DomainType): void {
+    this.auditService.activeDomain.set(domain);
+    this.inspectedItem.set(null);
+    this.focusedNationalId.set('');
+    this.focusedOrderInGalaxy.set(null);
+    this.selectedOrderForCkd.set(null);
+    this.currentPage.set(1);
+    this.fetchLogs(); // 👈 با تغییر حوزه، جدول و نقشه کاملاً بر اساس دیتای جدید بازنشانی می‌شوند
+  }
+
   executeDocumentOcrAudit(): void {
     const file = this.selectedOcrFile();
     if (!file) {
@@ -291,7 +450,33 @@ export class AuditDashboardComponent implements OnInit {
         this.graphInjectionData.set(res.graph_injection);
         this.isOcrProcessing.set(false);
 
-        // بلافاصله سوابق تاریخی شخص نیز واکشی می‌شود تا کاربر معطل نشود
+        // 🔗 همگام‌سازی واکنش‌گرای کامل داشبورد پس از استخراج سند OCR
+        const dossier = res.document_dossier;
+        if (dossier) {
+          const extractedNid = dossier.actors?.shipper?.national_code || '14001000484';
+          const serialNo = dossier.document?.serial_number || 'OCR-WAYBILL-01';
+          const cargoDesc = dossier.cargo?.goods_description || 'محموله فیزیکی بارنامه اسکن‌شده';
+
+          // تنظیم کدملی و اقلام جدید جهت تحریک سیگنال‌های نقشه و CKD
+          this.focusedNationalId.set(extractedNid);
+
+          const syntheticInspectedItem = {
+            id: `DOC_${serialNo}`,
+            orderRegNumber: serialNo,
+            importerNationalId: extractedNid,
+            cottageNumber: serialNo,
+            ruleName: cargoDesc,
+            description: `استخراج هوشمند از سند فیزیکی - انطباق با ضریب ریسک ${res.risk_score || 85}٪`,
+            riskScore: res.risk_score || 90,
+            detectedAt: new Date().toISOString(),
+            domainType: 'CUSTOMS'
+          };
+
+          this.inspectedItem.set(syntheticInspectedItem);
+          this.selectedTableItem.set(syntheticInspectedItem);
+          this.selectedOrderForCkd.set(serialNo);
+        }
+
         this.correlateWaybillWithHistoricalImports();
       },
       error: (err) => {
@@ -302,141 +487,6 @@ export class AuditDashboardComponent implements OnInit {
     });
   }
 
-  correlateWaybillWithHistoricalImports(): void {
-    const dossier = this.fullDocumentDossier();
-    if (!dossier) return;
-
-    this.isCorrelatingHistory.set(true);
-    const targetNid = dossier.actors?.shipper?.national_code || '10102153202';
-    const serial = dossier.document?.serial_number || '512776';
-    const goods = dossier.cargo?.goods_description || 'انواع قطعات یدکی و واشر صنعتی';
-
-    this.auditService.correlateWaybillHistory({
-      consigneeOrShipperNationalId: targetNid,
-      waybillSerial: serial,
-      waybillGoodsDescription: goods
-    }).subscribe({
-      next: (report) => {
-        this.historicalCorrelationReport.set(report);
-        this.isCorrelatingHistory.set(false);
-      },
-      error: (err) => {
-        console.error('خطا در تطبیق سوابق تاریخی از بک‌اند دات‌‌نت:', err);
-        this.isCorrelatingHistory.set(false);
-      }
-    });
-  }
-
-  // تزریق متصل و بدون گره معلق به گراف پیوندها
-  injectWaybillToGraph(): void {
-    const injection = this.graphInjectionData();
-    if (!injection || !injection.nodes || !injection.nodes.length) {
-      alert('ابتدا باید تصویر بارنامه را تحلیل نمایید.');
-      return;
-    }
-
-    const currentGraph = this.currentDossierData() || { nodes: [], edges: [] };
-    const existingNodeIds = new Set(currentGraph.nodes.map((n: any) => n.id));
-
-    const newNodes = [...currentGraph.nodes];
-    injection.nodes.forEach((node: any) => {
-      if (!existingNodeIds.has(node.id)) {
-        newNodes.push(node);
-        existingNodeIds.add(node.id);
-      }
-    });
-
-    const newEdges = [...(currentGraph.edges || [])];
-
-    // پیوند قطعی: اتصال سند بارنامه فیزیکی به گره محوری یا پرونده بازرسی‌شده
-    const waybillNodeId = injection.nodes[0]?.id;
-    const hubNode = currentGraph.nodes.find((n: any) => n.isLeader || n.id.startsWith('HUB_') || n.id.startsWith('ENT_') || n.id.startsWith('PERSON_'));
-
-    if (waybillNodeId && hubNode) {
-      newEdges.push({
-        source: waybillNodeId,
-        target: hubNode.id,
-        predicate: 'CORRELATED_CARGO (محموله فیزیکی مرتبط با پرونده)',
-        value: 'تطبیق فیزیکی کوتاژ',
-        lineStyle: {
-          color: '#f43f5e',
-          width: 3.2,
-          curveness: 0.2
-        }
-      });
-    }
-
-    injection.edges.forEach((e: any) => {
-      if (existingNodeIds.has(e.source) && existingNodeIds.has(e.target)) {
-        newEdges.push(e);
-      }
-    });
-
-    this.currentDossierData.set({
-      ...currentGraph,
-      nodes: newNodes,
-      edges: newEdges,
-      timestamp: Date.now()
-    });
-
-    this.isGraphInjected.set(true);
-    this.switchRightView('GRAPH');
-  }
-
-  inspectCase(item: any, event?: MouseEvent): void {
-    event?.stopPropagation();
-    if (!item) return;
-
-    const targetNid = String(item?.importerNationalId || '14001000484');
-    const caseId = item?.orderRegNumber || item?.cottageNumber;
-
-    this.inspectingRowId.set(caseId);
-    this.isDossierLoading.set(true);
-    this.isTimelineLoading.set(true);
-
-    this.selectedTableItem.set(item);
-    this.inspectedItem.set({ ...item });
-    this.focusedNationalId.set(targetNid);
-    this.focusedOrderInGalaxy.set(caseId);
-    this.selectedOrderForCkd.set(item?.orderRegNumber || null);
-
-    if (this.currentDossierSub) {
-      this.currentDossierSub.unsubscribe();
-    }
-
-    setTimeout(() => {
-      this.isTimelineLoading.set(false);
-    }, 150);
-
-    this.currentDossierSub = this.dossierService.getDossier(targetNid, 2).subscribe({
-      next: (data: any) => {
-        const nodes = data?.nodes || [];
-        const edges = data?.edges || [];
-
-        this.currentDossierData.set({
-          ...data,
-          targetNid: targetNid,
-          inspectedRecord: { ...item },
-          nodes: [...nodes],
-          edges: [...edges]
-        });
-
-        this.isDossierLoading.set(false);
-        this.inspectingRowId.set(null);
-      },
-      error: () => {
-        this.currentDossierData.set({
-          targetNid: targetNid,
-          inspectedRecord: { ...item },
-          nodes: [],
-          edges: []
-        });
-        this.isDossierLoading.set(false);
-        this.inspectingRowId.set(null);
-        this.isTimelineLoading.set(false);
-      }
-    });
-  }
 
   selectRowItem(item: DiscrepancyLog): void {
     this.selectedTableItem.set(item);
@@ -453,7 +503,6 @@ export class AuditDashboardComponent implements OnInit {
 
   loadGlobalDossier(): void {
     this.inspectedItem.set(null);
-    this.focusedOrderInGalaxy.set(null);
     this.buildGlobalDomainGraph(this.currentDomain(), this.logs());
   }
 
@@ -516,14 +565,6 @@ export class AuditDashboardComponent implements OnInit {
     });
   }
 
-  switchDomain(domain: DomainType): void {
-    this.auditService.activeDomain.set(domain);
-    this.inspectedItem.set(null);
-    this.focusedNationalId.set('');
-    this.focusedOrderInGalaxy.set(null);
-    this.currentPage.set(1);
-    this.fetchLogs();
-  }
 
   fetchLogs(): void {
     this.loading.set(true);

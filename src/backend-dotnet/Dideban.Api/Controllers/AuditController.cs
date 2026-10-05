@@ -1,4 +1,5 @@
 ﻿using Dideban.Api.Domain.Entities;
+using Dideban.Api.Domain.Ontology;
 using Dideban.Api.Infrastructure.Data;
 using Dideban.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,21 @@ public class AuditController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ILogger<AuditController> _logger;
-
-    public AuditController(AppDbContext context, ILogger<AuditController> logger)
+    private readonly IPalantirLinkTraversalEngine _traversalEngine;
+    private readonly ITransitPathCorrelatorService _transitCorrelator;
+    private readonly IWaybillHistoricalCorrelationService _waybillCorrelation;
+    private readonly IForensicReportService _forensicReportService;
+    public AuditController(AppDbContext context, ILogger<AuditController> logger, IPalantirLinkTraversalEngine traversalEngine,
+        ITransitPathCorrelatorService transitCorrelator,
+        IWaybillHistoricalCorrelationService waybillCorrelation,
+        IForensicReportService forensicReportService)
     {
         _context = context;
         _logger = logger;
+        _traversalEngine = traversalEngine;
+        _transitCorrelator = transitCorrelator;
+        _waybillCorrelation = waybillCorrelation;
+        _forensicReportService = forensicReportService;
     }
 
     /// <summary>
@@ -231,6 +242,25 @@ public class AuditController : ControllerBase
 
         var result = await correlationService.CorrelateWaybillWithHistoryAsync(request);
         return Ok(result);
+    }
+
+    [HttpGet("dossier/{nationalId}")]
+    public async Task<ActionResult<MultiHopDossierGraph>> GetDossier(string nationalId, [FromQuery] int depth = 2)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(nationalId))
+            {
+                return BadRequest(new { message = "شناسه ملی یا سوژه نامعتبر است." });
+            }
+
+            var graph = await _traversalEngine.TraverseNetworkAsync(nationalId.Trim(), depth);
+            return Ok(graph);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"خطا در پردازش گراف دوزیر: {ex.Message}" });
+        }
     }
 }
 

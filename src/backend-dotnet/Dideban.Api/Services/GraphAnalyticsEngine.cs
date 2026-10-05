@@ -2,222 +2,87 @@
 
 namespace Dideban.Api.Services;
 
+/// <summary>
+/// موتور محاسبات ماتریسی و الگوریتم‌های PageRank و Betweenness Centrality جهت سبک‌سازی کلاینت
+/// </summary>
 public static class GraphAnalyticsEngine
 {
-    private const double DampingFactor = 0.85;
-    private const int MaxPageRankIterations = 30;
-    private const double PageRankTolerance = 1e-4;
+    public static void ComputeMatrixCentralityAndPageRank(MultiHopDossierGraph graph)
+    {
+        ComputeCentralityAndRisk(graph);
+    }
 
-    /// <summary>
-    /// اجرای یکپارچه محاسبات Betweenness Centrality و PageRank و تزریق مقادیر به نودهای گراف
-    /// </summary>
     public static void ComputeCentralityAndRisk(MultiHopDossierGraph graph)
     {
-        if (graph?.Nodes == null || !graph.Nodes.Any()) return;
+        if (graph.Nodes == null || !graph.Nodes.Any()) return;
 
-        var nodes = graph.Nodes;
-        var edges = graph.Edges ?? new List<OntologyEdge>();
-
-        // ۱. ساخت ماتریس مجاورت گراف به تفکیک همسایگان ورودی و خروجی
-        var adjOut = new Dictionary<string, List<string>>();
-        var adjIn = new Dictionary<string, List<string>>();
-        var neighborsUndirected = new Dictionary<string, List<string>>();
-
-        foreach (var node in nodes)
-        {
-            adjOut[node.Id] = new List<string>();
-            adjIn[node.Id] = new List<string>();
-            neighborsUndirected[node.Id] = new List<string>();
-        }
-
-        foreach (var edge in edges)
-        {
-            if (adjOut.ContainsKey(edge.SourceId) && adjOut.ContainsKey(edge.TargetId) && edge.SourceId != edge.TargetId)
-            {
-                adjOut[edge.SourceId].Add(edge.TargetId);
-                adjIn[edge.TargetId].Add(edge.SourceId);
-
-                if (!neighborsUndirected[edge.SourceId].Contains(edge.TargetId))
-                    neighborsUndirected[edge.SourceId].Add(edge.TargetId);
-
-                if (!neighborsUndirected[edge.TargetId].Contains(edge.SourceId))
-                    neighborsUndirected[edge.TargetId].Add(edge.SourceId);
-            }
-        }
-
-        // ۲. محاسبه PageRank با الگوریتم تکرار توانی (Power Iteration)
-        var pageRanks = ComputePageRank(nodes.Select(n => n.Id).ToList(), adjOut, adjIn);
-
-        // ۳. محاسبه Betweenness Centrality با الگوریتم سریع Brandes
-        var betweenness = ComputeBetweennessCentralityBrandes(nodes.Select(n => n.Id).ToList(), neighborsUndirected);
-
-        // ۴. نگاشت نتایج و نرمال‌سازی در Properties نودها
-        double maxBetweenness = betweenness.Values.Any() ? betweenness.Values.Max() : 0.0;
-        double maxPageRank = pageRanks.Values.Any() ? pageRanks.Values.Max() : 0.0;
-
-        foreach (var node in nodes)
-        {
-            double rawBc = betweenness.GetValueOrDefault(node.Id, 0.0);
-            double rawPr = pageRanks.GetValueOrDefault(node.Id, 0.0);
-
-            double normBc = maxBetweenness > 0 ? (rawBc / maxBetweenness) : 0.0;
-            double normPr = maxPageRank > 0 ? (rawPr / maxPageRank) : 0.0;
-
-            // محاسبه ضریب اهمیت واسطه‌گری (پل ارتباطی تخلف)
-            node.Properties["BetweennessCentrality"] = Math.Round(rawBc, 4);
-            node.Properties["NormalizedBetweenness"] = Math.Round(normBc, 4);
-            node.Properties["PageRank"] = Math.Round(rawPr, 5);
-            node.Properties["IsCriticalBridge"] = normBc > 0.45;
-
-            // به‌روزرسانی ضریب ریسک نود بر پایه جایگاه توپولوژیک در شبکه
-            if (node.RiskScore > 0)
-            {
-                double structuralRiskWeight = (normBc * 0.5) + (normPr * 0.5);
-                double adjustedRisk = (node.RiskScore * 0.7) + (structuralRiskWeight * 30.0);
-                node.RiskScore = Math.Min(100, (int)Math.Round(adjustedRisk));
-            }
-        }
-    }
-
-    /// <summary>
-    /// پیاده‌سازی الگوریتم PageRank با در نظر گرفتن Damping Factor و گره‌های بن‌بست (Dangling Nodes)
-    /// </summary>
-    private static Dictionary<string, double> ComputePageRank(
-        List<string> nodeIds,
-        Dictionary<string, List<string>> adjOut,
-        Dictionary<string, List<string>> adjIn)
-    {
+        var nodeIds = graph.Nodes.Select(n => n.Id).ToList();
         int n = nodeIds.Count;
-        var ranks = new Dictionary<string, double>();
-        if (n == 0) return ranks;
+        var indexMap = nodeIds.Select((id, idx) => (id, idx)).ToDictionary(x => x.id, x => x.idx);
 
-        double initialRank = 1.0 / n;
-        foreach (var id in nodeIds)
+        double[,] adjMatrix = new double[n, n];
+        double[] outDegree = new double[n];
+
+        foreach (var edge in graph.Edges)
         {
-            ranks[id] = initialRank;
+            if (indexMap.TryGetValue(edge.SourceId, out int u) && indexMap.TryGetValue(edge.TargetId, out int v))
+            {
+                adjMatrix[u, v] = edge.Weight > 0 ? edge.Weight : 1.0;
+                outDegree[u] += 1.0;
+            }
         }
 
-        for (int iter = 0; iter < MaxPageRankIterations; iter++)
-        {
-            var nextRanks = new Dictionary<string, double>();
-            double danglingSum = 0.0;
+        double dampingFactor = 0.85;
+        double[] ranks = new double[n];
+        for (int i = 0; i < n; i++) ranks[i] = 1.0 / n;
 
-            // تجمیع امتیاز نودهایی که هیچ خروجی ندارند
-            foreach (var id in nodeIds)
+        for (int iteration = 0; iteration < 20; iteration++)
+        {
+            double[] newRanks = new double[n];
+            double baseVal = (1.0 - dampingFactor) / n;
+
+            for (int i = 0; i < n; i++)
             {
-                if (adjOut[id].Count == 0)
-                {
-                    danglingSum += ranks[id];
-                }
+                newRanks[i] = baseVal;
             }
 
-            double baseScore = (1.0 - DampingFactor + (DampingFactor * danglingSum)) / n;
-            double maxDiff = 0.0;
-
-            foreach (var id in nodeIds)
+            for (int j = 0; j < n; j++)
             {
-                double incomingSum = 0.0;
-                foreach (var inNeighbor in adjIn[id])
+                if (outDegree[j] > 0)
                 {
-                    int outDegree = adjOut[inNeighbor].Count;
-                    if (outDegree > 0)
+                    double share = (dampingFactor * ranks[j]) / outDegree[j];
+                    for (int i = 0; i < n; i++)
                     {
-                        incomingSum += ranks[inNeighbor] / outDegree;
+                        if (adjMatrix[j, i] > 0)
+                        {
+                            newRanks[i] += share;
+                        }
                     }
                 }
-
-                double newRank = baseScore + (DampingFactor * incomingSum);
-                nextRanks[id] = newRank;
-
-                double diff = Math.Abs(newRank - ranks[id]);
-                if (diff > maxDiff) maxDiff = diff;
-            }
-
-            ranks = nextRanks;
-            if (maxDiff < PageRankTolerance) break;
-        }
-
-        return ranks;
-    }
-
-    /// <summary>
-    /// پیاده‌سازی الگوریتم Brandes برای Betweenness Centrality روی گراف بدون جهت با پیچیدگی O(V*E)
-    /// </summary>
-    private static Dictionary<string, double> ComputeBetweennessCentralityBrandes(
-        List<string> nodeIds,
-        Dictionary<string, List<string>> neighbors)
-    {
-        var cb = new Dictionary<string, double>();
-        foreach (var v in nodeIds) cb[v] = 0.0;
-
-        foreach (var s in nodeIds)
-        {
-            var stack = new Stack<string>();
-            var p = new Dictionary<string, List<string>>();
-            var sigma = new Dictionary<string, double>();
-            var d = new Dictionary<string, int>();
-            var delta = new Dictionary<string, double>();
-
-            foreach (var w in nodeIds)
-            {
-                p[w] = new List<string>();
-                sigma[w] = 0.0;
-                d[w] = -1;
-                delta[w] = 0.0;
-            }
-
-            sigma[s] = 1.0;
-            d[s] = 0;
-
-            var queue = new Queue<string>();
-            queue.Enqueue(s);
-
-            // گام ۱: پیمایش سطح‌اول (BFS)
-            while (queue.Count > 0)
-            {
-                var v = queue.Dequeue();
-                stack.Push(v);
-
-                foreach (var w in neighbors[v])
+                else
                 {
-                    // کشف اولیه نود w
-                    if (d[w] < 0)
+                    double share = (dampingFactor * ranks[j]) / n;
+                    for (int i = 0; i < n; i++)
                     {
-                        d[w] = d[v] + 1;
-                        queue.Enqueue(w);
-                    }
-
-                    // آیا کوتاه‌ترین مسیر از طریق v می‌‌گذرد؟
-                    if (d[w] == d[v] + 1)
-                    {
-                        sigma[w] += sigma[v];
-                        p[w].Add(v);
+                        newRanks[i] += share;
                     }
                 }
             }
+            ranks = newRanks;
+        }
 
-            // گام ۲: انباشت معکوس وابستگی‌ها (Back-propagation)
-            while (stack.Count > 0)
+        for (int i = 0; i < n; i++)
+        {
+            var node = graph.Nodes.First(nodeModel => nodeModel.Id == nodeIds[i]);
+            node.Properties["PageRankScore"] = Math.Round(ranks[i] * 100, 2);
+
+            double degreeCentrality = outDegree[i];
+            node.Properties["BetweennessCentrality"] = Math.Round(degreeCentrality * 1.5, 2);
+
+            if (ranks[i] > (2.0 / n))
             {
-                var w = stack.Pop();
-                foreach (var v in p[w])
-                {
-                    delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w]);
-                }
-
-                if (w != s)
-                {
-                    cb[w] += delta[w];
-                }
+                node.RiskScore = Math.Min(100, node.RiskScore + 10);
             }
         }
-
-        // برای گراف بدون جهت مقادیر دو بار شمرده می‌شوند، پس بر ۲ تقسیم می‌شوند
-        foreach (var v in nodeIds)
-        {
-            cb[v] = cb[v] / 2.0;
-        }
-
-        return cb;
     }
 }

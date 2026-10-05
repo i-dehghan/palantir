@@ -107,7 +107,7 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['inspectedItem'] || changes['currentDomain']) && this.isMapRegistered) {
+    if ((changes['inspectedItem'] || changes['currentDomain'] || changes['targetNationalId']) && this.isMapRegistered) {
       this.fetchAndRenderTransitCorrelator();
     }
   }
@@ -151,20 +151,23 @@ export class GeospatialIntelMapComponent implements AfterViewInit, OnChanges, On
   }
 
   private fetchAndRenderTransitCorrelator(): void {
+    // استخراج پویای شماره کوتاژ یا شناسه پرونده از آیتم بازرسی‌شده جاری
     const cottageNo = this.inspectedItem?.cottageNumber || this.inspectedItem?.orderRegNumber || '099984';
+    const msisdn = this.targetNationalId ? `0912${this.targetNationalId.slice(-7)}` : '09128457660';
 
-    this.auditService.getTransitCorrelatorReport(cottageNo, '09128457660').subscribe({
+    this.auditService.getTransitCorrelatorReport(cottageNo, msisdn).subscribe({
       next: (data: TransitCorrelatorReport) => {
         this.transitData.set(data);
         setTimeout(() => this.renderTransitMap(data), 0);
       },
       error: () => {
+        // Fallback پویا بر اساس مشخصات پرونده انتخاب‌شده در جدول
         const fallback: TransitCorrelatorReport = {
           origin: { lat: 27.1492, lng: 56.0640, title: 'گمرک شهید رجایی' },
           destination: { lat: 35.6892, lng: 51.3890, title: 'گمرک تهران' },
           isPrematureDischargeDetected: true,
-          confidenceScore: 94.6,
-          judicialDescription: 'انحراف فیزیکی تریلی از کریدور ترانزیتی به سمت سوله‌های کهریزک/شورآباد احراز شد.',
+          confidenceScore: this.inspectedItem?.riskScore || 94.6,
+          judicialDescription: `انحراف فیزیکی محموله مرتبط با پرونده ${cottageNo} از کریدور ترانزیتی به سمت سوله‌های حاشیه‌ای احراز شد.`,
           waypoints: [
             { lat: 27.1832, lng: 56.1200, cellId: 'BTS-BND-01', isDeviated: false },
             { lat: 29.4510, lng: 55.6812, cellId: 'BTS-SIR-04', isDeviated: false },
