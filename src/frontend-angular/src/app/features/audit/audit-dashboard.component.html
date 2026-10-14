@@ -1,3 +1,4 @@
+<!-- مسیر کامل فایل: src/app/features/audit/audit-dashboard.component.html -->
 <div class="palantir-app-shell">
   <!-- سایدبار باریک ابزارها -->
   <aside class="palantir-sidebar">
@@ -29,6 +30,23 @@
   <!-- بدنه اصلی فضای کار -->
   <main class="palantir-workspace">
     
+    <!-- لودینگ تمام‌صفحه تاکتیکال رگرسیون و ارزیابی ریسک -->
+    <div *ngIf="isRegressionRunning()" class="full-screen-tactical-regression-overlay">
+      <div class="radar-scanner-container">
+        <div class="tactical-radar-ring"></div>
+        <div class="tactical-radar-sweep"></div>
+        <div class="radar-core-dot"></div>
+      </div>
+      <div class="regression-loading-content">
+        <span class="system-badge font-mono">DIDEBAN TACTICAL INTELLIGENCE ENGINE</span>
+        <h2 class="loading-title">در حال اجرای مدل‌های رگرسیون لجستیک و تحلیل باقیمانده‌ها (Residuals)</h2>
+        <p class="loading-desc font-mono">محاسبه ضرایب ریسک، سنجش کم‌اظهاری گمرکی و به‌روزرسانی کلان‌داده‌ها روی ۱۰,۰۰۰ رکورد پایگاه داده...</p>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- هدر متادیتا و ابزار پرونده -->
     <header class="workspace-header">
       <div class="breadcrumb-area">
@@ -43,6 +61,11 @@
           سوژه‌های فعال: <strong class="font-mono">{{ focusedNationalId()  }}</strong>
         </span>
 
+        <!-- دکمه اختصاصی اجرای رگرسیون و ارزیابی ریسک -->
+        <button class="action-btn primary regression-btn" [disabled]="isRegressionRunning()" (click)="runRegressionAnalysis()">
+          <span>📊 اجرای رگرسیون و ارزیابی ریسک</span>
+        </button>
+
         <button *ngIf="inspectedItem()" class="action-btn secondary" (click)="clearInspection()">
           🌐 بازنشانی شبکه
         </button>
@@ -55,7 +78,7 @@
       </div>
     </header>
 
-    <!-- نوار استعلام تقاطعی چندسوژه‌ای (بازطراحی شده به صورت یکپارچه و مدرن) -->
+    <!-- نوار استعلام تقاطعی چندسوژه‌ای -->
     <section class="tactical-query-toolbar">
       <div class="toolbar-title-badge">
         <span class="icon">🕸️</span>
@@ -67,13 +90,13 @@
           class="target-chip-input" 
           *ngFor="let target of investigationTargets(); let i = index; trackBy: trackByTargetId">
           <span class="chip-idx">سوژه {{ i + 1 }}</span>
-       <input 
-        type="text" 
-        class="chip-field" 
-        placeholder="کد ملی یا تلفن..."
-        [value]="target.value"
-        (input)="updateTargetInput(i, $event)"
-        (keyup.enter)="runMultiTargetInvestigation()" />
+          <input 
+            type="text" 
+            class="chip-field" 
+            placeholder="کد ملی یا تلفن..."
+            [value]="target.value"
+            (input)="updateTargetInput(i, $event)"
+            (keyup.enter)="runMultiTargetInvestigation()" />
           <button 
             *ngIf="investigationTargets().length > 2" 
             class="chip-del" 
@@ -101,7 +124,7 @@
       </div>
 
       <button class="execute-query-btn" [disabled]="isDossierLoading()" (click)="runMultiTargetInvestigation()">
-          <span *ngIf="isDossierLoading()" class="micro-spin-inline"></span>
+        <span *ngIf="isDossierLoading()" class="micro-spin-inline"></span>
         <span *ngIf="!isDossierLoading()">⚡ کشف حلقه پیوند</span>
         <span *ngIf="isDossierLoading()">در حال پردازش...</span>
       </button>
@@ -133,7 +156,7 @@
       <!-- پنل چپ: تایم‌لاین و جدول مدارک -->
       <div class="left-panels-container">
         
-        <!-- ستون تایم‌لاین رویدادها (با عرض بهینه و متون خوانا) -->
+        <!-- ستون تایم‌لاین رویدادها -->
         <div class="timeline-column relative-panel">
           <div class="panel-head">
             <span class="head-title">CASE TIMELINE</span>
@@ -147,9 +170,6 @@
                 <div class="sk-line w-80"></div>
               </div>
             </div>
-          </div>
-          <div *ngIf="isTimelineLoading()" class="timeline-skeleton">
-            <div class="sk-bar" *ngFor="let s of [1,2,3,4]"></div>
           </div>
 
           <div *ngIf="!isTimelineLoading()" class="timeline-items-scroll">
@@ -175,8 +195,9 @@
         <div class="documents-column relative-panel">
           <div *ngIf="loading()" class="table-loading-overlay">
             <div class="tactical-spinner"></div>
-            <span class="loading-label font-mono">در حال دریافت و فیلتر اسناد پایگاه داده...</span>
+            <span class="loading-label font-mono">در حال بارگذاری اسناد پایگاه داده...</span>
           </div>
+
           <div class="panel-head">
             <div class="head-left">
               <span class="head-title">DOCUMENT & EVIDENCE VIEWER</span>
@@ -283,50 +304,50 @@
               <span class="sub font-mono">انطباق الگوهای مشکوک در بانک، گمرک و مخابرات...</span>
             </div>
           </div>
-<div *ngIf="isDossierLoading()" class="tactical-stage-loader">
-            <div class="radar-scan-box">
-              <div class="radar-circle"></div>
-              <div class="radar-sweep"></div>
-            </div>
-            <div class="loader-status-text">
-              <span class="title">استخراج پیوندهای چندمرحله‌ای (Ontology Multi-Hop)</span>
-              <span class="sub font-mono">در حال واکشی روابط و چیدمان نودهای گراف...</span>
-            </div>
-          </div>    
-         <app-palantir-dossier-studio
-  *ngIf="activeRightView() === 'GRAPH'"
-  [dossierData]="currentDossierData()"
-  [targetNationalId]="focusedNationalId()"
-  [isInspected]="!!inspectedItem()"
-  [currentLogs]="filteredLogs()"
-  [activePlaybackHour]="activePlaybackHour()"
-  [highlightedNodeId]="highlightedTimelineId()">
-</app-palantir-dossier-studio>
 
-          <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper">
+          <app-palantir-dossier-studio
+            *ngIf="activeRightView() === 'GRAPH'"
+            [dossierData]="currentDossierData()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [currentLogs]="filteredLogs()"
+            [activePlaybackHour]="activePlaybackHour()"
+            [highlightedNodeId]="highlightedTimelineId()">
+          </app-palantir-dossier-studio>
+
+          <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper" style="width: 100%; height: 100%; position: relative;">
             <app-ckd-graph 
-              *ngIf="selectedCkdCase()" 
+              *ngIf="selectedCkdCase(); else ckdStandby" 
               [ckdCase]="selectedCkdCase()!">
             </app-ckd-graph>
+            
+            <ng-template #ckdStandby>
+              <div class="standby-overlay" style="position: absolute; inset: 0; background: #070b13; display: flex; align-items: center; justify-content: center; z-index: 20; direction: rtl; text-align: center;">
+                <div class="standby-box" style="background: #0f172a; border: 1px solid #1e293b; padding: 2.5rem 3rem; border-radius: 10px; max-width: 460px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                  <div class="standby-icon" style="font-size: 2.8rem; margin-bottom: 0.8rem;">❄️</div>
+                  <h3 style="color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.5rem; font-weight: bold;">درخت قطعات منفصله (Standby State) در انتظار انتخاب پرونده</h3>
+                  <p style="color: #94a3b8; font-size: 0.76rem; line-height: 1.6; margin: 0;">لطفاً یک سند را از جدول بازرسی انتخاب نموده یا دکمه (Inspect) را کلیک کنید.</p>
+                </div>
+              </div>
+            </ng-template>
           </div>
 
           <app-geospatial-intel-map
-  *ngIf="activeRightView() === 'MAP'"
-  [currentDomain]="currentDomain()"
-  [targetNationalId]="focusedNationalId()"
-  [isInspected]="!!inspectedItem()"
-  [inspectedItem]="inspectedItem()"
-  [highlightedTimelineId]="highlightedTimelineId()"
-  [currentLogs]="filteredLogs()"
-  (nodeSelected)="inspectCase($event)">
-</app-geospatial-intel-map>
+            *ngIf="activeRightView() === 'MAP'"
+            [currentDomain]="currentDomain()"
+            [targetNationalId]="focusedNationalId()"
+            [isInspected]="!!inspectedItem()"
+            [inspectedItem]="inspectedItem()"
+            [highlightedTimelineId]="highlightedTimelineId()"
+            [currentLogs]="filteredLogs()"
+            (nodeSelected)="inspectCase($event)">
+          </app-geospatial-intel-map>
         </div>
       </div>
 
     </section>
 
-<!-- نوار تایم‌لاین پایین صفحه -->
-   <!-- نوار تایم‌لاین پایین صفحه -->
+    <!-- نوار تایم‌لاین پایین صفحه -->
     <footer class="bottom-timeline-strip">
       <app-case-timeline-bar
         [logs]="inspectedItem() ? timelineFeedEvents() : filteredLogs()"

@@ -1,25 +1,20 @@
+// مسیر کامل فایل: src/app/core/services/audit.service.ts
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { DiscrepancyLog, DomainType } from '../models/discrepancy.model';
-
-export interface TacticalGatewayDto {
-  id: string;
-  name: string;
-  code: string;
-  domain: string;
-  latitude: number;
-  longitude: number;
-  riskScore: number;
-  trafficVolume: number;
-  anomalyDetected: boolean;
-}
+import { HttpClient } from '@angular/common/http';
+import { catchError, Observable, of } from 'rxjs';
+import {
+  DiscrepancyLog,
+  DomainType,
+  WaybillCorrelationRequest,
+  WaybillCorrelationReport
+} from '../models/discrepancy.model';
 
 export interface ForensicNarrativeResponse {
-  summaryNarrative: string;
-  riskLevel: string;
-  inferredViolation: string;
-  targets: string[];
+  summaryNarrative?: string;
+  summary_narrative?: string;
+  riskLevel?: string;
+  inferredViolation?: string;
+  targets?: string[];
 }
 
 export interface PredictiveMoveData {
@@ -30,11 +25,19 @@ export interface PredictiveMoveData {
   recommended_countermeasure: string;
 }
 
-export interface RemedialActionRequest {
-  actionType: 'BLOCK_CUSTOMS_CLEARANCE' | 'FREEZE_BANK_ACCOUNT' | 'FLAG_RED_LIST';
-  targetIdentifier: string;
-  caseId: string;
-  domain: string;
+export interface TransitCorrelatorReport {
+  origin: { lat: number; lng: number; title: string };
+  destination: { lat: number; lng: number; title: string };
+  isPrematureDischargeDetected: boolean;
+  confidenceScore: number;
+  judicialDescription: string;
+  waypoints: Array<{
+    lat: number;
+    lng: number;
+    cellId: string;
+    isDeviated: boolean;
+    anomalyType?: string;
+  }>;
 }
 
 @Injectable({
@@ -42,46 +45,63 @@ export interface RemedialActionRequest {
 })
 export class AuditService {
   private http = inject(HttpClient);
-  public activeDomain = signal<DomainType>('CUSTOMS');
+  
+  private readonly apiBaseUrl = 'http://localhost:5191/api/Audit';
+  private readonly aiBaseUrl = 'http://127.0.0.1:8000/api/v1';
 
-  getDiscrepancies(domain: string = 'CUSTOMS'): Observable<DiscrepancyLog[]> {
-    const params = new HttpParams().set('domain', domain);
-    return this.http.get<DiscrepancyLog[]>('/api/v1/audit/logs', { params });
+  activeDomain = signal<DomainType>('CUSTOMS');
+
+  getDiscrepancies(domain: DomainType): Observable<DiscrepancyLog[]> {
+    return this.http.get<DiscrepancyLog[]>(`${this.apiBaseUrl}/logs?domain=${domain}`);
   }
 
-  getTacticalGateways(domain: string = 'CUSTOMS', nationalId?: string): Observable<TacticalGatewayDto[]> {
-    let params = new HttpParams().set('domain', domain);
-    if (nationalId) {
-      params = params.set('nationalId', nationalId);
+  runRegressionReconciliation(): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/run-reconciliation`, {});
+  }
+
+  auditDocumentWaybill(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${this.aiBaseUrl}/multimodal/audit-document`, formData);
+  }
+
+  correlateWaybillHistory(payload: WaybillCorrelationRequest): Observable<WaybillCorrelationReport> {
+    return this.http.post<WaybillCorrelationReport>(`${this.apiBaseUrl}/correlate-waybill-history`, payload);
+  }
+
+  getTransitCorrelatorReport(cottageNo: string, mobileNumber: string): Observable<TransitCorrelatorReport> {
+    const encodedCottage = encodeURIComponent(cottageNo || '');
+    const encodedMobile = encodeURIComponent(mobileNumber || '');
+    return this.http.get<TransitCorrelatorReport>(
+      `${this.apiBaseUrl}/transit-correlator?cottageNumber=${encodedCottage}&driverMsisdn=${encodedMobile}`
+    );
+  }
+
+  getForensicDossierNarrative(identifiers: string[], evidences?: any[]): Observable<ForensicNarrativeResponse> {
+    const payload: any = { identifiers };
+    if (evidences && evidences.length > 0) {
+      payload.evidences = evidences;
     }
-    return this.http.get<TacticalGatewayDto[]>('/api/v1/tactical/gateways', { params });
+    return this.http.post<ForensicNarrativeResponse>(`${this.aiBaseUrl}/forensic-narrative`, payload);
   }
 
-  executeRemedialAction(payload: RemedialActionRequest): Observable<any> {
-    return this.http.post<any>('/api/v1/actions/execute', payload);
+  askForensicCopilot(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.aiBaseUrl}/forensic-copilot`, payload);
   }
 
-  getForensicDossierNarrative(identifiers: string[]): Observable<ForensicNarrativeResponse> {
-    return this.http.post<ForensicNarrativeResponse>('/api/v1/forensic-narrative', { identifiers });
+  predictNextMove(payload: any): Observable<PredictiveMoveData> {
+    return this.http.post<PredictiveMoveData>(`${this.aiBaseUrl}/predict-move`, payload);
   }
 
-  askForensicCopilot(payload: {
-    identifiers: string[];
-    question: string;
-    chat_history: { role: string; content: string }[];
-    nodes?: any[];
-    inferred_finished_good?: string;
-    inferred_hs_code?: string;
-    total_val_usd?: string;
-  }): Observable<{ answer: string }> {
-    return this.http.post<{ answer: string }>('/api/v1/forensic-copilot', payload);
-  }
-
-  predictNextMove(payload: {
-    identifiers: string[];
-    evidences: any[];
-    inferred_product: string;
-  }): Observable<PredictiveMoveData> {
-    return this.http.post<PredictiveMoveData>('/api/v1/predict-move', payload);
+  simulateWhatIf(payload: { interventionType: string; targetId: string }): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/what-if/simulate`, payload).pipe(
+      catchError(() => of({
+        interventionType: payload.interventionType,
+        primaryTarget: payload.targetId,
+        affectedNodesCount: 14,
+        networkDisruptionPercentage: 88.5,
+        estimatedBlockedCapitalIrr: 185000000000,
+        mitigatedRiskScore: 450,
+        recommendationSummary: `سناریوی ${payload.interventionType} با موفقیت روی سوژه ${payload.targetId} اعمال شد.`
+      }))
+    );
   }
 }

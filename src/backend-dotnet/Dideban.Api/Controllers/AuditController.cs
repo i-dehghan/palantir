@@ -1,151 +1,157 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Dideban.Api.Services;
+using Dideban.Api.Domain.Dtos;
 using Dideban.Api.Infrastructure.Data;
-using Dideban.Api.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
-namespace Dideban.Api.Controllers;
-
-[ApiController]
-[Route("api/v1/[controller]")]
-[Route("api/[controller]")]
-public class AuditController : ControllerBase
+namespace Dideban.Api.Controllers
 {
-    private readonly AppDbContext _context;
-    private readonly ILogger<AuditController> _logger;
-
-    public AuditController(AppDbContext context, ILogger<AuditController> logger)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuditController : ControllerBase
     {
-        _context = context;
-        _logger = logger;
-    }
+        private readonly AppDbContext _context;
+        private readonly IReconciliationService _reconciliationService;
+        private readonly IPalantirLinkTraversalEngine _traversalEngine;
+        private readonly IWaybillHistoricalCorrelationService _waybillService;
+        private readonly ITransitPathCorrelatorService _transitService;
+        private readonly IWhatIfSimulationService _whatIfService;
+        private readonly IForensicReportService _forensicReportService;
 
-    /// <summary>
-    /// واکشی لاگ‌های مغایرت تقاطعی سامانه دیده‌بان مستقیماً از پایگاه داده dideban_dev.db
-    /// </summary>
-    [HttpGet("logs")]
-    public async Task<IActionResult> GetLogs([FromQuery] string domain = "CUSTOMS")
-    {
-        try
+        public AuditController(
+            AppDbContext context,
+            IReconciliationService reconciliationService,
+            IPalantirLinkTraversalEngine traversalEngine,
+            IWaybillHistoricalCorrelationService waybillService,
+            ITransitPathCorrelatorService transitService,
+            IWhatIfSimulationService whatIfService,
+            IForensicReportService forensicReportService)
         {
-            var query = _context.DiscrepancyLogs.AsNoTracking().AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(domain) && !domain.Equals("ALL", StringComparison.OrdinalIgnoreCase))
-            {
-                var upperDomain = domain.ToUpperInvariant();
-                query = query.Where(x => x.DomainType.ToUpper() == upperDomain);
-            }
-
-            var logs = await query
-                .OrderByDescending(x => x.RiskScore)
-                .ThenByDescending(x => x.DetectedAt)
-                .Take(150)
-                .ToListAsync();
-
-            var response = logs.Select(l => new
-            {
-                id = l.Id,
-                orderRegNumber = l.OrderRegNumber,
-                importerNationalId = l.ImporterNationalId,
-                cottageNumber = l.CottageNumber,
-                ruleName = l.RuleName,
-                description = l.Description,
-                riskScore = l.RiskScore,
-                detectedAt = l.DetectedAt,
-                domainType = l.DomainType
-            });
-
-            return Ok(response);
+            _context = context;
+            _reconciliationService = reconciliationService;
+            _traversalEngine = traversalEngine;
+            _waybillService = waybillService;
+            _transitService = transitService;
+            _whatIfService = whatIfService;
+            _forensicReportService = forensicReportService;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "خطا در واکشی لاگ‌های دیتابیس دیده‌بان");
-            return StatusCode(500, new { message = "خطای سرور در بازخوانی لاگ‌های نظارتی", detail = ex.Message });
-        }
-    }
 
-    /// <summary>
-    /// واکشی پایگاه‌های مکانی و گمرکات مرزی (TacticalGateways) از پایگاه داده
-    /// </summary>
-    [HttpGet("/api/v1/tactical/gateways")]
-    [HttpGet("/api/tactical/gateways")]
-    public async Task<IActionResult> GetTacticalGateways([FromQuery] string domain = "CUSTOMS", [FromQuery] string? nationalId = null)
-    {
-        try
+        [HttpGet("logs")]
+        public async Task<IActionResult> GetDiscrepancies([FromQuery] string domain = "CUSTOMS")
         {
-            List<object> resultList = new();
-
             try
             {
-                var gateways = await _context.TacticalGateways.AsNoTracking().Take(100).ToListAsync();
-                if (gateways.Any())
-                {
-                    resultList.AddRange(gateways.Select(g => new
-                    {
-                        id = g.Id,
-                        name = g.Name,
-                        code = g.Code,
-                        domain = g.Domain,
-                        latitude = g.Latitude,
-                        longitude = g.Longitude,
-                        riskScore = g.RiskScore,
-                        trafficVolume = g.TrafficVolume,
-                        anomalyDetected = g.RiskScore >= 85
-                    }));
-                }
-            }
-            catch (Exception dbEx)
-            {
-                _logger.LogWarning("جدول TacticalGateways در دسترس نیست یا اسکیما متفاوت است: {Msg}", dbEx.Message);
-            }
+                // خواندن مستقیم لاگ‌های تحلیل‌شده از جدول DiscrepancyLogs بر اساس حوزه (CUSTOMS, BANKING, TELECOM)
+                var normalizedDomain = (domain ?? "CUSTOMS").ToUpper();
+                var logs = await _context.DiscrepancyLogs
+                    .Where(d => d.DomainType == normalizedDomain)
+                    .OrderByDescending(d => d.RiskScore)
+                    .Take(100)
+                    .ToListAsync();
 
-            if (!resultList.Any())
-            {
-                return Ok(new object[]
-                {
-                    new { id = "GW-RAJAEE", name = "گمرک شهید رجایی بندرعباس (ورود کانتینری)", code = "C-BND-01", domain = "CUSTOMS", latitude = 27.1408, longitude = 56.0624, riskScore = 98, trafficVolume = 850, anomalyDetected = true },
-                    new { id = "GW-BUSHEHR", name = "منطقه ویژه اقتصادی بندر بوشهر", code = "C-BSH-02", domain = "CUSTOMS", latitude = 28.9234, longitude = 50.8203, riskScore = 92, trafficVolume = 420, anomalyDetected = true },
-                    new { id = "GW-TEHRAN-HUB", name = "هاب انبار مرکزی شهریار تهران (مقصد ترانزیت)", code = "C-THR-HUB", domain = "CUSTOMS", latitude = 35.6892, longitude = 51.3890, riskScore = 96, trafficVolume = 1200, anomalyDetected = true },
-                    new { id = "GW-BAZARGAN", name = "گمرک مرزی بازرگان", code = "C-BZG-03", domain = "CUSTOMS", latitude = 39.3908, longitude = 44.3833, riskScore = 78, trafficVolume = 310, anomalyDetected = false },
-                    new { id = "GW-SARAKHS", name = "منطقه ویژه اقتصادی سرخس", code = "C-SRX-04", domain = "CUSTOMS", latitude = 36.5447, longitude = 61.1575, riskScore = 82, trafficVolume = 290, anomalyDetected = false },
-                    new { id = "GW-MEHRAN", name = "پایانه مرزی تجاری مهران", code = "C-MHR-05", domain = "CUSTOMS", latitude = 33.1222, longitude = 46.1644, riskScore = 85, trafficVolume = 360, anomalyDetected = false },
-                    new { id = "GW-CHABAHAR", name = "بندر آزاد چابهار (ترانزیت اقیانوسی)", code = "C-CHB-06", domain = "CUSTOMS", latitude = 25.2969, longitude = 60.6430, riskScore = 88, trafficVolume = 510, anomalyDetected = true }
-                });
+                return Ok(logs);
             }
-
-            return Ok(resultList);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
-        catch (Exception ex)
+
+        [HttpPost("run-reconciliation")]
+        public async Task<IActionResult> RunReconciliation()
         {
-            _logger.LogError(ex, "خطا در واکشی پایگاه‌های مکانی");
-            return StatusCode(500, new { message = "خطای سرور در واکشی داده‌های مکانی", detail = ex.Message });
+            try
+            {
+                int discrepanciesCount = await _reconciliationService.RunReconciliationAsync();
+                return Ok(new { success = true, discrepanciesCreated = discrepanciesCount, message = "رگرسیون و ارزیابی ریسک با موفقیت روی داده‌های خام اجرا شد." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpGet("dossier/{nationalId}")]
+        public async Task<IActionResult> GetDossier(string nationalId, [FromQuery] int depth = 2)
+        {
+            try
+            {
+                var graph = await _traversalEngine.TraverseNetworkAsync(nationalId, depth);
+                return Ok(graph);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("multi-entity-links")]
+        public async Task<IActionResult> QueryMultiEntityLinks([FromBody] MultiEntityQueryDto dto)
+        {
+            try
+            {
+                var graph = await _traversalEngine.TraverseMultiEntityNetworkAsync(dto.Identifiers, dto.MaxDepth);
+                return Ok(graph);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("correlate-waybill-history")]
+        public async Task<IActionResult> CorrelateWaybill([FromBody] WaybillCorrelationRequestDto dto)
+        {
+            try
+            {
+                var report = await _waybillService.CorrelateWaybillWithHistoryAsync(dto);
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("transit-correlator")]
+        public async Task<IActionResult> GetTransitCorrelator([FromQuery] string cottageNumber, [FromQuery] string driverMsisdn)
+        {
+            try
+            {
+                var report = await _transitService.CorrelateTransitWithCdrAsync(cottageNumber, driverMsisdn);
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("what-if/simulate")]
+        public async Task<IActionResult> SimulateWhatIf([FromBody] WhatIfRequestDto dto)
+        {
+            try
+            {
+                var result = await _whatIfService.SimulateInterventionAsync(dto.InterventionType, dto.TargetId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
     }
 
-    /// <summary>
-    /// اجرای احکام نظارتی فوری و مداخله نظارتی (توقف ترخیص، مسدودی حساب، لیست سیاه مرزی)
-    /// </summary>
-    [HttpPost("/api/v1/actions/execute")]
-    [HttpPost("/api/actions/execute")]
-    public IActionResult ExecuteRemedialAction([FromBody] RemedialActionCommand command)
+    public class MultiEntityQueryDto
     {
-        var tracking = $"JD-EPL-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(100000, 999999)}";
-        _logger.LogWarning("دستور اقدام نظارتی صادر گردید: نوع {ActionType} برای سوژه {TargetId} با شناسه پیگیری {Tracking}",
-            command.ActionType, command.TargetIdentifier, tracking);
-
-        return Ok(new
-        {
-            success = true,
-            trackingCode = tracking,
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-            message = "دستور مداخله نظارتی با مهر دیجیتال سامانه با موفقیت در کارتابل مراجع قضایی و تعزیراتی ابلاغ گردید."
-        });
+        public List<string> Identifiers { get; set; } = new();
+        public List<string> RelationTypes { get; set; } = new();
+        public int MaxDepth { get; set; } = 2;
     }
-}
 
-public class RemedialActionCommand
-{
-    public string ActionType { get; set; } = string.Empty;
-    public string TargetIdentifier { get; set; } = string.Empty;
-    public string CaseId { get; set; } = string.Empty;
-    public string Domain { get; set; } = string.Empty;
+    public class WhatIfRequestDto
+    {
+        public string InterventionType { get; set; } = string.Empty;
+        public string TargetId { get; set; } = string.Empty;
+    }
 }

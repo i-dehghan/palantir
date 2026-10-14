@@ -750,3 +750,118 @@ app-geospatial-intel-map,
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.8; }
 }
+
+/* استایل لودینگ تمام‌صفحه تاکتیکال رگرسیون */
+.full-screen-tactical-regression-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(5, 8, 15, 0.94);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  direction: rtl;
+  text-align: center;
+  padding: 2rem;
+
+  .radar-scanner-container {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .tactical-radar-ring {
+      position: absolute;
+      inset: 0;
+      border: 2px dashed rgba(56, 189, 248, 0.4);
+      border-radius: 50%;
+      animation: radarSpin 12s linear infinite;
+    }
+
+    .tactical-radar-sweep {
+      position: absolute;
+      inset: 10px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg at 50% 50%, rgba(56, 189, 248, 0.35) 0deg, transparent 60deg);
+      animation: radarSpin 2.5s linear infinite;
+    }
+
+    .radar-core-dot {
+      width: 16px;
+      height: 16px;
+      background: #38bdf8;
+      border-radius: 50%;
+      box-shadow: 0 0 20px #38bdf8, 0 0 40px #0284c7;
+      animation: pulseCore 1.5s ease-in-out infinite;
+    }
+  }
+
+  .regression-loading-content {
+    max-width: 600px;
+
+    .system-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 0.25rem 0.8rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      letter-spacing: 1px;
+    }
+
+    .loading-title {
+      font-size: 1.15rem;
+      color: #f8fafc;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+      line-height: 1.6;
+    }
+
+    .loading-desc {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 1.8rem;
+      line-height: 1.7;
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+
+      .progress-bar-fill {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, #0284c7, #38bdf8, #10b981);
+        width: 40%;
+        border-radius: 3px;
+        animation: progressSlide 1.8s ease-in-out infinite;
+      }
+    }
+  }
+}
+
+@keyframes radarSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulseCore {
+  0%, 100% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 30px #38bdf8; }
+}
+
+@keyframes progressSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}

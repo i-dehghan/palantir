@@ -159,10 +159,13 @@ export class CaseTimelineBarComponent implements AfterViewInit, OnChanges, OnDes
   }
 
 ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['logs'] || changes['inspectedItem'] || changes['currentDomain']) && this.chart) {
-      this.updateTimelineData();
+  if ((changes['logs'] || changes['inspectedItem'] || changes['currentDomain']) && this.chart) {
+    this.updateTimelineData();
+    if (this.inspectedItem) {
+      this.focusInspectedTimelineHour();
     }
   }
+}
 
   private updateTimelineData(): void {
     if (!this.chart) return;

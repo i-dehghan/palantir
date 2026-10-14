@@ -1,16 +1,46 @@
+# intelligence-py/app/main.py
+import os
+import sys
+import json
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).resolve().parent
+PARENT_DIR = CURRENT_DIR.parent
+SERVICES_DIR = CURRENT_DIR / "services"
+
+for path_dir in [str(CURRENT_DIR), str(SERVICES_DIR), str(PARENT_DIR)]:
+    if path_dir not in sys.path:
+        sys.path.insert(0, path_dir)
+
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
-from forensic_narrative import forensic_narrative_engine
-from matcher import matcher_engine
+try:
+    from services.forensic_narrative import forensic_narrative_engine
+    from services.matcher import matcher_engine
+except ImportError:
+    try:
+        from forensic_narrative import forensic_narrative_engine
+        from matcher import matcher_engine
+    except ImportError:
+        from app.services.forensic_narrative import forensic_narrative_engine
+        from app.services.matcher import matcher_engine
+
+try:
+    from multimodal_ocr import multimodal_auditor
+except ImportError:
+    from app.multimodal_ocr import multimodal_auditor
+
+from app.regression_engine import regression_engine
+from app.whatif_simulator import whatif_engine
 
 app = FastAPI(
     title="DIDEBAN Intelligence Microservice",
-    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف و پیش‌بینی ناهنجاری",
-    version="2.0.0"
+    description="سرویس هوش مصنوعی جرم‌شناسی داده، هسته رگرسیون آماری، قاعده ۲-الف و پردازش چندوجهی اسناد",
+    version="2.2.0"
 )
 
 app.add_middleware(
@@ -26,6 +56,7 @@ class NarrativeRequest(BaseModel):
     nodes: Optional[List[Dict[str, Any]]] = None
     edges: Optional[List[Dict[str, Any]]] = None
     evidences: Optional[List[Dict[str, Any]]] = None
+    regression_stats: Optional[Dict[str, Any]] = None
 
 class CopilotRequest(BaseModel):
     identifiers: List[str]
@@ -45,9 +76,24 @@ class MatcherRequest(BaseModel):
     text_a: str
     text_b: str
 
+class RegressionProbabilityRequest(BaseModel):
+    weight: float
+    value_usd: float
+    tx_count: int
+    history_count: int
+
+class ValuationResidualRequest(BaseModel):
+    weight: float
+    hs_category: int
+    declared_value: float
+
 @app.get("/health")
 async def health_check():
-    return {"status": "ONLINE", "module": "DIDEBAN-AI-ENGINE", "port": 8000}
+    return {
+        "status": "ONLINE",
+        "module": "DIDEBAN-AI-ENGINE-WITH-REGRESSION",
+        "port": 8000
+    }
 
 @app.post("/api/v1/forensic-narrative")
 async def generate_forensic_narrative_endpoint(payload: NarrativeRequest):
@@ -56,7 +102,8 @@ async def generate_forensic_narrative_endpoint(payload: NarrativeRequest):
             identifiers=payload.identifiers,
             evidences=payload.evidences,
             graph_nodes=payload.nodes,
-            graph_edges=payload.edges
+            graph_edges=payload.edges,
+            regression_stats=payload.regression_stats
         )
         return {
             "summaryNarrative": result["summaryNarrative"],
@@ -102,6 +149,63 @@ async def predict_next_move_endpoint(payload: PredictionRequest):
 @app.post("/api/v1/match-text")
 async def match_text_endpoint(payload: MatcherRequest):
     return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
+
+@app.post("/api/v1/regression/violation-probability")
+async def calculate_violation_probability_endpoint(payload: RegressionProbabilityRequest):
+    try:
+        prob = regression_engine.calculate_violation_probability(
+            weight=payload.weight,
+            value_usd=payload.value_usd,
+            tx_count=payload.tx_count,
+            history_count=payload.history_count
+        )
+        return {"violation_probability": prob}
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+@app.post("/api/v1/regression/valuation-residual")
+async def evaluate_valuation_residual_endpoint(payload: ValuationResidualRequest):
+    try:
+        result = regression_engine.evaluate_valuation_residual(
+            weight=payload.weight,
+            hs_category=payload.hs_category,
+            declared_value=payload.declared_value
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+@app.post("/api/v1/what-if/simulate")
+async def simulate_what_if_endpoint(payload: dict):
+    intervention_type = payload.get("intervention_type", "BLOCK_ACCOUNT")
+    target_id = payload.get("target_id", "14001000484")
+    graph_nodes = payload.get("graph_nodes", [])
+    graph_edges = payload.get("graph_edges", [])
+
+    result = whatif_engine.simulate_intervention(
+        intervention_type=intervention_type,
+        target_id=target_id,
+        graph_nodes=graph_nodes,
+        graph_edges=graph_edges
+    )
+    return result
+
+@app.post("/api/v1/multimodal/audit-document")
+async def audit_document(
+    file: UploadFile = File(...),
+    system_data_json: str = Form(...)
+):
+    try:
+        image_bytes = await file.read()
+        system_declared = json.loads(system_data_json) if system_data_json else {}
+        result = await multimodal_auditor.audit_physical_document(
+            image_bytes=image_bytes,
+            mime_type=file.content_type or "image/jpeg",
+            system_declared_data=system_declared
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"خطا در پردازش چندوجهی سند: {str(ex)}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

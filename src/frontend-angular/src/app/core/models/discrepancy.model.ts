@@ -59,3 +59,47 @@ export interface MultiEntityLinkGraph {
   nodes: EntityLinkNode[];
   edges: EntityLinkEdge[];
 }
+
+export interface CkdPart {
+  orderNo: string;
+  hsCode: string;
+  partName: string;
+  valUsd: number;
+}
+
+export interface CkdCase {
+  importerName: string;
+  importerId: string;
+  targetProduct: string;
+  totalValue: number;
+  parts: CkdPart[];
+}
+
+// اینترفیس‌های تحلیل تطبیقی بارنامه فیزیکی
+export interface WaybillCorrelationRequest {
+  consigneeOrShipperNationalId: string;
+  waybillSerial: string;
+  waybillGoodsDescription: string;
+}
+
+export interface HistoricalOrderSummary {
+  orderNumber: string;
+  declaredDescription: string;
+  valueUsd: number;
+  registrationDate?: string;
+}
+
+export interface WaybillCorrelationReport {
+  subjectNationalId: string;
+  waybillNumber: string;
+  physicalGoodsDescription: string;
+  totalHistoricalImportsCount: number;
+  totalDeclaredValueUsd: number;
+  isGIR2aAssemblyDetected: boolean;
+  fraudRiskScore: number;
+  matchedHistoricalOrders: string[];
+  historicalOrders: HistoricalOrderSummary[];
+  judicialNarrative: string;
+  recommendedAction: string;
+  evaluatedAt: string;
+}

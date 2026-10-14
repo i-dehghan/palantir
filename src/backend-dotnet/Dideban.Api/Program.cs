@@ -48,6 +48,9 @@ builder.Services.AddScoped<IAuditDomainStrategy, CustomsAuditStrategy>();
 builder.Services.AddScoped<IAuditDomainStrategy, BankingAuditStrategy>();
 builder.Services.AddScoped<IAuditDomainStrategy, TelecomAuditStrategy>();
 builder.Services.AddScoped<IForensicReportService, ForensicReportService>();
+builder.Services.AddScoped<ITransitPathCorrelatorService, TransitPathCorrelatorService>();
+builder.Services.AddScoped<IWaybillHistoricalCorrelationService, WaybillHistoricalCorrelationService>();
+builder.Services.AddScoped<IWhatIfSimulationService, WhatIfSimulationService>();
 builder.Services.AddHttpClient<IIntelligenceServiceClient, IntelligenceServiceClient>(client =>
 {
     client.BaseAddress = new Uri("http://localhost:8000");

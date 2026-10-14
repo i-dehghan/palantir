@@ -31,7 +31,7 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
   imports: [CommonModule],
   template: `
     <div class="studio-container">
-      <div class="studio-hud">
+      <div class="studio-hud" *ngIf="dossierData?.nodes && dossierData.nodes.length > 0">
         <div class="hud-item">
           <span class="hud-label">GRAPH:</span>
           <strong [style.color]="isInspected ? '#ef4444' : '#38bdf8'">
@@ -67,7 +67,17 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
         </div>
       </div>
 
+      <!-- بوم گراف -->
       <div #graphCanvas class="graph-canvas"></div>
+
+      <!-- حالت Standby هماهنگ با دیزاین GIS و CKD -->
+      <div class="standby-overlay" *ngIf="!dossierData || !dossierData.nodes || dossierData.nodes.length === 0">
+        <div class="standby-box">
+          <div class="standby-icon">🕸️</div>
+          <h3>استودیو گراف (Standby State) در انتظار انتخاب پرونده</h3>
+          <p>لطفاً یک سند را از جدول بازرسی انتخاب نموده یا دکمه (Inspect) را کلیک کنید.</p>
+        </div>
+      </div>
 
       <!-- دراور بازرسی نود -->
       <div class="node-inspector-drawer" *ngIf="selectedNode">
@@ -83,9 +93,9 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 
         <div class="drawer-body">
           <div class="stat-pill cluster-pill">
-  <span class="label">خوشه‌های تبانی:</span>
-  <strong class="text-cyan-400">{{ detectedClustersCount() }} حلقه مجزا</strong>
-</div>
+            <span class="label">خوشه‌های تبانی:</span>
+            <strong class="text-cyan-400">{{ detectedClustersCount() }} حلقه مجزا</strong>
+          </div>
           <div class="meta-row">
             <span class="label">شناسه پرونده / سند:</span>
             <span class="val mono">{{ selectedNode.id }}</span>
@@ -135,6 +145,20 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 
     .hud-stats { display: flex; gap: 0.8rem; color: #64748b; font-size: 0.68rem; }
 
+    /* استایل کارت Standby کاملاً هماهنگ با GIS و CKD */
+    .standby-overlay {
+      position: absolute; inset: 0; background: #070b13;
+      display: flex; align-items: center; justify-content: center; z-index: 20;
+      direction: rtl; text-align: center;
+      .standby-box {
+        background: #0f172a; border: 1px solid #1e293b; padding: 2.5rem 3rem;
+        border-radius: 10px; max-width: 460px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .standby-icon { font-size: 2.8rem; margin-bottom: 0.8rem; }
+        h3 { color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.5rem; font-weight: bold; }
+        p { color: #94a3b8; font-size: 0.76rem; line-height: 1.6; margin: 0; }
+      }
+    }
+
     .node-inspector-drawer {
       position: absolute; bottom: 12px; right: 12px; width: 400px; max-width: 90%;
       background: rgba(13, 18, 30, 0.98); border: 1px solid #38bdf8;
@@ -162,20 +186,6 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
         .val.risk { font-weight: bold; font-family: monospace; }
       }
     }
-
-    .leader-badge-pill {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.4));
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
-  text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
   `]
 })
 export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -186,7 +196,8 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   @Input() currentLogs: any[] = [];
   @Input() highlightedNodeId: string | null = null;
   @Output() nodeSelected = new EventEmitter<any>();
-detectedClustersCount = signal<number>(1);
+
+  detectedClustersCount = signal<number>(1);
   activeLayout: GraphLayoutType = 'HIERARCHY';
   nodeCount = 0;
   edgeCount = 0;
@@ -195,60 +206,48 @@ detectedClustersCount = signal<number>(1);
   private chart: echarts.ECharts | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
-  // در palantir-dossier-studio.component.ts
+  private clusterPalette: string[] = [
+    '#38bdf8',
+    '#a855f7',
+    '#22c55e',
+    '#f97316',
+    '#ec4899',
+    '#eab308'
+  ];
 
-// پالت رنگ‌های تاکتیکال مخصوص خوشه‌های مجزا
-private clusterPalette: string[] = [
-  '#38bdf8', // فیروزه‌ای تاکتیکال
-  '#a855f7', // بنفش نئونی
-  '#22c55e', // سبز فسفری
-  '#f97316', // نارنجی متالیک
-  '#ec4899', // سرخابی
-  '#eab308'  // کهربایی
-];
-
-private stepHoursMap: Record<number, number> = {
-    0: 8,   // ثبت سفارش (۰۸:۱۵)
-    1: 10,  // تخصیص ارز (۱۰:۳۰)
-    2: 11,  // اظهار گمرکی (۱۱:۴۵)
-    3: 12,  // کشف مغایرت (۱۲:۲۰)
-    4: 12   // ارجاع و توقف (۱۲:۲۵)
+  private stepHoursMap: Record<number, number> = {
+    0: 8,
+    1: 10,
+    2: 11,
+    3: 12,
+    4: 12
   };
 
-// در palantir-dossier-studio.component.ts
-
-@Input() set activePlaybackHour(hour: number | null) {
-  if (hour !== null && this.chart) {
-    this.filterGraphByHour(hour);
+  @Input() set activePlaybackHour(hour: number | null) {
+    if (hour !== null && this.chart) {
+      this.filterGraphByHour(hour);
+    }
   }
-}
 
-private filterGraphByHour(currentHour: number): void {
+  private filterGraphByHour(currentHour: number): void {
     const currentOption = this.chart?.getOption() as any;
     if (!currentOption?.series?.[0]) return;
 
     const nodes = currentOption.series[0].data || [];
     const links = currentOption.series[0].links || [];
 
-    // فیلتر کردن نودهای اسناد به تفکیک زمان واقعی
     let docIdx = 0;
     const updatedNodes = nodes.map((n: any) => {
-      // نود شخص و سرشبکه همیشه در گراف پابرجا بماند
       if (n.category === 'PERSON') {
         return {
           ...n,
-          itemStyle: {
-            ...(n.itemStyle || {}),
-            opacity: 1
-          }
+          itemStyle: { ...(n.itemStyle || {}), opacity: 1 }
         };
       }
 
-      // ساعت واقعی این نود در فرآیند پرونده
       const assignedHour = this.stepHoursMap[docIdx] ?? 12;
       docIdx++;
 
-      // نود فقط در صورتی روشن می‌شود که زمان جاری به ساعت وقوع آن رسیده باشد
       const isReached = assignedHour <= currentHour;
       const isCurrentlyActive = assignedHour === currentHour;
 
@@ -265,7 +264,6 @@ private filterGraphByHour(currentHour: number): void {
       };
     });
 
-    // لینک‌ها نیز متناسب با روشن بودن نودهای متصل فعال می‌شوند
     let linkIdx = 0;
     const updatedLinks = links.map((l: any) => {
       const assignedHour = this.stepHoursMap[linkIdx] ?? 12;
@@ -289,84 +287,80 @@ private filterGraphByHour(currentHour: number): void {
       }]
     });
   }
-private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
-  if (!nodes.length) return 0;
 
-  // ۱. ساخت لیست مجاورت گراف (Adjacency List)
-  const adj = new Map<string, string[]>();
-  nodes.forEach(n => adj.set(n.id, []));
+  private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
+    if (!nodes.length) return 0;
 
-  edges.forEach(e => {
-    const u = typeof e.source === 'object' ? e.source.id : e.source;
-    const v = typeof e.target === 'object' ? e.target.id : e.target;
-    if (adj.has(u) && adj.has(v)) {
-      adj.get(u)!.push(v);
-      adj.get(v)!.push(u);
-    }
-  });
+    const adj = new Map<string, string[]>();
+    nodes.forEach(n => adj.set(n.id, []));
 
-  // ۲. الگوریتم پیمایش برای کشف مؤلفه‌های همبند (Connected Components)
-  const visited = new Set<string>();
-  let clusterId = 0;
-  const nodeClusterMap = new Map<string, number>();
+    edges.forEach(e => {
+      const u = typeof e.source === 'object' ? e.source.id : e.source;
+      const v = typeof e.target === 'object' ? e.target.id : e.target;
+      if (adj.has(u) && adj.has(v)) {
+        adj.get(u)!.push(v);
+        adj.get(v)!.push(u);
+      }
+    });
 
-  nodes.forEach(node => {
-    if (!visited.has(node.id)) {
-      clusterId++;
-      const queue: string[] = [node.id];
-      visited.add(node.id);
+    const visited = new Set<string>();
+    let clusterId = 0;
+    const nodeClusterMap = new Map<string, number>();
 
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        nodeClusterMap.set(curr, clusterId);
+    nodes.forEach(node => {
+      if (!visited.has(node.id)) {
+        clusterId++;
+        const queue: string[] = [node.id];
+        visited.add(node.id);
 
-        const neighbors = adj.get(curr) || [];
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor)) {
-            visited.add(neighbor);
-            queue.push(neighbor);
+        while (queue.length > 0) {
+          const curr = queue.shift()!;
+          nodeClusterMap.set(curr, clusterId);
+
+          const neighbors = adj.get(curr) || [];
+          for (const neighbor of neighbors) {
+            if (!visited.has(neighbor)) {
+              visited.add(neighbor);
+              queue.push(neighbor);
+            }
           }
         }
       }
-    }
-  });
+    });
 
-  // ۳. اعمال رنگ‌آمیزی و برچسب خوشه به نودها و یال‌ها
-  nodes.forEach(node => {
-    const cId = nodeClusterMap.get(node.id) || 1;
-    const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
-    
-    node.clusterId = cId;
+    nodes.forEach(node => {
+      const cId = nodeClusterMap.get(node.id) || 1;
+      const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
+      
+      node.clusterId = cId;
 
-    // اگر نود قبلاً به عنوان لیدر طلایی هایلایت نشده باشد، رنگ خوشه را می‌گیرد
-    if (!node.isLeader) {
-      node.itemStyle = {
-        ...(node.itemStyle || {}),
-        borderColor: clusterColor,
-        borderWidth: 2,
-        shadowColor: `${clusterColor}55`,
-        shadowBlur: 10
+      if (!node.isLeader) {
+        node.itemStyle = {
+          ...(node.itemStyle || {}),
+          borderColor: clusterColor,
+          borderWidth: 2,
+          shadowColor: `${clusterColor}55`,
+          shadowBlur: 10
+        };
+      }
+      node.clusterLabel = `خوشه شماره ${cId}`;
+    });
+
+    edges.forEach(edge => {
+      const u = typeof edge.source === 'object' ? edge.source.id : edge.source;
+      const cId = nodeClusterMap.get(u) || 1;
+      const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
+
+      edge.lineStyle = {
+        ...(edge.lineStyle || {}),
+        color: `${clusterColor}88`,
+        curveness: 0.15
       };
-    }
+    });
 
-    // افزودن اطلاعات خوشه به تولتیپ
-    node.clusterLabel = `خوشه شماره ${cId}`;
-  });
+    return clusterId;
+  }
 
-  edges.forEach(edge => {
-    const u = typeof edge.source === 'object' ? edge.source.id : edge.source;
-    const cId = nodeClusterMap.get(u) || 1;
-    const clusterColor = this.clusterPalette[(cId - 1) % this.clusterPalette.length];
-
-    edge.lineStyle = {
-      ...(edge.lineStyle || {}),
-      color: `${clusterColor}88`,
-      curveness: 0.15
-    };
-  });
-
-  return clusterId;
-}
   ngAfterViewInit(): void {
     setTimeout(() => this.initGraph(), 50);
   }
@@ -415,7 +409,6 @@ private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
     if (!this.chart) return;
 
     this.chart.off('click');
-    // ۱. پاکسازی کامل گراف قبلی از حافظه بوم
     this.chart.clear();
 
     const nodesMap = new Map<string, any>();
@@ -426,7 +419,6 @@ private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
     const width = (clientW && clientW > 100) ? clientW : 850;
     const height = (clientH && clientH > 100) ? clientH : 550;
 
-    // ۲. بررسی حالت استعلام چندسوژه‌ای یا داده‌های آمده از سرور
     if (this.dossierData?.nodes && this.dossierData.nodes.length > 0) {
       const incomingNodes = this.dossierData.nodes;
       const incomingEdges = this.dossierData.edges || [];
@@ -471,7 +463,6 @@ private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
         }
       });
 
-      // چینش دو طرفه اشخاص و اقلام
       if (this.activeLayout === 'HIERARCHY') {
         const allNodes = Array.from(nodesMap.values());
         const personNodes = allNodes.filter(n => n.category === 'PERSON');
@@ -492,11 +483,7 @@ private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
         });
       }
     } 
-    // ۳. فقط در صورتی که دیتای سرور وجود نداشت وارد بازرسی تک‌پرونده‌ای شو
-    else if (this.isInspected && !this.dossierData?.isMultiTarget) {
-      // رندر تک‌پرونده‌ای...
-    } 
-    else {
+    else if (this.currentLogs && this.currentLogs.length > 0 && this.isInspected) {
       const galaxy = this.buildGalaxy(this.currentLogs, width, height);
       galaxy.nodes.forEach(n => nodesMap.set(n.id, n));
       galaxy.edges.forEach(e => rawEdges.push(e));
@@ -510,11 +497,10 @@ private detectCommunitiesAndColorize(nodes: any[], edges: any[]): number {
     this.nodeCount = finalNodes.length;
     this.edgeCount = validEdges.length;
 
-    // محاسبه سرشبکه و خوشه‌ها
-this.computeCentralityAndHighlight(finalNodes, validEdges);
-const totalClusters = this.detectCommunitiesAndColorize(finalNodes, validEdges);
-this.detectedClustersCount.set(totalClusters);
-    // ثبت آپشن روی چارت
+    this.computeCentralityAndHighlight(finalNodes, validEdges);
+    const totalClusters = this.detectCommunitiesAndColorize(finalNodes, validEdges);
+    this.detectedClustersCount.set(totalClusters);
+
     this.chart.setOption({
       backgroundColor: '#070b12',
       series: [{
@@ -539,7 +525,7 @@ this.detectedClustersCount.set(totalClusters);
     }, true);
   }
 
- private applyHighlightFocus(): void {
+  private applyHighlightFocus(): void {
     if (!this.chart) return;
     const currentOption = this.chart.getOption() as any;
     if (!currentOption?.series?.[0]) return;
@@ -548,7 +534,6 @@ this.detectedClustersCount.set(totalClusters);
     const nodes = currentOption.series[0].data || [];
     const links = currentOption.series[0].links || [];
 
-    // اگر انتخابی نبود، همه چیز به حالت عادی برگردد
     if (!rawTargetId) {
       const resetNodes = nodes.map((n: any) => ({
         ...n,
@@ -573,7 +558,6 @@ this.detectedClustersCount.set(totalClusters);
       return;
     }
 
-    // تعیین اندیس هدف بر اساس مرحله کلیک‌شده در تایم‌لاین
     let targetIndex = -1;
     if (rawTargetId.includes('STEP_ORDER')) targetIndex = 0;
     else if (rawTargetId.includes('STEP_FX')) targetIndex = 1;
@@ -582,8 +566,6 @@ this.detectedClustersCount.set(totalClusters);
     else if (rawTargetId.includes('STEP_FLAG')) targetIndex = 4;
 
     const cleanTargetId = rawTargetId.replace(/^STEP_[A-Z]+_/, '').replace(/^DOC_/, '').trim();
-
-    // نودهای اسناد (غیر از شخص) را برمی‌داریم
     const docNodes = nodes.filter((n: any) => n.category !== 'PERSON');
     const selectedDocId = (targetIndex >= 0 && docNodes[targetIndex]) ? docNodes[targetIndex].id : null;
 
@@ -631,78 +613,72 @@ this.detectedClustersCount.set(totalClusters);
       }]
     });
   }
-// داخل palantir-dossier-studio.component.ts
 
-private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
-  if (!nodes.length || !edges.length) return;
+  private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
+    if (!nodes.length || !edges.length) return;
 
-  const degreeMap = new Map<string, number>();
+    const degreeMap = new Map<string, number>();
 
-  // ۱. محاسبه درجه اتصال هر نود (Degree Centrality)
-  edges.forEach((edge) => {
-    const src = typeof edge.source === 'object' ? edge.source.id : edge.source;
-    const tgt = typeof edge.target === 'object' ? edge.target.id : edge.target;
-    degreeMap.set(src, (degreeMap.get(src) || 0) + 1);
-    degreeMap.set(tgt, (degreeMap.get(tgt) || 0) + 1);
-  });
+    edges.forEach((edge) => {
+      const src = typeof edge.source === 'object' ? edge.source.id : edge.source;
+      const tgt = typeof edge.target === 'object' ? edge.target.id : edge.target;
+      degreeMap.set(src, (degreeMap.get(src) || 0) + 1);
+      degreeMap.set(tgt, (degreeMap.get(tgt) || 0) + 1);
+    });
 
-  // ۲. پیدا کردن لیدر یا نقطه ثقل شبکه (بیشترین اتصالات)
-  let maxDegree = 0;
-  let leaderNodeId: string | null = null;
+    let maxDegree = 0;
+    let leaderNodeId: string | null = null;
 
-  degreeMap.forEach((degree, nodeId) => {
-    if (degree > maxDegree) {
-      maxDegree = degree;
-      leaderNodeId = nodeId;
-    }
-  });
+    degreeMap.forEach((degree, nodeId) => {
+      if (degree > maxDegree) {
+        maxDegree = degree;
+        leaderNodeId = nodeId;
+      }
+    });
 
-  // ۳. اعمال جلوه بصری ویژه روی لیدر و نودهای محوری
-  nodes.forEach((node) => {
-    const degree = degreeMap.get(node.id) || 0;
-    node.degreeScore = degree;
+    nodes.forEach((node) => {
+      const degree = degreeMap.get(node.id) || 0;
+      node.degreeScore = degree;
 
-    if (node.id === leaderNodeId && degree > 2) {
-      node.isLeader = true;
-      node.symbolSize = (node.symbolSize || 30) + 14;
-      node.itemStyle = {
-        ...node.itemStyle,
-        borderColor: '#f59e0b',
-        borderWidth: 3,
-        shadowBlur: 25,
-        shadowColor: 'rgba(245, 158, 11, 0.85)'
-      };
-      node.label = {
-        ...node.label,
-        formatter: (params: any) => `{leader|★ سرشبکه / واسط محوری}\n${params.data.displayLabel || params.data.name}`,
-        rich: {
-          leader: {
-            color: '#fbbf24',
-            backgroundColor: 'rgba(245, 158, 11, 0.2)',
-            borderColor: '#f59e0b',
-            borderWidth: 1,
-            borderRadius: 4,
-            padding: [2, 6],
-            fontSize: 10,
-            fontWeight: 'bold',
-            align: 'center'
+      if (node.id === leaderNodeId && degree > 2) {
+        node.isLeader = true;
+        node.symbolSize = (node.symbolSize || 30) + 14;
+        node.itemStyle = {
+          ...node.itemStyle,
+          borderColor: '#f59e0b',
+          borderWidth: 3,
+          shadowBlur: 25,
+          shadowColor: 'rgba(245, 158, 11, 0.85)'
+        };
+        node.label = {
+          ...node.label,
+          formatter: (params: any) => `{leader|★ سرشبکه / واسط محوری}\n${params.data.displayLabel || params.data.name}`,
+          rich: {
+            leader: {
+              color: '#fbbf24',
+              backgroundColor: 'rgba(245, 158, 11, 0.2)',
+              borderColor: '#f59e0b',
+              borderWidth: 1,
+              borderRadius: 4,
+              padding: [2, 6],
+              fontSize: 10,
+              fontWeight: 'bold',
+              align: 'center'
+            }
           }
-        }
-      };
-    }
-  });
-}
-  // در palantir-dossier-studio.component.ts
+        };
+      }
+    });
+  }
+
   private buildGalaxy(logs: DiscrepancyLog[], width: number, height: number): { nodes: any[]; edges: any[] } {
     const nodesMap = new Map<string, any>();
     const edges: any[] = [];
 
-    // ۱. گروه‌بندی اسناد بر اساس کدهای ملی واقعی واردکنندگان (بدون ساخت هاب مصنوعی HUB_CUSTOMS)
     logs.forEach((log) => {
       const personId = `PERSON_${log.importerNationalId}`;
       const docId = `DOC_${log.orderRegNumber || log.cottageNumber || log.id}`;
 
-      // افزودن نود شخص/شرکت واقعی
       if (!nodesMap.has(personId)) {
         nodesMap.set(personId, {
           id: personId,
@@ -718,7 +694,6 @@ private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
         });
       }
 
-      // افزودن نود کوتاژ / ثبت سفارش
       if (!nodesMap.has(docId)) {
         nodesMap.set(docId, {
           id: docId,
@@ -734,7 +709,6 @@ private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
         });
       }
 
-      // ایجاد یال واقعی بین هر شخص و اسناد خودش
       edges.push({
         source: personId,
         target: docId,
@@ -743,12 +717,10 @@ private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
       });
     });
 
-    // ۲. جایگذاری مناسب گره‌ها در صفحه
     const nodes = Array.from(nodesMap.values());
     const personNodes = nodes.filter(n => n.category === 'PERSON');
     const docNodes = nodes.filter(n => n.category === 'CARGO');
 
-    // اشخاص در ستون سمت چپ
     const stepPersonY = height / (personNodes.length + 1);
     personNodes.forEach((p, idx) => {
       p.x = width * 0.25;
@@ -756,7 +728,6 @@ private computeCentralityAndHighlight(nodes: any[], edges: any[]): void {
       p.fixed = true;
     });
 
-    // کوتاژها در ستون سمت راست متصل به مالکان واقعی
     const stepDocY = height / (docNodes.length + 1);
     docNodes.forEach((d, idx) => {
       d.x = width * 0.75;
