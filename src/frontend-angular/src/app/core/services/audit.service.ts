@@ -1,3 +1,4 @@
+// مسیر کامل فایل: src/app/core/services/audit.service.ts
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { catchError, Observable, of } from 'rxjs';
@@ -54,15 +55,12 @@ export class AuditService {
     return this.http.get<DiscrepancyLog[]>(`${this.apiBaseUrl}/logs?domain=${domain}`);
   }
 
-  auditDocumentWaybill(formData: FormData): Observable<any> {
-    return this.http.post<any>(`${this.aiBaseUrl}/multimodal/audit-document`, formData);
+  runRegressionReconciliation(): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/run-reconciliation`, {});
   }
 
-  // متد سازگار جهت رفع خطای کامپایلر OCR
-  executeOcrAudit(url: string, formData: FormData): Observable<any> {
-    return this.http.post<any>(url, formData).pipe(
-      catchError(() => this.auditDocumentWaybill(formData))
-    );
+  auditDocumentWaybill(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${this.aiBaseUrl}/multimodal/audit-document`, formData);
   }
 
   correlateWaybillHistory(payload: WaybillCorrelationRequest): Observable<WaybillCorrelationReport> {
@@ -102,7 +100,7 @@ export class AuditService {
         networkDisruptionPercentage: 88.5,
         estimatedBlockedCapitalIrr: 185000000000,
         mitigatedRiskScore: 450,
-        recommendationSummary: `سناریوی ${payload.interventionType} با موفقیت روی سوژه ${payload.targetId} اعمال شد؛ ۱۴ نود در شعاع اثر قرار گرفتند و جریان مالی منجمد شد.`
+        recommendationSummary: `سناریوی ${payload.interventionType} با موفقیت روی سوژه ${payload.targetId} اعمال شد.`
       }))
     );
   }

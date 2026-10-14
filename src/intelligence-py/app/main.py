@@ -1,9 +1,9 @@
+# intelligence-py/app/main.py
 import os
 import sys
 import json
 from pathlib import Path
 
-# ۱. افزودن پوشه جاری، پوشه والد و پوشه services به sys.path جهت پشتیبانی کامل از تمام شیوه‌های اجرا
 CURRENT_DIR = Path(__file__).resolve().parent
 PARENT_DIR = CURRENT_DIR.parent
 SERVICES_DIR = CURRENT_DIR / "services"
@@ -18,7 +18,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
-# ۲. ایمپورت موتورهای جرم‌شناسی و تطبیق از پکیج services با مکانیزم Fallback ایمن
 try:
     from services.forensic_narrative import forensic_narrative_engine
     from services.matcher import matcher_engine
@@ -30,16 +29,18 @@ except ImportError:
         from app.services.forensic_narrative import forensic_narrative_engine
         from app.services.matcher import matcher_engine
 
-# بارگذاری موتور بینایی ماشین و ممیزی چندوجهی اسناد
 try:
     from multimodal_ocr import multimodal_auditor
 except ImportError:
     from app.multimodal_ocr import multimodal_auditor
 
+from app.regression_engine import regression_engine
+from app.whatif_simulator import whatif_engine
+
 app = FastAPI(
     title="DIDEBAN Intelligence Microservice",
-    description="سرویس هوش مصنوعی جرم‌شناسی داده، استنتاج قاعده ۲-الف، پیش‌بینی ناهنجاری و پردازش چندوجهی اسناد",
-    version="2.1.0"
+    description="سرویس هوش مصنوعی جرم‌شناسی داده، هسته رگرسیون آماری، قاعده ۲-الف و پردازش چندوجهی اسناد",
+    version="2.2.0"
 )
 
 app.add_middleware(
@@ -55,6 +56,7 @@ class NarrativeRequest(BaseModel):
     nodes: Optional[List[Dict[str, Any]]] = None
     edges: Optional[List[Dict[str, Any]]] = None
     evidences: Optional[List[Dict[str, Any]]] = None
+    regression_stats: Optional[Dict[str, Any]] = None
 
 class CopilotRequest(BaseModel):
     identifiers: List[str]
@@ -74,11 +76,22 @@ class MatcherRequest(BaseModel):
     text_a: str
     text_b: str
 
+class RegressionProbabilityRequest(BaseModel):
+    weight: float
+    value_usd: float
+    tx_count: int
+    history_count: int
+
+class ValuationResidualRequest(BaseModel):
+    weight: float
+    hs_category: int
+    declared_value: float
+
 @app.get("/health")
 async def health_check():
     return {
         "status": "ONLINE",
-        "module": "DIDEBAN-AI-ENGINE",
+        "module": "DIDEBAN-AI-ENGINE-WITH-REGRESSION",
         "port": 8000
     }
 
@@ -89,7 +102,8 @@ async def generate_forensic_narrative_endpoint(payload: NarrativeRequest):
             identifiers=payload.identifiers,
             evidences=payload.evidences,
             graph_nodes=payload.nodes,
-            graph_edges=payload.edges
+            graph_edges=payload.edges,
+            regression_stats=payload.regression_stats
         )
         return {
             "summaryNarrative": result["summaryNarrative"],
@@ -136,14 +150,33 @@ async def predict_next_move_endpoint(payload: PredictionRequest):
 async def match_text_endpoint(payload: MatcherRequest):
     return matcher_engine.calculate_similarity(payload.text_a, payload.text_b)
 
-# intelligence-py/app/main.py (بخش اضافه شده برای شبیه‌ساز)
-from app.whatif_simulator import whatif_engine
+@app.post("/api/v1/regression/violation-probability")
+async def calculate_violation_probability_endpoint(payload: RegressionProbabilityRequest):
+    try:
+        prob = regression_engine.calculate_violation_probability(
+            weight=payload.weight,
+            value_usd=payload.value_usd,
+            tx_count=payload.tx_count,
+            history_count=payload.history_count
+        )
+        return {"violation_probability": prob}
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
+
+@app.post("/api/v1/regression/valuation-residual")
+async def evaluate_valuation_residual_endpoint(payload: ValuationResidualRequest):
+    try:
+        result = regression_engine.evaluate_valuation_residual(
+            weight=payload.weight,
+            hs_category=payload.hs_category,
+            declared_value=payload.declared_value
+        )
+        return result
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex))
 
 @app.post("/api/v1/what-if/simulate")
 async def simulate_what_if_endpoint(payload: dict):
-    """
-    اندپوینت شبیه‌سازی مداخلات نظارتی و تحلیل انتشار موج اختلال در شبکه پیوندی.
-    """
     intervention_type = payload.get("intervention_type", "BLOCK_ACCOUNT")
     target_id = payload.get("target_id", "14001000484")
     graph_nodes = payload.get("graph_nodes", [])

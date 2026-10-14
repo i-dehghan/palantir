@@ -1,5 +1,4 @@
 // مسیر کامل فایل: src/app/features/audit/components/geospatial-intel-map/geospatial-intel-map.component.ts
-
 import {
   Component,
   ElementRef,
@@ -48,7 +47,6 @@ const MAP_ICONS = {
         </div>
       </div>
 
-      <!-- بنر تحلیلی تفکیکی گام‌‌به‌گام -->
       <div class="anomaly-warning-banner" *ngIf="(isInspected || targetNationalId) && transitData()?.isPrematureDischargeDetected">
         <span class="icon">🚨</span>
         <div class="banner-body">
@@ -57,7 +55,6 @@ const MAP_ICONS = {
         </div>
       </div>
 
-      <!-- حالت Standby هماهنگ با گراف -->
       <div class="standby-overlay" *ngIf="!isInspected && !targetNationalId">
         <div class="standby-box">
           <div class="standby-icon">🗺️</div>
