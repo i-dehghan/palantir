@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="Dideban.Api/Dideban.Api.csproj" />
+  <Project Path="RegistryConnectionSmokeTest/RegistryConnectionSmokeTest.csproj" Id="6fced51c-d1cd-4273-b5e8-941f8163dc25" />
 </Solution>

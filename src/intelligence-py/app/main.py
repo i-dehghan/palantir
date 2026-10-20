@@ -4,6 +4,10 @@ import sys
 import json
 from pathlib import Path
 
+from app.regression_engine import regression_engine
+from app.whatif_simulator import whatif_engine
+from app.model_registry_api import router as model_registry_router
+
 CURRENT_DIR = Path(__file__).resolve().parent
 PARENT_DIR = CURRENT_DIR.parent
 SERVICES_DIR = CURRENT_DIR / "services"
@@ -42,6 +46,10 @@ app = FastAPI(
     description="سرویس هوش مصنوعی جرم‌شناسی داده، هسته رگرسیون آماری، قاعده ۲-الف و پردازش چندوجهی اسناد",
     version="2.2.0"
 )
+
+
+app.include_router(model_registry_router)
+
 
 app.add_middleware(
     CORSMiddleware,

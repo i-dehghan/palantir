@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Dideban.Api.Security;
+using Microsoft.AspNetCore.Mvc;
 using Dideban.Api.Services;
 using Dideban.Api.Domain.Dtos;
 using Dideban.Api.Infrastructure.Data;
@@ -36,6 +38,7 @@ namespace Dideban.Api.Controllers
             _forensicReportService = forensicReportService;
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditRead)]
         [HttpGet("logs")]
         public async Task<IActionResult> GetDiscrepancies([FromQuery] string domain = "CUSTOMS")
         {
@@ -57,6 +60,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditExecute)]
         [HttpPost("run-reconciliation")]
         public async Task<IActionResult> RunReconciliation()
         {
@@ -71,6 +75,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditRead)]
         [HttpGet("dossier/{nationalId}")]
         public async Task<IActionResult> GetDossier(string nationalId, [FromQuery] int depth = 2)
         {
@@ -85,6 +90,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditRead)]
         [HttpPost("multi-entity-links")]
         public async Task<IActionResult> QueryMultiEntityLinks([FromBody] MultiEntityQueryDto dto)
         {
@@ -99,6 +105,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditExecute)]
         [HttpPost("correlate-waybill-history")]
         public async Task<IActionResult> CorrelateWaybill([FromBody] WaybillCorrelationRequestDto dto)
         {
@@ -113,6 +120,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditRead)]
         [HttpGet("transit-correlator")]
         public async Task<IActionResult> GetTransitCorrelator([FromQuery] string cottageNumber, [FromQuery] string driverMsisdn)
         {
@@ -127,6 +135,7 @@ namespace Dideban.Api.Controllers
             }
         }
 
+        [Authorize(Policy = RegistryPermissions.AuditExecute)]
         [HttpPost("what-if/simulate")]
         public async Task<IActionResult> SimulateWhatIf([FromBody] WhatIfRequestDto dto)
         {

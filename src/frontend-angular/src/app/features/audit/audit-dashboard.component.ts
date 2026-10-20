@@ -1,6 +1,8 @@
 // مسیر کامل فایل: src/app/features/audit/audit-dashboard.component.ts
 import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { AuditService } from '../../core/services/audit.service';
@@ -17,6 +19,7 @@ import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     PalantirDossierStudioComponent,
     GeospatialIntelMapComponent,
@@ -39,6 +42,7 @@ export class AuditDashboardComponent implements OnInit {
     active: false
   });
 
+  readonly auth = inject(AuthService);
   private auditService = inject(AuditService);
   private dossierService = inject(DossierService);
 

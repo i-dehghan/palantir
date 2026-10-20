@@ -72,6 +72,9 @@
         <button class="action-btn secondary" (click)="exportToExcel()">
           📥 خروجی اکسل
         </button>
+        <a *ngIf="auth.isAdmin()" routerLink="/identity-management" class="action-btn secondary">👥 مدیریت کاربران و نقش‌ها</a>
+        <a *ngIf="auth.isAdmin()" routerLink="/security-audit" class="action-btn secondary security-audit-entry">🛡️ رویدادهای امنیتی</a>
+        <button type="button" class="action-btn secondary" (click)="auth.logout()" title="خروج امن از حساب">⏻ خروج از حساب</button>
         <button class="forensic-dossier-btn" (click)="openForensicReport()">
           📑 پرونده جرم‌شناسی (Dossier)
         </button>

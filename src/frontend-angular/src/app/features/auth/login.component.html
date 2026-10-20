@@ -1,0 +1,28 @@
+<main class="login-shell" dir="rtl">
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="brand-row">
+      <div class="brand-symbol" aria-hidden="true">⬡</div>
+      <div><div class="brand-name">DIDEBAN</div><div class="brand-caption">SECURE INTELLIGENCE PLATFORM</div></div>
+    </div>
+    <div class="section-rule"></div>
+    <div class="eyebrow">IDENTITY ACCESS CONTROL / 2D.7</div>
+    <h1 id="login-title">ورود به سامانه دیده‌بان</h1>
+    <p class="subtitle">برای دسترسی به محیط تحلیل و پایش، با حساب سازمانی خود وارد شوید.</p>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label for="userName">نام کاربری</label>
+      <input id="userName" type="text" formControlName="userName" autocomplete="username" maxlength="128" placeholder="نام کاربری سازمانی" />
+      <div class="field-error" *ngIf="form.controls.userName.touched && form.controls.userName.invalid">نام کاربری الزامی است.</div>
+      <label for="password">رمز عبور</label>
+      <div class="password-row">
+        <input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" placeholder="رمز عبور" />
+        <button class="reveal" type="button" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'مخفی کردن رمز عبور' : 'نمایش رمز عبور'">{{ showPassword() ? 'مخفی' : 'نمایش' }}</button>
+      </div>
+      <div class="field-error" *ngIf="form.controls.password.touched && form.controls.password.invalid">رمز عبور الزامی است.</div>
+      <div class="server-error" role="alert" *ngIf="error()">{{ error() }}</div>
+      <button class="submit" type="submit" [disabled]="busy() || form.invalid">{{ busy() ? 'در حال احراز هویت...' : 'ورود امن به سامانه ←' }}</button>
+    </form>
+    <footer><span class="status-dot"></span> SECURE SESSION · JWT IN MEMORY <span class="footer-separator">/</span> DIDEBAN</footer>
+  </section>
+</main>
