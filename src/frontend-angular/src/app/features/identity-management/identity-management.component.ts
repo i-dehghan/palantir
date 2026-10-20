@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { AccountSecurityService, AccountLockout } from '../../core/services/account-security.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { IdentityManagementService, IdentityPermission, IdentityRole, IdentityUser } from '../../core/services/identity-management.service';
 
@@ -16,6 +17,7 @@ import { IdentityManagementService, IdentityPermission, IdentityRole, IdentityUs
 export class IdentityManagementComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly api = inject(IdentityManagementService);
+  private readonly accountApi = inject(AccountSecurityService);
   readonly users = signal<IdentityUser[]>([]);
   readonly roles = signal<IdentityRole[]>([]);
   readonly permissions = signal<IdentityPermission[]>([]);
@@ -33,6 +35,9 @@ export class IdentityManagementComponent implements OnInit {
   readonly newPassword = signal('');
   readonly newUserRoleIds = signal<string[]>([]);
   readonly newRoleName = signal('');
+  readonly lockouts = signal<AccountLockout[]>([]);
+  readonly resetPasswordValue = signal('');
+  readonly resetPasswordConfirm = signal('');
 
   readonly filteredUsers = computed(() => {
     const q = this.search().trim().toLocaleLowerCase();
@@ -50,11 +55,12 @@ export class IdentityManagementComponent implements OnInit {
     if (this.loading() || this.saving()) return;
     this.loading.set(true);
     this.error.set('');
-    forkJoin({ users: this.api.getUsers(), roles: this.api.getRoles(), permissions: this.api.getPermissions() }).subscribe({
+    forkJoin({ users: this.api.getUsers(), roles: this.api.getRoles(), permissions: this.api.getPermissions(), lockouts: this.accountApi.getLockouts() }).subscribe({
       next: data => {
         this.users.set(data.users);
         this.roles.set(data.roles);
         this.permissions.set(data.permissions);
+        this.lockouts.set(data.lockouts);
         this.selectUser(this.selectedUserId());
         this.selectRole(this.selectedRoleId());
         this.loading.set(false);
@@ -126,6 +132,29 @@ export class IdentityManagementComponent implements OnInit {
     const role = this.selectedRole(); if (!role || role.name.toUpperCase() === 'ADMIN') return;
     if (!confirm(`مجوزهای نقش «${role.name}» جایگزین شوند؟`)) return;
     this.mutate(this.api.setRolePermissions(role.id, this.rolePermissionCodes(), role.permissionsVersion), 'مجوزهای نقش ذخیره شدند.');
+  }
+  selectedLockout(): AccountLockout | null {
+    return this.lockouts().find(u => u.id === this.selectedUserId()) ?? null;
+  }
+  resetSelectedPassword(): void {
+    const user = this.selectedUser();
+    if (!user) return;
+    if (user.id === this.auth.identity()?.userId) {
+      this.error.set('برای تغییر رمز خودتان از بخش تغییر رمز شخصی استفاده کنید.'); return;
+    }
+    const password = this.resetPasswordValue();
+    if (password.length < 16 || password.length > 1024 || password !== this.resetPasswordConfirm()) {
+      this.error.set('رمز باید ۱۶ تا ۱۰۲۴ نویسه باشد و با تکرار آن مطابقت داشته باشد.'); return;
+    }
+    if (!confirm(`رمز حساب «${user.userName}» بازنشانی شود؟`)) return;
+    this.mutate(this.accountApi.resetPassword(user.id, password), 'رمز حساب بازنشانی شد.', () => {
+      this.resetPasswordValue.set(''); this.resetPasswordConfirm.set('');
+    });
+  }
+  unlockSelected(): void {
+    const user = this.selectedUser();
+    if (!user || !confirm(`قفل ورود حساب «${user.userName}» باز شود؟`)) return;
+    this.mutate(this.accountApi.unlock(user.id), 'قفل ورود حساب باز شد.');
   }
   toggleActive(user: IdentityUser): void {
     if (user.id === this.auth.identity()?.userId && user.isActive) {

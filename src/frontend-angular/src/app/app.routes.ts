@@ -23,6 +23,11 @@ export const routes: Routes = [
     canActivate: [authGuard, adminGuard],
     loadComponent: () => import('./features/identity-management/identity-management.component').then(m => m.IdentityManagementComponent)
   },
+  {
+    path: 'change-password',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/auth/change-password.component').then(m => m.ChangePasswordComponent)
+  },
   { path: '', pathMatch: 'full', redirectTo: 'audit' },
   { path: '**', redirectTo: 'audit' }
 ];
