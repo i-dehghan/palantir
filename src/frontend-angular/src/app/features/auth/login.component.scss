@@ -1,0 +1,32 @@
+:host { display:block; width:100%; height:100%; }
+* { box-sizing:border-box; }
+.login-shell { min-height:100vh; width:100%; display:grid; place-items:center; padding:24px; position:relative; overflow:auto; background:#060c16; color:#e2e8f0; font-family:Tahoma,Arial,sans-serif; }
+.login-shell::before { content:''; position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(56,189,248,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.035) 1px,transparent 1px); background-size:40px 40px; }
+.ambient { position:absolute; width:460px; height:460px; border-radius:50%; filter:blur(110px); opacity:.13; pointer-events:none; }
+.ambient-one { background:#0284c7; top:-200px; right:-160px; }
+.ambient-two { background:#0f766e; bottom:-260px; left:-120px; }
+.login-card { position:relative; z-index:1; width:min(100%,470px); background:linear-gradient(145deg,#101b2b,#0b1321); border:1px solid #22354b; border-radius:16px; padding:38px; box-shadow:0 28px 90px #0009; }
+.brand-row { display:flex; align-items:center; gap:14px; direction:ltr; justify-content:flex-end; }
+.brand-symbol { color:#38bdf8; font-size:44px; line-height:1; }
+.brand-name { font:700 24px/1.1 Arial,sans-serif; letter-spacing:4px; color:#f1f5f9; }
+.brand-caption { margin-top:7px; color:#7c96ac; font:10px Arial,sans-serif; letter-spacing:1.3px; }
+.section-rule { height:1px; background:linear-gradient(90deg,transparent,#29506a,transparent); margin:28px 0; }
+.eyebrow { color:#38bdf8; font:11px Arial,sans-serif; letter-spacing:1.2px; direction:ltr; text-align:right; }
+h1 { font-size:24px; margin:17px 0 12px; font-weight:700; }
+.subtitle { color:#91a4b9; line-height:1.9; font-size:13px; margin:0 0 28px; }
+label { display:block; font-size:13px; color:#c8d5e4; margin:18px 0 9px; }
+input { width:100%; min-height:46px; background:#080f1b; border:1px solid #2a3b50; border-radius:8px; outline:none; color:#e2e8f0; font:14px Tahoma,Arial,sans-serif; padding:0 13px; transition:border-color .2s,box-shadow .2s; }
+input:focus { border-color:#38bdf8; box-shadow:0 0 0 3px #38bdf820; }
+input::placeholder { color:#60768d; }
+.password-row { position:relative; }
+.password-row input { padding-left:76px; }
+.reveal { position:absolute; left:7px; top:6px; bottom:6px; padding:0 11px; border:0; background:#1a2a3d; color:#b7d7ea; border-radius:5px; cursor:pointer; }
+.field-error { color:#fda4af; font-size:11px; margin-top:7px; }
+.server-error { margin-top:20px; border:1px solid #7f3544; background:#441a293d; color:#fecdd3; padding:12px; border-radius:7px; font-size:12px; line-height:1.8; }
+.submit { width:100%; min-height:48px; margin-top:28px; border:1px solid #38bdf8; border-radius:8px; background:linear-gradient(90deg,#0369a1,#0891b2); color:white; font:700 14px Tahoma,Arial,sans-serif; cursor:pointer; }
+.submit:hover:not(:disabled) { filter:brightness(1.13); }
+.submit:disabled { opacity:.55; cursor:not-allowed; }
+footer { border-top:1px solid #203249; margin-top:30px; padding-top:20px; color:#718ba3; text-align:center; font:10px Arial,sans-serif; letter-spacing:.5px; direction:ltr; }
+.status-dot { display:inline-block; width:7px; height:7px; background:#22c55e; border-radius:50%; margin-right:6px; }
+.footer-separator { margin:0 9px; color:#39546c; }
+@media(max-width:520px) { .login-card { padding:26px 20px; } h1 { font-size:21px; } }

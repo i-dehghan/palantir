@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Dideban.Api.Security;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Dideban.Api.Infrastructure.Data;
 using Dideban.Api.Domain.Entities;
@@ -18,6 +20,7 @@ public class RulesController : ControllerBase
         _logger = logger;
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesRead)]
     [HttpGet]
     public async Task<IActionResult> GetAllRules()
     {
@@ -28,6 +31,7 @@ public class RulesController : ControllerBase
         return Ok(rules);
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesRead)]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetRuleById(int id)
     {
@@ -38,6 +42,7 @@ public class RulesController : ControllerBase
         return Ok(rule);
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesManage)]
     [HttpPost]
     public async Task<IActionResult> CreateRule([FromBody] ReconciliationRule rule)
     {
@@ -50,6 +55,7 @@ public class RulesController : ControllerBase
         return CreatedAtAction(nameof(GetRuleById), new { id = rule.Id }, rule);
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesManage)]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateRule(int id, [FromBody] ReconciliationRule updated)
     {
@@ -70,6 +76,7 @@ public class RulesController : ControllerBase
         return Ok(existing);
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesManage)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRule(int id)
     {
@@ -82,6 +89,7 @@ public class RulesController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = RegistryPermissions.RulesManage)]
     [HttpPatch("{id}/toggle-status")]
     public async Task<IActionResult> ToggleStatus(int id)
     {

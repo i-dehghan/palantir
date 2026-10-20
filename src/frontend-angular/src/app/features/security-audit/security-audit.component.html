@@ -1,0 +1,28 @@
+<div class="security-shell" dir="rtl">
+  <header class="topbar">
+    <div><span class="eyebrow">DIDEBAN / SECURITY OPERATIONS</span><h1>مرکز پایش رویدادهای امنیتی</h1><p>نمایش رویدادهای واقعی و بررسی یکپارچگی زنجیره هش</p></div>
+    <div class="actions"><a routerLink="/identity-management" class="btn">👥 مدیریت هویت</a><a routerLink="/audit" class="btn">← بازگشت به داشبورد</a><button type="button" class="btn" (click)="auth.logout()" title="خروج امن از حساب">⏻ خروج از حساب</button><button class="btn primary" (click)="refresh()" [disabled]="loading()">{{ loading() ? 'در حال بررسی...' : '↻ بروزرسانی' }}</button></div>
+  </header>
+  <section class="metrics" aria-label="وضعیت امنیتی">
+    <article class="metric"><span>وضعیت زنجیره</span><strong [class.ok]="verification()?.valid === true" [class.bad]="verification()?.valid === false">{{ verification() === null ? 'در انتظار بررسی' : verification()?.valid ? 'معتبر ✓' : 'نامعتبر ⚠' }}</strong></article>
+    <article class="metric"><span>رویدادهای بررسی‌شده</span><strong>{{ verification()?.checkedEvents ?? '—' }}</strong></article>
+    <article class="metric"><span>رویدادهای دریافتی</span><strong>{{ events().length }}</strong></article>
+    <article class="metric"><span>اولین شناسه نامعتبر</span><strong>{{ verification()?.firstInvalidEventId ?? '—' }}</strong></article>
+  </section>
+  <section class="panel">
+    <div class="panel-title"><h2>دفتر رویدادها <small>SECURITY AUDIT LOG</small></h2><span class="note">آخرین ۲۰۰ رویداد حداکثر قابل دریافت است</span></div>
+    <div class="filters">
+      <label>نوع رویداد<select [ngModel]="eventType()" (ngModelChange)="eventType.set($event); refresh()"><option *ngFor="let type of types" [value]="type">{{ type || 'همه رویدادها' }}</option></select></label>
+      <label>تعداد<select [ngModel]="take()" (ngModelChange)="take.set(+$event); refresh()"><option [ngValue]="25">25</option><option [ngValue]="50">50</option><option [ngValue]="100">100</option><option [ngValue]="200">200</option></select></label>
+      <label class="search">جست‌وجو در رویدادهای دریافتی<input type="search" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="شناسه، کاربر، نوع، Correlation ID..." /></label>
+    </div>
+    <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
+    <div *ngIf="loading()" class="skeleton" aria-live="polite"><div *ngFor="let i of [1,2,3,4]" class="skeleton-line"></div></div>
+    <div *ngIf="!loading()" class="table-wrap"><table><thead><tr><th>شناسه</th><th>زمان UTC</th><th>نوع رویداد</th><th>نتیجه</th><th>کاربر</th><th>هدف</th><th>جزئیات</th></tr></thead><tbody>
+      <tr *ngFor="let e of visible(); trackBy: trackEvent"><td class="mono">{{ e.id }}</td><td class="mono">{{ e.occurredAtUtc | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td><td class="mono cyan">{{ e.eventType }}</td><td>{{ e.outcome }}</td><td class="mono">{{ e.actorUserId || '—' }}</td><td class="mono">{{ e.target || '—' }}</td><td><button class="details" (click)="selected.set(e)">مشاهده</button></td></tr>
+      <tr *ngIf="visible().length === 0"><td colspan="7" class="empty">رویدادی برای نمایش وجود ندارد.</td></tr>
+    </tbody></table></div>
+    <p class="note">جست‌وجو فقط روی نتایج دریافت‌شده انجام می‌شود؛ بررسی هش روی کل زنجیره است.</p>
+  </section>
+  <div class="overlay" *ngIf="selected() as e" (click)="selected.set(null)"><section class="detail-panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="جزئیات رویداد"><header><h2>رویداد #{{ e.id }}</h2><button (click)="selected.set(null)" aria-label="بستن">✕</button></header><dl><dt>زمان</dt><dd>{{ e.occurredAtUtc }}</dd><dt>نوع</dt><dd>{{ e.eventType }}</dd><dt>کاربر</dt><dd>{{ e.actorUserId || '—' }}</dd><dt>هدف</dt><dd>{{ e.target || '—' }}</dd><dt>نتیجه</dt><dd>{{ e.outcome }}</dd><dt>Correlation ID</dt><dd>{{ e.correlationId }}</dd><dt>Previous Hash</dt><dd>{{ e.previousHash }}</dd><dt>Entry Hash</dt><dd>{{ e.entryHash }}</dd></dl></section></div>
+</div>
