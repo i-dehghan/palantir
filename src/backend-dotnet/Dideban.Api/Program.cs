@@ -189,6 +189,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.MapInboundClaims = true;
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+                var versionClaim = context.Principal?.FindFirst("security_version")?.Value;
+                if (!Guid.TryParse(subject, out var userId) ||
+                    !long.TryParse(versionClaim, System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var version))
+                {
+                    context.Fail("Invalid security session.");
+                    return;
+                }
+                var db = context.HttpContext.RequestServices.GetRequiredService<IdentityDbContext>();
+                var valid = await db.Users.AsNoTracking().AnyAsync(
+                    u => u.Id == userId && u.IsActive && u.SecurityVersion == version,
+                    context.HttpContext.RequestAborted);
+                if (!valid) context.Fail("Security session revoked.");
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

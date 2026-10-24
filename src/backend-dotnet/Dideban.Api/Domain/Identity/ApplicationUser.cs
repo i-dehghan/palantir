@@ -12,5 +12,6 @@ public sealed class ApplicationUser
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAtUtc { get; set; }
     public long RolesVersion { get; set; }
+    public long SecurityVersion { get; set; }
     public ICollection<ApplicationUserRole> UserRoles { get; set; } = new List<ApplicationUserRole>();
 }

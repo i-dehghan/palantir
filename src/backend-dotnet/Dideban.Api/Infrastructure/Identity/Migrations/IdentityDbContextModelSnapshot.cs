@@ -115,6 +115,11 @@ namespace Dideban.Api.Infrastructure.Identity.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("SecurityVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L);
+
                     b.Property<long>("RolesVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")

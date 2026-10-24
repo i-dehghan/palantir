@@ -26,6 +26,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.FailedLoginCount).HasDefaultValue(0);
             entity.Property(x => x.RolesVersion).HasDefaultValue(0L);
+            entity.Property(x => x.SecurityVersion).HasDefaultValue(0L);
         });
 
         modelBuilder.Entity<ApplicationRole>(entity =>

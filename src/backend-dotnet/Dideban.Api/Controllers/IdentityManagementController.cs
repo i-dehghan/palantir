@@ -96,7 +96,8 @@ public sealed class IdentityManagementController(
             return Conflict("The last active Admin cannot be deactivated.");
         var updated = await db.Users.Where(u => u.Id == userId && u.RolesVersion == request.ExpectedVersion)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.IsActive, request.IsActive)
-                .SetProperty(u => u.RolesVersion, u => u.RolesVersion + 1), ct);
+                .SetProperty(u => u.RolesVersion, u => u.RolesVersion + 1)
+                .SetProperty(u => u.SecurityVersion, u => u.SecurityVersion + 1), ct);
         if (updated != 1) return Conflict("User data changed. Reload before saving.");
         await transaction.CommitAsync(ct);
         await AuditChangeAsync("Identity.UserActiveChanged", userId.ToString(), ct);
@@ -158,7 +159,8 @@ public sealed class IdentityManagementController(
             !ids.Contains(adminId.Value) && !await HasOtherActiveAdminAsync(userId, ct))
             return Conflict("The last active Admin role cannot be removed.");
         var updated = await db.Users.Where(u => u.Id == userId && u.RolesVersion == request.ExpectedVersion)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.RolesVersion, u => u.RolesVersion + 1), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.RolesVersion, u => u.RolesVersion + 1)
+                .SetProperty(u => u.SecurityVersion, u => u.SecurityVersion + 1), ct);
         if (updated != 1) return Conflict("User roles changed. Reload before saving.");
         db.UserRoles.RemoveRange(existing.Where(ur => !ids.Contains(ur.RoleId)));
         var oldIds = existing.Select(ur => ur.RoleId).ToHashSet();
@@ -193,6 +195,9 @@ public sealed class IdentityManagementController(
         foreach (var id in ids.Where(id => !oldIds.Contains(id)))
             db.RolePermissions.Add(new ApplicationRolePermission { RoleId = roleId, PermissionId = id });
         await db.SaveChangesAsync(ct);
+        // Permission changes invalidate sessions of every user assigned this role.
+        await db.Users.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleId))
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.SecurityVersion, u => u.SecurityVersion + 1), ct);
         await transaction.CommitAsync(ct);
         await AuditChangeAsync("Identity.RolePermissionsChanged", roleId.ToString(), ct);
         return NoContent();

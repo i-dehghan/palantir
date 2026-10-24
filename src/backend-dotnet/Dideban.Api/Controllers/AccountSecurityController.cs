@@ -48,6 +48,7 @@ public sealed class AccountSecurityController(
         user.PasswordHash = hasher.HashPassword(user, request.NewPassword);
         user.FailedLoginCount = 0;
         user.LockoutEndUtc = null;
+        user.SecurityVersion++;
         await db.SaveChangesAsync(ct);
         await audit.AppendAsync("Identity.PasswordChanged", actorId.ToString(), actorId.ToString(),
             "Success", HttpContext.TraceIdentifier, ct);
@@ -68,6 +69,7 @@ public sealed class AccountSecurityController(
         target.PasswordHash = hasher.HashPassword(target, request.NewPassword);
         target.FailedLoginCount = 0;
         target.LockoutEndUtc = null;
+        target.SecurityVersion++;
         await db.SaveChangesAsync(ct);
         await audit.AppendAsync("Identity.AdminPasswordReset", actorId.ToString(), userId.ToString(),
             "Success", HttpContext.TraceIdentifier, ct);
