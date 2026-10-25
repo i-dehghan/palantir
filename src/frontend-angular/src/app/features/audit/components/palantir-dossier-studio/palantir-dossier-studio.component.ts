@@ -210,7 +210,10 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 })
 export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('graphCanvas') graphCanvas!: ElementRef<HTMLDivElement>;
+  // Risk heatmap is presentation-only: it never changes the graph or its filters.
   @Input() externalInspector = false;
+  @Input() riskHeatmapEnabled = false;
+  @Input() riskAnalysis: { propagation: Array<{ nodeId: string; combinedIndex: number }> } | null = null;
   @Input() communityAnalysis: GraphCommunitiesResult | null = null;
   @Input() selectedCommunityId: number | null = null;
   @Input() dossierData: any = null;
@@ -391,6 +394,9 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if ((changes['riskHeatmapEnabled'] || changes['riskAnalysis']) && this.chart) {
+      this.renderGraph();
+    }
     if ((changes['communityAnalysis'] || changes['selectedCommunityId']) && this.chart) {
       this.renderGraph();
     }
@@ -427,20 +433,8 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       this.chart.dispose();
     }
     this.chart = echarts.init(this.graphCanvas.nativeElement);
-    // Recalculate node coordinates when the *canvas* changes size, not only
-    // the ECharts viewport. Ignore same-size notifications to avoid loops.
-    let previousWidth = this.graphCanvas.nativeElement.clientWidth;
-    let previousHeight = this.graphCanvas.nativeElement.clientHeight;
     this.resizeObserver = new ResizeObserver(() => {
-      if (!this.chart || !this.graphCanvas?.nativeElement) return;
-      const width = this.graphCanvas.nativeElement.clientWidth;
-      const height = this.graphCanvas.nativeElement.clientHeight;
-      if (width === previousWidth && height === previousHeight) return;
-      previousWidth = width;
-      previousHeight = height;
-      if (width < 100 || height < 100) return;
-      this.chart.resize();
-      this.renderGraph();
+      this.chart?.resize();
     });
     this.resizeObserver.observe(this.graphCanvas.nativeElement);
     this.renderGraph();
@@ -629,6 +623,16 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     const cleanedFocus = rawFocus.replace(/^STEP_[A-Z]+_/, '').replace(/^DOC_/, '').trim();
     const nodeVisibility = new Map<string, number>();
     let docIndex = 0;
+    const riskById = new Map<string, number>();
+    if (this.riskHeatmapEnabled && this.riskAnalysis) {
+      for (const item of this.riskAnalysis.propagation ?? []) {
+        if (Number.isFinite(item.combinedIndex)) {
+          riskById.set(String(item.nodeId), Math.max(0, Math.min(100, item.combinedIndex)));
+        }
+      }
+    }
+    const heatColor = (value: number): string =>
+      value < 25 ? '#22c55e' : value < 50 ? '#eab308' : value < 75 ? '#f97316' : '#ef4444';
     const styledNodes = nodes.map(n => {
       const id = String(n.id);
       const isPerson = n.category === 'PERSON';
@@ -640,6 +644,8 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         (!!cleanedFocus && (id.includes(cleanedFocus) || String(n.displayLabel ?? '').includes(cleanedFocus)));
       const visibility = Math.min(communityPass ? 1 : 0.13, hourPass ? 1 : 0.08, focusPass ? 1 : 0.12);
       nodeVisibility.set(id, visibility);
+      const riskIndex = riskById.get(id);
+      const riskColor = riskIndex === undefined ? undefined : heatColor(riskIndex);
       const isFocused = !!rawFocus && !isPerson && focusPass;
       const isCurrentHour = hour !== null && assignedHour === hour;
       return {
@@ -647,6 +653,7 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         itemStyle: {
           ...(n.itemStyle || {}),
           opacity: visibility,
+          ...(riskColor ? { color: riskColor } : {}),
           shadowBlur: isFocused ? 35 : isCurrentHour ? 28 : (n.itemStyle?.shadowBlur ?? 0),
           borderWidth: isFocused ? 4 : (n.itemStyle?.borderWidth ?? 1),
           borderColor: isFocused ? '#38bdf8' : n.itemStyle?.borderColor

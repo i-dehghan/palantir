@@ -314,6 +314,8 @@
               <app-palantir-dossier-studio
                 [dossierData]="currentDossierData()"
                 [communityAnalysis]="communityAnalysis()"
+                [riskHeatmapEnabled]="graphRiskHeatmapEnabled()"
+                [riskAnalysis]="graphRiskAnalysis()"
                 [selectedCommunityId]="selectedCommunityId()"
                 [targetNationalId]="focusedNationalId()"
                 [isInspected]="!!inspectedItem()"
@@ -346,6 +348,49 @@
                   <div class="graph-inspector-row"><span>Betweenness</span><b>{{ node.betweennessCentrality == null ? '—' : (node.betweennessCentrality | number:'1.0-6') }}</b></div>
                 </section>
                 <ng-template #selectGraphNode><p class="graph-sidebar-empty">برای نمایش جزئیات، یک گره را در گراف انتخاب کنید.</p></ng-template>
+                <section class="graph-risk-section" *ngIf="currentDossierData()?.nodes?.length" aria-label="Graph Risk Intelligence">
+                  <div class="graph-sidebar-section-title">RISK INTELLIGENCE <small>3.1.6.4.3</small></div>
+                  <div class="graph-risk-heatmap-control">
+                    <label for="graph-risk-heatmap-toggle">نمایش لایه رنگی شاخص ریسک</label>
+                    <input id="graph-risk-heatmap-toggle" type="checkbox"
+                      [checked]="graphRiskHeatmapEnabled()"
+                      [disabled]="!graphRiskAnalysis() || !!graphRiskError() || graphRiskLoading()"
+                      (change)="graphRiskHeatmapEnabled.set(!graphRiskHeatmapEnabled())" />
+                  </div>
+                  <div class="graph-risk-heatmap-legend" *ngIf="graphRiskHeatmapEnabled() && graphRiskAnalysis()" aria-label="راهنمای طیف شاخص ریسک">
+                    <span><i style="background:#22c55e"></i>۰–۲۴</span>
+                    <span><i style="background:#eab308"></i>۲۵–۴۹</span>
+                    <span><i style="background:#f97316"></i>۵۰–۷۴</span>
+                    <span><i style="background:#ef4444"></i>۷۵–۱۰۰</span>
+                  </div>
+                  <p class="graph-risk-notice">شاخص اکتشافی اولویت بررسی؛ نه اثبات تخلف یا احتمال وقوع جرم.</p>
+                  <p class="graph-risk-status" *ngIf="graphRiskLoading()">در حال تحلیل عوامل ریسک شبکه…</p>
+                  <p class="graph-risk-error" *ngIf="graphRiskError()">{{ graphRiskError() }}</p>
+                  <ng-container *ngIf="!graphRiskLoading() && graphRiskAnalysis() as risk">
+                    <div class="graph-inspector-row"><span>گره‌های تحلیل‌شده</span><b>{{ risk.baseline.length }}</b></div>
+                    <ng-container *ngIf="graphSelectedNode(); else riskSelectNode">
+                      <ng-container *ngIf="selectedRiskBaseline() as baseline">
+                        <div class="graph-inspector-row"><span>امتیاز پایه</span><b>{{ baseline.priorityScore | number:'1.0-2' }} / 100</b></div>
+                        <div class="graph-risk-subtitle">عوامل مؤثر در امتیاز پایه</div>
+                        <div class="graph-inspector-row" *ngFor="let factor of baseline.factors">
+                          <span>{{ factor.name }}</span><b>{{ factor.contribution | number:'1.0-3' }}</b>
+                        </div>
+                      </ng-container>
+                      <ng-container *ngIf="selectedRiskPropagation() as propagation">
+                        <div class="graph-inspector-row"><span>اثر شبکه</span><b>{{ propagation.networkInfluence | number:'1.0-2' }}</b></div>
+                        <div class="graph-inspector-row"><span>شاخص ترکیبی</span><b>{{ propagation.combinedIndex | number:'1.0-2' }}</b></div>
+                        <div class="graph-risk-subtitle">منابع اثرگذار ({{ propagation.sources.length }})</div>
+                        <div class="graph-risk-source" *ngFor="let source of propagation.sources">
+                          <span class="mono">{{ source.sourceId }}</span>
+                          <span>{{ source.hops }} گام · سهم {{ source.contribution | number:'1.0-3' }}</span>
+                          <small class="mono">{{ source.path.join(' ← ') }}</small>
+                        </div>
+                      </ng-container>
+                      <p class="graph-risk-status" *ngIf="!selectedRiskBaseline() && !selectedRiskPropagation()">برای این گره نتیجه تحلیلی موجود نیست.</p>
+                    </ng-container>
+                    <ng-template #riskSelectNode><p class="graph-risk-status">برای مشاهده عوامل و مسیرهای انتشار، گره‌ای را انتخاب کنید.</p></ng-template>
+                  </ng-container>
+                </section>
                 <app-graph-communities
                   *ngIf="currentDossierData()?.nodes?.length"
                   [graph]="currentDossierData()"

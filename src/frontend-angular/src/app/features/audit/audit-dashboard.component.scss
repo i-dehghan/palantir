@@ -1015,3 +1015,22 @@ app-geospatial-intel-map,
   .right-panel-container { height: 470px; min-height: 470px; }
   .graph-intel-sidebar:not(.is-collapsed) { max-width: min(330px, 88%); }
 }
+
+/* Phase 3.1.6.4.2: sidebar-only risk intelligence; no graph canvas layout changes. */
+.graph-risk-section { padding:12px; border-top:1px solid #294055; color:#dbeafe; }
+.graph-risk-section .graph-sidebar-section-title { display:flex; justify-content:space-between; align-items:center; }
+.graph-risk-section .graph-sidebar-section-title small { color:#64748b; font-size:10px; }
+.graph-risk-notice { color:#fbbf24; font-size:11px; line-height:1.6; margin:10px 0; }
+.graph-risk-status { color:#94a3b8; font-size:11px; line-height:1.6; }
+.graph-risk-error { color:#fca5a5; font-size:11px; line-height:1.6; }
+.graph-risk-subtitle { margin:12px 0 6px; color:#67e8f9; font-size:11px; font-weight:700; }
+.graph-risk-source { display:flex; flex-direction:column; gap:4px; padding:8px 0; border-bottom:1px solid #26374a; font-size:11px; overflow-wrap:anywhere; }
+.graph-risk-source small { color:#94a3b8; }
+
+/* Phase 3.1.6.4.3 — visual-only risk heatmap controls */
+.graph-risk-heatmap-control { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; color:#cbd5e1; font-size:11px; }
+.graph-risk-heatmap-control input { accent-color:#22d3ee; width:16px; height:16px; cursor:pointer; }
+.graph-risk-heatmap-control input:disabled { opacity:.45; cursor:not-allowed; }
+.graph-risk-heatmap-legend { display:flex; flex-wrap:wrap; gap:8px 12px; padding:4px 0 10px; font-size:10px; color:#cbd5e1; }
+.graph-risk-heatmap-legend span { display:inline-flex; align-items:center; gap:4px; }
+.graph-risk-heatmap-legend i { display:inline-block; width:10px; height:10px; border-radius:50%; }

@@ -1,5 +1,5 @@
 // مسیر کامل فایل: src/app/features/audit/audit-dashboard.component.ts
-import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -13,6 +13,7 @@ import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/g
 import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
 import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
+import { GraphRiskService, GraphRiskAnalysisResponse, GraphRiskBaselineNode, GraphRiskPropagationNode } from '../../core/services/graph-risk.service';
 import { GraphCommunitiesResult } from '../../core/services/graph-communities.service';
 import { GraphCommunitiesComponent } from './components/graph-communities/graph-communities.component';
 
@@ -48,6 +49,44 @@ export class AuditDashboardComponent implements OnInit {
   readonly auth = inject(AuthService);
   private auditService = inject(AuditService);
   private dossierService = inject(DossierService);
+  private graphRiskService = inject(GraphRiskService);
+
+  readonly graphRiskHeatmapEnabled = signal(false);
+  readonly graphRiskLoading = signal(false);
+  readonly graphRiskError = signal<string | null>(null);
+  readonly graphRiskAnalysis = signal<GraphRiskAnalysisResponse | null>(null);
+  readonly selectedRiskBaseline = computed<GraphRiskBaselineNode | null>(() => {
+    const id = String(this.graphSelectedNode()?.id ?? '');
+    return this.graphRiskAnalysis()?.baseline.find(n => n.nodeId === id) ?? null;
+  });
+  readonly selectedRiskPropagation = computed<GraphRiskPropagationNode | null>(() => {
+    const id = String(this.graphSelectedNode()?.id ?? '');
+    return this.graphRiskAnalysis()?.propagation.find(n => n.nodeId === id) ?? null;
+  });
+
+  constructor() {
+    effect((onCleanup) => {
+      const graph = this.currentDossierData();
+      this.graphRiskAnalysis.set(null);
+      this.graphRiskError.set(null);
+      if (!graph?.nodes?.length) {
+        this.graphRiskLoading.set(false);
+        return;
+      }
+      this.graphRiskLoading.set(true);
+      const sub = this.graphRiskService.analyze(graph).subscribe({
+        next: result => {
+          this.graphRiskAnalysis.set(result);
+          this.graphRiskLoading.set(false);
+        },
+        error: () => {
+          this.graphRiskError.set('تحلیل ریسک شبکه در دسترس نیست. داده‌های اصلی گراف بدون تغییر باقی مانده‌اند.');
+          this.graphRiskLoading.set(false);
+        }
+      });
+      onCleanup(() => sub.unsubscribe());
+    }, { allowSignalWrites: true });
+  }
 
   readonly communityAnalysis = signal<GraphCommunitiesResult | null>(null);
   readonly graphSidebarOpen = signal(true);
