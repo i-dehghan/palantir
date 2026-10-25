@@ -594,9 +594,66 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         this.cdr.detectChanges();
       });
     });
-    // Reapply playback after every layout switch / graph refresh.
-    if (this.lastPlaybackHour !== null) this.filterGraphByHour(this.lastPlaybackHour);
-    if (this.highlightedNodeId) this.applyHighlightFocus();
+    // A single deterministic pass composes community, playback and timeline focus.
+    this.applyUnifiedGraphVisibility(finalNodes, validEdges);
+  }
+
+  /** Combines all graph filters from pristine render data, never from previously dimmed nodes. */
+  private applyUnifiedGraphVisibility(nodes: any[], edges: any[]): void {
+    if (!this.chart) return;
+    const selectedCommunity = this.selectedCommunityId;
+    const assignments = this.communityAnalysis?.assignments;
+    const hour = this.lastPlaybackHour;
+    const rawFocus = this.highlightedNodeId || '';
+    const docNodes = nodes.filter(n => n.category !== 'PERSON');
+    let focusIndex = -1;
+    if (rawFocus.includes('STEP_ORDER')) focusIndex = 0;
+    else if (rawFocus.includes('STEP_FX')) focusIndex = 1;
+    else if (rawFocus.includes('STEP_DECL')) focusIndex = 2;
+    else if (rawFocus.includes('STEP_ANOMALY')) focusIndex = 3;
+    else if (rawFocus.includes('STEP_FLAG')) focusIndex = 4;
+    const focusedDocument = focusIndex >= 0 ? String(docNodes[focusIndex]?.id ?? '') : '';
+    const cleanedFocus = rawFocus.replace(/^STEP_[A-Z]+_/, '').replace(/^DOC_/, '').trim();
+    const nodeVisibility = new Map<string, number>();
+    let docIndex = 0;
+    const styledNodes = nodes.map(n => {
+      const id = String(n.id);
+      const isPerson = n.category === 'PERSON';
+      const community = assignments?.[id];
+      const communityPass = selectedCommunity === null || community === undefined || community === selectedCommunity;
+      const assignedHour = isPerson ? null : (this.stepHoursMap[docIndex++] ?? 12);
+      const hourPass = hour === null || isPerson || (assignedHour !== null && assignedHour <= hour);
+      const focusPass = !rawFocus || isPerson || id === focusedDocument ||
+        (!!cleanedFocus && (id.includes(cleanedFocus) || String(n.displayLabel ?? '').includes(cleanedFocus)));
+      const visibility = Math.min(communityPass ? 1 : 0.13, hourPass ? 1 : 0.08, focusPass ? 1 : 0.12);
+      nodeVisibility.set(id, visibility);
+      const isFocused = !!rawFocus && !isPerson && focusPass;
+      const isCurrentHour = hour !== null && assignedHour === hour;
+      return {
+        ...n,
+        itemStyle: {
+          ...(n.itemStyle || {}),
+          opacity: visibility,
+          shadowBlur: isFocused ? 35 : isCurrentHour ? 28 : (n.itemStyle?.shadowBlur ?? 0),
+          borderWidth: isFocused ? 4 : (n.itemStyle?.borderWidth ?? 1),
+          borderColor: isFocused ? '#38bdf8' : n.itemStyle?.borderColor
+        }
+      };
+    });
+    const styledEdges = edges.map(e => {
+      const src = String(typeof e.source === 'object' ? e.source.id : e.source);
+      const dst = String(typeof e.target === 'object' ? e.target.id : e.target);
+      const visibility = Math.min(nodeVisibility.get(src) ?? 1, nodeVisibility.get(dst) ?? 1);
+      return {
+        ...e,
+        lineStyle: {
+          ...(e.lineStyle || {}),
+          opacity: visibility < 0.2 ? 0.05 : (e.lineStyle?.opacity ?? 0.85),
+          width: visibility < 0.2 ? 1 : (e.lineStyle?.width ?? 1.8)
+        }
+      };
+    });
+    this.chart.setOption({ series: [{ data: styledNodes, links: styledEdges }] });
   }
 
   // Visual styling only: community membership comes exclusively from the backend.

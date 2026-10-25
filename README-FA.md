@@ -1,18 +1,22 @@
-# DIDEBAN — Phase 3.1.5 (incremental UI patch)
+# DIDEBAN 3.1.5.3 — Unified Graph Filters (incremental)
 
-این بسته فقط کامپوننت موجود Palantir Dossier Studio را جایگزین می‌کند.
+این بسته تنها یک فایل کامل Angular را جایگزین می‌کند. قبل از استخراج، از فایل موجود نسخه پشتیبان تهیه کنید.
 
-- کاهش ازدحام برچسب در گراف‌های بیش از ۱۸ گره؛ برچسب با hover دیده می‌شود.
-- بازکردن Node Inspector با کلیک روی گره و انتشار رویداد موجود nodeSelected.
-- نمایش Community ID و درجه ارتباطی محاسبه‌شده در نمای فعلی.
-- نمایش PageRank و Betweenness فقط اگر داده واقعی روی گره موجود باشد؛ عدد ساختگی تولید نمی‌شود.
-- حفظ layoutهای فعلی و تمرکز Timeline پس از render.
-
-محدودیت: فیلتر ترکیبی Timeline و Community هنوز نیازمند بازطراحی state pipeline است؛ این بسته ادعای حل آن را ندارد.
+## اصلاحات
+- ترکیب فیلترهای Community، Timeline Playback و Timeline Focus در یک مرحله قطعی.
+- محاسبه opacity از داده تازه رندرشده، نه از وضعیت قبلاً کم‌رنگ‌شده ECharts.
+- حفظ انتخاب Node Inspector و Layoutهای فعلی.
 
 ## نصب
-در ریشه پروژه استخراج کنید؛ از فایل قبلی پشتیبان بگیرید.
+از ریشه پروژه ZIP را استخراج کنید؛ سپس:
+`cd src/frontend-angular && npx ng build`
 
-## بررسی
-`cd src/frontend-angular; npx ng build`
-سپس کلیک روی گره، بازشدن Inspector، hover روی گره‌های گراف متراکم، تغییر layout و انتخاب Timeline را بررسی کنید.
+## تست دستی
+1. انتخاب Community و Timeline و بازگشت به «همه».
+2. تغییر Layout هنگام Highlight رویداد Timeline.
+3. انتخاب Inspect پرونده دیگر و تأیید حذف Highlight قبلی.
+4. کلیک روی چند گره و تأیید تغییر Node Inspector.
+
+## محدوده
+این یک پچ اصلاح همگام‌سازی فیلترهاست، نه بازطراحی Sidebar و نه افزودن Centrality API.
+Build در این محیط اجرا نشده است؛ تست مرورگر و Build باید در محیط پروژه انجام شود.
