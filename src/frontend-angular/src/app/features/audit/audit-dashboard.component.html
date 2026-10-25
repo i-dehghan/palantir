@@ -308,25 +308,53 @@
             </div>
           </div>
 
-          <app-palantir-dossier-studio
-            *ngIf="activeRightView() === 'GRAPH'"
-            [dossierData]="currentDossierData()"
-            [communityAnalysis]="communityAnalysis()"
-            [selectedCommunityId]="selectedCommunityId()"
-            [targetNationalId]="focusedNationalId()"
-            [isInspected]="!!inspectedItem()"
-            [currentLogs]="filteredLogs()"
-            [activePlaybackHour]="activePlaybackHour()"
-            [highlightedNodeId]="highlightedTimelineId()"
-             (nodeSelected)="onGraphNodeSelected($event)">
-          </app-palantir-dossier-studio>
-
-          <app-graph-communities
-            *ngIf="activeRightView() === 'GRAPH' && currentDossierData()?.nodes?.length"
-            [graph]="currentDossierData()"
-            (analysisChanged)="communityAnalysis.set($event)"
-            (communitySelected)="selectedCommunityId.set($event)">
-          </app-graph-communities>
+          <!-- Graph workspace: canvas and intelligence panel occupy separate layout regions. -->
+          <div *ngIf="activeRightView() === 'GRAPH'" class="graph-intelligence-workspace" [class.sidebar-closed]="!graphSidebarOpen()">
+            <div class="graph-intelligence-canvas">
+              <app-palantir-dossier-studio
+                [dossierData]="currentDossierData()"
+                [communityAnalysis]="communityAnalysis()"
+                [selectedCommunityId]="selectedCommunityId()"
+                [targetNationalId]="focusedNationalId()"
+                [isInspected]="!!inspectedItem()"
+                [currentLogs]="filteredLogs()"
+                [activePlaybackHour]="activePlaybackHour()"
+                [highlightedNodeId]="highlightedTimelineId()"
+                [externalInspector]="true"
+                (nodeSelected)="onGraphNodeSelected($event)">
+              </app-palantir-dossier-studio>
+            </div>
+            <aside class="graph-intel-sidebar" [class.is-collapsed]="!graphSidebarOpen()" aria-label="Graph Intelligence Sidebar" dir="rtl">
+              <div class="graph-sidebar-toolbar">
+                <button type="button" (click)="graphSidebarOpen.set(!graphSidebarOpen())"
+                  [attr.aria-expanded]="graphSidebarOpen()" aria-label="باز و بسته کردن پنل تحلیل گراف">
+                  {{ graphSidebarOpen() ? '◀ جمع‌کردن' : '▶' }}
+                </button>
+                <strong *ngIf="graphSidebarOpen()">GRAPH INTELLIGENCE</strong>
+              </div>
+              <div class="graph-sidebar-content" [hidden]="!graphSidebarOpen()">
+                <section class="graph-node-summary" *ngIf="graphSelectedNode() as node; else selectGraphNode">
+                  <div class="graph-sidebar-section-title">NODE INSPECTOR
+                    <button type="button" (click)="graphSelectedNode.set(null)" aria-label="بستن اطلاعات گره">×</button>
+                  </div>
+                  <h4>{{ node.displayLabel || node.id }}</h4>
+                  <div class="graph-inspector-row"><span>نوع موجودیت</span><b>{{ node.entityType || '—' }}</b></div>
+                  <div class="graph-inspector-row"><span>شناسه</span><b class="mono">{{ node.id }}</b></div>
+                  <div class="graph-inspector-row"><span>خوشه</span><b>{{ node.clusterId ?? '—' }}</b></div>
+                  <div class="graph-inspector-row"><span>Degree (نمای فعلی)</span><b>{{ node.graphDegree ?? '—' }}</b></div>
+                  <div class="graph-inspector-row"><span>PageRank</span><b>{{ node.pageRankScore == null ? '—' : (node.pageRankScore | number:'1.0-6') }}</b></div>
+                  <div class="graph-inspector-row"><span>Betweenness</span><b>{{ node.betweennessCentrality == null ? '—' : (node.betweennessCentrality | number:'1.0-6') }}</b></div>
+                </section>
+                <ng-template #selectGraphNode><p class="graph-sidebar-empty">برای نمایش جزئیات، یک گره را در گراف انتخاب کنید.</p></ng-template>
+                <app-graph-communities
+                  *ngIf="currentDossierData()?.nodes?.length"
+                  [graph]="currentDossierData()"
+                  (analysisChanged)="communityAnalysis.set($event)"
+                  (communitySelected)="selectedCommunityId.set($event)">
+                </app-graph-communities>
+              </div>
+            </aside>
+          </div>
 
           <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper" style="width: 100%; height: 100%; position: relative;">
             <app-ckd-graph 

@@ -84,7 +84,7 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
       </div>
 
       <!-- دراور بازرسی نود -->
-      <div class="node-inspector-drawer" *ngIf="selectedNode">
+      <div class="node-inspector-drawer" *ngIf="selectedNode && !externalInspector">
         <div class="drawer-header">
           <div class="header-title">
             <span class="type-badge" [class.person]="selectedNode.category === 'PERSON'">
@@ -210,6 +210,7 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 })
 export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('graphCanvas') graphCanvas!: ElementRef<HTMLDivElement>;
+  @Input() externalInspector = false;
   @Input() communityAnalysis: GraphCommunitiesResult | null = null;
   @Input() selectedCommunityId: number | null = null;
   @Input() dossierData: any = null;
@@ -426,8 +427,20 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       this.chart.dispose();
     }
     this.chart = echarts.init(this.graphCanvas.nativeElement);
+    // Recalculate node coordinates when the *canvas* changes size, not only
+    // the ECharts viewport. Ignore same-size notifications to avoid loops.
+    let previousWidth = this.graphCanvas.nativeElement.clientWidth;
+    let previousHeight = this.graphCanvas.nativeElement.clientHeight;
     this.resizeObserver = new ResizeObserver(() => {
-      this.chart?.resize();
+      if (!this.chart || !this.graphCanvas?.nativeElement) return;
+      const width = this.graphCanvas.nativeElement.clientWidth;
+      const height = this.graphCanvas.nativeElement.clientHeight;
+      if (width === previousWidth && height === previousHeight) return;
+      previousWidth = width;
+      previousHeight = height;
+      if (width < 100 || height < 100) return;
+      this.chart.resize();
+      this.renderGraph();
     });
     this.resizeObserver.observe(this.graphCanvas.nativeElement);
     this.renderGraph();

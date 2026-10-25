@@ -50,6 +50,8 @@ export class AuditDashboardComponent implements OnInit {
   private dossierService = inject(DossierService);
 
   readonly communityAnalysis = signal<GraphCommunitiesResult | null>(null);
+  readonly graphSidebarOpen = signal(true);
+  readonly graphSelectedNode = signal<any>(null);
   readonly selectedCommunityId = signal<number | null>(null);
 
   activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
@@ -254,6 +256,7 @@ export class AuditDashboardComponent implements OnInit {
     this.activePlaybackHour.set(null);
     this.selectedCommunityId.set(null);
     this.communityAnalysis.set(null);
+    this.graphSelectedNode.set(null);
 
     this.inspectingRowId.set(caseId);
     this.isDossierLoading.set(true);
@@ -301,8 +304,8 @@ export class AuditDashboardComponent implements OnInit {
   }
 
   onGraphNodeSelected(node: any): void {
-    // Node inspection is local to the graph: never start a dossier fetch from a graph click.
-    // The graph component updates its inspector; this callback is reserved for coordination.
+    this.graphSelectedNode.set(node);
+    this.graphSidebarOpen.set(true);
   }
 
   clearInspection(): void {

@@ -1,1 +1,1 @@
-Hotfix: graph node inspector change detection and reset timeline selection/playback on Inspect. Run npx ng build and manually test. Based on palantir-develop (6) and phase 3.1.5.1 component patch. Not build-verified.
+Phase 3.1.5.4.2. Backup existing files, extract at Dideban root. Run npm install (if needed) and npx ng build. Check widths 768, 1224, 1682, 1880; scroll vertically to view full graph. Verify Timeline, Community, Node Inspector and Layout changes. Browser testing is required.
