@@ -311,12 +311,21 @@
           <app-palantir-dossier-studio
             *ngIf="activeRightView() === 'GRAPH'"
             [dossierData]="currentDossierData()"
+            [communityAnalysis]="communityAnalysis()"
+            [selectedCommunityId]="selectedCommunityId()"
             [targetNationalId]="focusedNationalId()"
             [isInspected]="!!inspectedItem()"
             [currentLogs]="filteredLogs()"
             [activePlaybackHour]="activePlaybackHour()"
             [highlightedNodeId]="highlightedTimelineId()">
           </app-palantir-dossier-studio>
+
+          <app-graph-communities
+            *ngIf="activeRightView() === 'GRAPH' && currentDossierData()?.nodes?.length"
+            [graph]="currentDossierData()"
+            (analysisChanged)="communityAnalysis.set($event)"
+            (communitySelected)="selectedCommunityId.set($event)">
+          </app-graph-communities>
 
           <div *ngIf="activeRightView() === 'CKD'" class="ckd-stage-wrapper" style="width: 100%; height: 100%; position: relative;">
             <app-ckd-graph 

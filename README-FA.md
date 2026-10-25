@@ -1,28 +1,18 @@
-# DIDEBAN 3.1.2 — Community Detection (local moving)
+# DIDEBAN — Phase 3.1.5 (incremental UI patch)
 
-این بسته افزایشی است و هیچ فایل موجود پروژه را جایگزین نمی‌کند. مبنا: مدل Ontology در `palantir-develop (4).zip` و API فاز 3.1.1.
+این بسته فقط کامپوننت موجود Palantir Dossier Studio را جایگزین می‌کند.
 
-## نصب و اجرا
-در ریشه `D:\project\Dideban` استخراج کنید، سپس:
+- کاهش ازدحام برچسب در گراف‌های بیش از ۱۸ گره؛ برچسب با hover دیده می‌شود.
+- بازکردن Node Inspector با کلیک روی گره و انتشار رویداد موجود nodeSelected.
+- نمایش Community ID و درجه ارتباطی محاسبه‌شده در نمای فعلی.
+- نمایش PageRank و Betweenness فقط اگر داده واقعی روی گره موجود باشد؛ عدد ساختگی تولید نمی‌شود.
+- حفظ layoutهای فعلی و تمرکز Timeline پس از render.
 
-```powershell
-cd D:\project\Dideban\src\backend-dotnet\Dideban.Api
-dotnet build
-cd D:\project\Dideban\Tests\CommunityDetectionTests
-dotnet run
-```
+محدودیت: فیلتر ترکیبی Timeline و Community هنوز نیازمند بازطراحی state pipeline است؛ این بسته ادعای حل آن را ندارد.
 
-## نحوه اتصال به جریان فعلی
-بعد از `GraphAnalyticsEngine.ComputeCentralityAndRisk(graph)` در یک نقطه کنترل‌شده از سرویس Traversal، می‌توان `GraphCommunityDetectionEngine.Analyze(graph)` را فراخوانی کرد. **این بسته به‌صورت خودکار Traversal یا API را تغییر نمی‌دهد** تا تغییر قراردادهای عملیاتی نیازمند تست یکپارچگی باشد. متد `Analyze` روی Properties گره‌ها کلیدهای `CommunityId`، `CommunitySize`، `CrossCommunityDegree` و `CommunityDetectionVersion` می‌نویسد و نتیجه ساختاریافته برمی‌گرداند.
+## نصب
+در ریشه پروژه استخراج کنید؛ از فایل قبلی پشتیبان بگیرید.
 
-## قرارداد الگوریتم
-- نسخه **تک‌سطحی local moving با هدف بیشینه‌سازی Modularity وزن‌دار** است، نه Louvain چندسطحی کامل یا Leiden.
-- جهت یال‌ها در خوشه‌بندی کنار گذاشته می‌شود و وزن روابط متقابل/موازی جمع می‌شود؛ وزن نشان‌دهنده قدرت ارتباط است نه فاصله.
-- خودحلقه‌ها، وزن غیرمثبت/نامعتبر و یال‌های ناموجود نادیده گرفته می‌شوند.
-- گره بدون یال خوشه مستقل دارد؛ شناسه خوشه بر اساس ترتیب واژگانی کوچک‌ترین شناسه عضو پایدار است.
-- `BridgeNodeIds` صرفاً گره‌های دارای حداقل یک یال میان‌خوشه‌ای هستند؛ معادل Betweenness یا کشف تخلف نیستند.
-- الگوریتم فعلی برای گراف‌های کوچک/متوسط مناسب است؛ محاسبه مجدد کامل Modularity برای هر جابه‌جایی، برای گراف بزرگ بهینه نیست.
-- `RiskScore` تغییر نمی‌کند؛ نتیجه فقط بیانگر ساختار شبکه است.
-
-## اعتبارسنجی
-تست‌های مستقل در بسته قرار دارند؛ این محیط SDK دات‌نت ندارد و Build/Run اینجا اجرا نشده است.
+## بررسی
+`cd src/frontend-angular; npx ng build`
+سپس کلیک روی گره، بازشدن Inspector، hover روی گره‌های گراف متراکم، تغییر layout و انتخاب Timeline را بررسی کنید.

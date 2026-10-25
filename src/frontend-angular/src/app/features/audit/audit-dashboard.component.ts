@@ -13,6 +13,8 @@ import { GeospatialIntelMapComponent } from './components/geospatial-intel-map/g
 import { CaseTimelineBarComponent, TimelineRangeEvent } from './components/case-timeline-bar/case-timeline-bar.component';
 import { ForensicReportModalComponent } from './components/forensic-report-modal/forensic-report-modal.component';
 import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
+import { GraphCommunitiesResult } from '../../core/services/graph-communities.service';
+import { GraphCommunitiesComponent } from './components/graph-communities/graph-communities.component';
 
 @Component({
   selector: 'app-audit-dashboard',
@@ -25,7 +27,8 @@ import { CkdGraphComponent } from './components/ckd-graph/ckd-graph.component';
     GeospatialIntelMapComponent,
     CaseTimelineBarComponent,
     ForensicReportModalComponent,
-    CkdGraphComponent
+    CkdGraphComponent,
+    GraphCommunitiesComponent
   ],
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss'
@@ -45,6 +48,9 @@ export class AuditDashboardComponent implements OnInit {
   readonly auth = inject(AuthService);
   private auditService = inject(AuditService);
   private dossierService = inject(DossierService);
+
+  readonly communityAnalysis = signal<GraphCommunitiesResult | null>(null);
+  readonly selectedCommunityId = signal<number | null>(null);
 
   activeRightView = signal<'MAP' | 'GRAPH' | 'CKD'>('GRAPH');
   protected readonly Math = Math;

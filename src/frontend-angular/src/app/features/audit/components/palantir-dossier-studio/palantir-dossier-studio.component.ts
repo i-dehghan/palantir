@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as echarts from 'echarts';
+import { GraphCommunitiesResult } from '../../../../core/services/graph-communities.service';
 import { DiscrepancyLog } from '../../../../core/models/discrepancy.model';
 
 const SVG_ICONS: Record<string, string> = {
@@ -93,8 +94,24 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 
         <div class="drawer-body">
           <div class="stat-pill cluster-pill">
-            <span class="label">خوشه‌های تبانی:</span>
-            <strong class="text-cyan-400">{{ detectedClustersCount() }} حلقه مجزا</strong>
+            <span class="label">اجتماع‌های ارتباطی:</span>
+            <strong class="text-cyan-400">{{ detectedClustersCount() }} خوشه</strong>
+          </div>
+          <div class="meta-row" *ngIf="selectedNode.clusterId !== undefined">
+            <span class="label">شناسه خوشه:</span>
+            <span class="val mono">{{ selectedNode.clusterId }}</span>
+          </div>
+          <div class="meta-row" *ngIf="selectedNode.graphDegree !== undefined">
+            <span class="label">درجه ارتباطی در نمای فعلی:</span>
+            <span class="val mono">{{ selectedNode.graphDegree }}</span>
+          </div>
+          <div class="meta-row" *ngIf="selectedNode.pageRankScore !== undefined && selectedNode.pageRankScore !== null">
+            <span class="label">PageRank:</span>
+            <span class="val mono">{{ selectedNode.pageRankScore | number:'1.0-6' }}</span>
+          </div>
+          <div class="meta-row" *ngIf="selectedNode.betweennessCentrality !== undefined && selectedNode.betweennessCentrality !== null">
+            <span class="label">Betweenness:</span>
+            <span class="val mono">{{ selectedNode.betweennessCentrality | number:'1.0-6' }}</span>
           </div>
           <div class="meta-row">
             <span class="label">شناسه پرونده / سند:</span>
@@ -190,6 +207,8 @@ export type GraphLayoutType = 'HIERARCHY' | 'CIRCULAR' | 'FORCE';
 })
 export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('graphCanvas') graphCanvas!: ElementRef<HTMLDivElement>;
+  @Input() communityAnalysis: GraphCommunitiesResult | null = null;
+  @Input() selectedCommunityId: number | null = null;
   @Input() dossierData: any = null;
   @Input() targetNationalId: string = '';
   @Input() isInspected: boolean = false;
@@ -207,12 +226,12 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   private resizeObserver: ResizeObserver | null = null;
 
   private clusterPalette: string[] = [
-    '#38bdf8',
-    '#a855f7',
-    '#22c55e',
-    '#f97316',
-    '#ec4899',
-    '#eab308'
+    '#22d3ee',
+    '#a78bfa',
+    '#f59e0b',
+    '#34d399',
+    '#fb7185',
+    '#60a5fa'
   ];
 
   private stepHoursMap: Record<number, number> = {
@@ -366,6 +385,9 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if ((changes['communityAnalysis'] || changes['selectedCommunityId']) && this.chart) {
+      this.renderGraph();
+    }
     if (changes['highlightedNodeId'] && this.chart) {
       this.applyHighlightFocus();
     }
@@ -494,13 +516,29 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       nodesMap.has(String(e.source)) && nodesMap.has(String(e.target)) && e.source !== e.target
     );
 
+    const degree = new Map<string, number>();
+    for (const edge of validEdges) {
+      const source = String(edge.source);
+      const target = String(edge.target);
+      degree.set(source, (degree.get(source) ?? 0) + 1);
+      degree.set(target, (degree.get(target) ?? 0) + 1);
+    }
+    for (const node of finalNodes) {
+      node.graphDegree = degree.get(String(node.id)) ?? 0;
+    }
+
     this.nodeCount = finalNodes.length;
     this.edgeCount = validEdges.length;
 
     this.computeCentralityAndHighlight(finalNodes, validEdges);
-    const totalClusters = this.detectCommunitiesAndColorize(finalNodes, validEdges);
-    this.detectedClustersCount.set(totalClusters);
+    if (this.communityAnalysis && this.dossierData?.nodes?.length) {
+      this.applyServerCommunities(finalNodes, validEdges);
+      this.detectedClustersCount.set(Object.keys(this.communityAnalysis.communitySizes).length);
+    } else {
+      this.detectedClustersCount.set(this.detectCommunitiesAndColorize(finalNodes, validEdges));
+    }
 
+    const denseGraph = finalNodes.length > 18;
     this.chart.setOption({
       backgroundColor: '#070b12',
       series: [{
@@ -510,8 +548,9 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         links: validEdges,
         edgeSymbol: ['none', 'arrow'],
         edgeSymbolSize: [0, 8],
+        emphasis: { label: { show: true }, focus: 'adjacency' },
         label: {
-          show: true,
+          show: !denseGraph,
           position: 'bottom',
           color: '#f8fafc',
           fontSize: 9.5,
@@ -523,6 +562,52 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
         }
       }]
     }, true);
+
+    // ECharts click selection is bound after each render because the chart is cleared above.
+    this.chart.on('click', (params: any) => {
+      if (params.dataType !== 'node' || !params.data) return;
+      this.selectedNode = params.data;
+      this.nodeSelected.emit(params.data);
+    });
+    if (this.highlightedNodeId) this.applyHighlightFocus();
+  }
+
+  // Visual styling only: community membership comes exclusively from the backend.
+  private applyServerCommunities(nodes: any[], edges: any[]): void {
+    const analysis = this.communityAnalysis;
+    if (!analysis) return;
+    const assignments = analysis.assignments;
+    const bridges = new Set(analysis.bridgeNodeIds);
+    const selected = this.selectedCommunityId;
+    for (const node of nodes) {
+      const community = assignments[String(node.id)];
+      if (community === undefined) continue;
+      const color = this.clusterPalette[Math.abs(community) % this.clusterPalette.length];
+      const active = selected === null || selected === community;
+      node.clusterId = community;
+      node.clusterLabel = `خوشه ${community + 1}`;
+      node.itemStyle = {
+        ...(node.itemStyle || {}),
+        color, opacity: active ? 1 : 0.13,
+        borderColor: bridges.has(String(node.id)) ? '#fbbf24' : color,
+        borderWidth: bridges.has(String(node.id)) ? 5 : 2,
+        shadowBlur: bridges.has(String(node.id)) ? 28 : 10,
+        shadowColor: bridges.has(String(node.id)) ? '#fbbf24' : color
+      };
+    }
+    for (const edge of edges) {
+      const src = assignments[String(edge.source)];
+      const dst = assignments[String(edge.target)];
+      const active = selected === null || src === selected || dst === selected;
+      edge.lineStyle = {
+        ...(edge.lineStyle || {}),
+        color: src !== undefined && src === dst
+          ? this.clusterPalette[Math.abs(src) % this.clusterPalette.length]
+          : '#fbbf24',
+        opacity: active ? 0.8 : 0.06,
+        width: src !== dst ? 2.8 : 1.8
+      };
+    }
   }
 
   private applyHighlightFocus(): void {
