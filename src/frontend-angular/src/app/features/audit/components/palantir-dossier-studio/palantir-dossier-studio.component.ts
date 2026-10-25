@@ -10,6 +10,9 @@ import {
   SimpleChanges,
   Output,
   EventEmitter,
+  NgZone,
+  ChangeDetectorRef,
+  inject,
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -221,7 +224,10 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   nodeCount = 0;
   edgeCount = 0;
   selectedNode: any = null;
+  private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
 
+  private lastPlaybackHour: number | null = null;
   private chart: echarts.ECharts | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
@@ -243,9 +249,8 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
   };
 
   @Input() set activePlaybackHour(hour: number | null) {
-    if (hour !== null && this.chart) {
-      this.filterGraphByHour(hour);
-    }
+    this.lastPlaybackHour = hour;
+    if (this.chart) this.renderGraph();
   }
 
   private filterGraphByHour(currentHour: number): void {
@@ -389,9 +394,10 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       this.renderGraph();
     }
     if (changes['highlightedNodeId'] && this.chart) {
-      this.applyHighlightFocus();
+      this.renderGraph();
     }
     if (changes['dossierData'] || changes['currentLogs'] || changes['isInspected']) {
+      this.selectedNode = null; // Never show an inspector from a previous dossier.
       if (this.chart) {
         this.renderGraph();
       }
@@ -497,10 +503,17 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
           p.fixed = true;
         });
 
-        const stepOtherY = height / (otherNodes.length + 1);
+        // Allocate enough virtual height to avoid stacked symbols on dense graphs.
+        // ECharts graph layout=none scales coordinates to the available viewport;
+        // use a two-column staggered layout instead of compressing 25+ symbols.
+        const columns = otherNodes.length > 16 ? Math.ceil(otherNodes.length / 16) : 1;
+        const rows = Math.ceil(otherNodes.length / columns);
+        const stepOtherY = height * 0.84 / (rows + 1);
         otherNodes.forEach((o, idx) => {
-          o.x = width * 0.78;
-          o.y = Math.round(stepOtherY * (idx + 1));
+          const col = Math.floor(idx / rows);
+          const row = idx % rows;
+          o.x = width * (columns === 1 ? 0.78 : 0.66 + 0.24 * col / (columns - 1));
+          o.y = Math.round(height * 0.08 + stepOtherY * (row + 1));
           o.fixed = true;
         });
       }
@@ -544,6 +557,15 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
       series: [{
         type: 'graph',
         layout: this.activeLayout === 'FORCE' ? 'force' : (this.activeLayout === 'CIRCULAR' ? 'circular' : 'none'),
+        force: this.activeLayout === 'FORCE' ? {
+          repulsion: Math.max(550, Math.min(2400, finalNodes.length * 65)),
+          edgeLength: [Math.max(125, Math.min(250, width * 0.19)), Math.max(180, Math.min(360, width * 0.28))],
+          gravity: 0.035,
+          friction: 0.65,
+          layoutAnimation: false
+        } : undefined,
+        circular: this.activeLayout === 'CIRCULAR' ? { rotateLabel: false } : undefined,
+        roam: true,
         data: finalNodes,
         links: validEdges,
         edgeSymbol: ['none', 'arrow'],
@@ -566,9 +588,14 @@ export class PalantirDossierStudioComponent implements AfterViewInit, OnChanges,
     // ECharts click selection is bound after each render because the chart is cleared above.
     this.chart.on('click', (params: any) => {
       if (params.dataType !== 'node' || !params.data) return;
-      this.selectedNode = params.data;
-      this.nodeSelected.emit(params.data);
+      this.zone.run(() => {
+        this.selectedNode = { ...params.data };
+        this.nodeSelected.emit(this.selectedNode);
+        this.cdr.detectChanges();
+      });
     });
+    // Reapply playback after every layout switch / graph refresh.
+    if (this.lastPlaybackHour !== null) this.filterGraphByHour(this.lastPlaybackHour);
     if (this.highlightedNodeId) this.applyHighlightFocus();
   }
 

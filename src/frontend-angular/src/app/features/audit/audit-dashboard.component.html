@@ -317,7 +317,8 @@
             [isInspected]="!!inspectedItem()"
             [currentLogs]="filteredLogs()"
             [activePlaybackHour]="activePlaybackHour()"
-            [highlightedNodeId]="highlightedTimelineId()">
+            [highlightedNodeId]="highlightedTimelineId()"
+             (nodeSelected)="onGraphNodeSelected($event)">
           </app-palantir-dossier-studio>
 
           <app-graph-communities

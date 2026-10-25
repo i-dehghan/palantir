@@ -249,6 +249,12 @@ export class AuditDashboardComponent implements OnInit {
     const targetNid = String(item?.importerNationalId || '14001000484');
     const caseId = item?.orderRegNumber || item?.cottageNumber;
 
+    // A new inspection owns its own timeline selection and playback state.
+    this.highlightedTimelineId.set(null);
+    this.activePlaybackHour.set(null);
+    this.selectedCommunityId.set(null);
+    this.communityAnalysis.set(null);
+
     this.inspectingRowId.set(caseId);
     this.isDossierLoading.set(true);
     this.isTimelineLoading.set(true);
@@ -294,12 +300,18 @@ export class AuditDashboardComponent implements OnInit {
     });
   }
 
+  onGraphNodeSelected(node: any): void {
+    // Node inspection is local to the graph: never start a dossier fetch from a graph click.
+    // The graph component updates its inspector; this callback is reserved for coordination.
+  }
+
   clearInspection(): void {
     this.inspectedItem.set(null);
     this.focusedNationalId.set('');
     this.focusedOrderInGalaxy.set(null);
     this.selectedOrderForCkd.set(null);
     this.highlightedTimelineId.set(null);
+    this.activePlaybackHour.set(null);
   }
 
   switchDomain(domain: DomainType): void {
