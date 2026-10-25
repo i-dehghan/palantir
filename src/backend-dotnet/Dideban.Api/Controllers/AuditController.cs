@@ -38,6 +38,45 @@ namespace Dideban.Api.Controllers
             _forensicReportService = forensicReportService;
         }
 
+        /// <summary>Exploratory graph-priority analysis; not a finding of wrongdoing.</summary>
+        [Authorize(Policy = RegistryPermissions.AuditRead)]
+        [HttpPost("graph-risk/analyze")]
+        [RequestSizeLimit(2_000_000)]
+        public IActionResult AnalyzeGraphRisk([FromBody] GraphRiskAnalysisRequestDto? request)
+        {
+            if (request?.Graph is null)
+                return BadRequest(new { error = "Graph is required." });
+
+            var graph = request.Graph;
+            if (graph.Nodes is null || graph.Edges is null || graph.Nodes.Count > 500 || graph.Edges.Count > 5000)
+                return BadRequest(new { error = "Graph exceeds limits or has missing collections (max 500 nodes, 5000 edges)." });
+            if (graph.Nodes.Any(n => n is null || string.IsNullOrWhiteSpace(n.Id)) ||
+                graph.Nodes.Select(n => n.Id).Distinct(StringComparer.Ordinal).Count() != graph.Nodes.Count)
+                return BadRequest(new { error = "Node IDs must be unique and non-empty." });
+            if (graph.Edges.Any(e => e is null || string.IsNullOrWhiteSpace(e.SourceId) ||
+                string.IsNullOrWhiteSpace(e.TargetId) || !double.IsFinite(e.Weight) || e.Weight <= 0))
+                return BadRequest(new { error = "Edges must have valid endpoints and positive finite weights." });
+            var ids = graph.Nodes.Select(n => n.Id).ToHashSet(StringComparer.Ordinal);
+            if (graph.Edges.Any(e => !ids.Contains(e.SourceId) || !ids.Contains(e.TargetId)))
+                return BadRequest(new { error = "Edge endpoints must reference graph nodes." });
+            if (graph.Nodes.Any(n => n.RiskScore is < 0 or > 100))
+                return BadRequest(new { error = "Observed risk signals must be in [0, 100]." });
+
+            var settings = new GraphRiskPropagationEngine.Settings(
+                request.MaxHops, request.Decay, request.InfluenceCap);
+            try { settings.Validate(); }
+            catch (ArgumentOutOfRangeException)
+            {
+                return BadRequest(new { error = "Invalid propagation settings: MaxHops 1..6, Decay (0,1), InfluenceCap 0..100." });
+            }
+
+            var baseline = GraphRiskScoringEngine.Score(graph);
+            var propagation = GraphRiskPropagationEngine.Propagate(graph, baseline, settings);
+            return Ok(new GraphRiskAnalysisResponseDto(baseline.Version, propagation.Version,
+                "Exploratory investigation-priority index only; not a probability or finding of wrongdoing.",
+                baseline.Nodes, propagation.Nodes, propagation.Configuration));
+        }
+
         [Authorize(Policy = RegistryPermissions.AuditRead)]
         [HttpGet("logs")]
         public async Task<IActionResult> GetDiscrepancies([FromQuery] string domain = "CUSTOMS")

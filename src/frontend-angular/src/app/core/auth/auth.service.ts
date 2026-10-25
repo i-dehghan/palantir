@@ -30,6 +30,7 @@ export class AuthService {
 
   getAccessToken(): string | null {
     const token = this.tokenState();
+    console.log(token)
     if (!token || Date.now() >= this.expiryState()) {
       if (token) this.clearSession();
       return null;
