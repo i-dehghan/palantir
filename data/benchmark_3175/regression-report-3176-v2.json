@@ -1,0 +1,102 @@
+{
+  "phase": "3.1.7.6",
+  "status": "EXPERIMENTAL_REGRESSION_EVALUATED",
+  "readOnly": true,
+  "seed": 3176,
+  "split": "stratified_random_70_30",
+  "positiveScenarios": [
+    "high",
+    "network"
+  ],
+  "warning": "Synthetic scenarios are generated using directly separable feature ranges. High metrics do not establish real-world validity. Account/phone frequency is calculated across the full synthetic fixture (unlabeled graph context), which is transductive. No identity fields, FeaturesJson, or record indices enter the model. Random splitting does not establish temporal or entity-group generalization.",
+  "domains": {
+    "CUSTOMS": {
+      "rows": 10000,
+      "trainRows": 7000,
+      "testRows": 3000,
+      "features": [
+        "declaration_gap",
+        "hs_mismatch"
+      ],
+      "coefficientsStandardized": {
+        "declaration_gap": 7.309912,
+        "hs_mismatch": 3.625175
+      },
+      "intercept": -0.367903,
+      "metrics": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 1.6e-05,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusionMatrix": {
+          "TP": 1500,
+          "FP": 0,
+          "FN": 0,
+          "TN": 1500
+        }
+      }
+    },
+    "BANKING": {
+      "rows": 10000,
+      "trainRows": 7000,
+      "testRows": 3000,
+      "features": [
+        "log_amount",
+        "source_degree",
+        "destination_degree"
+      ],
+      "coefficientsStandardized": {
+        "log_amount": 1.122407,
+        "source_degree": 3.511789,
+        "destination_degree": 3.511418
+      },
+      "intercept": 0.039346,
+      "metrics": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 1e-06,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusionMatrix": {
+          "TP": 1500,
+          "FP": 0,
+          "FN": 0,
+          "TN": 1500
+        }
+      }
+    },
+    "TELECOM": {
+      "rows": 10000,
+      "trainRows": 7000,
+      "testRows": 3000,
+      "features": [
+        "log_duration",
+        "caller_degree",
+        "receiver_degree"
+      ],
+      "coefficientsStandardized": {
+        "log_duration": 1.047083,
+        "caller_degree": 6.282161,
+        "receiver_degree": 1.724246
+      },
+      "intercept": 0.134052,
+      "metrics": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 2e-06,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusionMatrix": {
+          "TP": 1500,
+          "FP": 0,
+          "FN": 0,
+          "TN": 1500
+        }
+      }
+    }
+  }
+}

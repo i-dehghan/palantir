@@ -1,0 +1,115 @@
+{
+  "phase": "3.1.7.4",
+  "synthetic": true,
+  "database": "data\\dideban_synthetic_3173.db",
+  "readOnly": true,
+  "metricsType": "DIAGNOSTIC_PROXY_NOT_BACKEND_RISK",
+  "domains": {
+    "CUSTOMS": {
+      "groundTruthRows": 10000,
+      "matchedRows": 10000,
+      "unmatchedRows": 0,
+      "scenarios": {
+        "normal": {
+          "count": 2500,
+          "meanProxyScore": 1.271,
+          "minProxyScore": 0.000114,
+          "maxProxyScore": 2.49983
+        },
+        "moderate": {
+          "count": 2500,
+          "meanProxyScore": 11.9045,
+          "minProxyScore": 8.003832,
+          "maxProxyScore": 15.998446
+        },
+        "high": {
+          "count": 2500,
+          "meanProxyScore": 40.0999,
+          "minProxyScore": 32.002054,
+          "maxProxyScore": 47.986179
+        },
+        "network": {
+          "count": 2500,
+          "meanProxyScore": 43.8938,
+          "minProxyScore": 38.005456,
+          "maxProxyScore": 49.996148
+        }
+      },
+      "highMeanExceedsNormal": true
+    },
+    "BANKING": {
+      "groundTruthRows": 10000,
+      "matchedRows": 10000,
+      "unmatchedRows": 0,
+      "scenarios": {
+        "normal": {
+          "count": 2500,
+          "meanProxyScore": 41.8868,
+          "minProxyScore": 36.623788,
+          "maxProxyScore": 44.411446
+        },
+        "moderate": {
+          "count": 2500,
+          "meanProxyScore": 49.6769,
+          "minProxyScore": 44.433714,
+          "maxProxyScore": 52.206449
+        },
+        "high": {
+          "count": 2500,
+          "meanProxyScore": 97.4366,
+          "minProxyScore": 92.218814,
+          "maxProxyScore": 99.999427
+        },
+        "network": {
+          "count": 2500,
+          "meanProxyScore": 92.0699,
+          "minProxyScore": 86.773747,
+          "maxProxyScore": 94.552603
+        }
+      },
+      "highMeanExceedsNormal": true
+    },
+    "TELECOM": {
+      "groundTruthRows": 10000,
+      "matchedRows": 10000,
+      "unmatchedRows": 0,
+      "scenarios": {
+        "normal": {
+          "count": 2500,
+          "meanProxyScore": 0.9474,
+          "minProxyScore": 0.208333,
+          "maxProxyScore": 1.666667
+        },
+        "moderate": {
+          "count": 2500,
+          "meanProxyScore": 7.0495,
+          "minProxyScore": 1.666667,
+          "maxProxyScore": 12.5
+        },
+        "high": {
+          "count": 2500,
+          "meanProxyScore": 81.0413,
+          "minProxyScore": 62.5,
+          "maxProxyScore": 100.0
+        },
+        "network": {
+          "count": 2500,
+          "meanProxyScore": 50.2249,
+          "minProxyScore": 50.034722,
+          "maxProxyScore": 50.416667
+        }
+      },
+      "highMeanExceedsNormal": true
+    }
+  },
+  "reconciliation": {
+    "discrepancyLogRows": 0,
+    "backendBenchmarkStatus": "NOT_EVALUATED",
+    "reason": "No verified mapping of backend output to ground-truth record IDs; run backend in an isolated environment and export keyed results first."
+  },
+  "graphPropagation": {
+    "status": "NOT_EVALUATED",
+    "reason": "Requires backend graph-risk response per scenario; database features alone cannot verify propagation."
+  },
+  "warning": "Ground-truth labels are synthetic scenario definitions, not criminal findings or calibrated probabilities."
+}

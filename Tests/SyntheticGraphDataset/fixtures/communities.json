@@ -1,0 +1,142 @@
+{
+  "decay": 0.5,
+  "graph": {
+    "edges": [
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-A",
+        "targetId": "SYN-COMMUNITIES-B",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-B",
+        "targetId": "SYN-COMMUNITIES-C",
+        "weight": 0.9
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-A",
+        "targetId": "SYN-COMMUNITIES-C",
+        "weight": 0.7
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-D",
+        "targetId": "SYN-COMMUNITIES-E",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-E",
+        "targetId": "SYN-COMMUNITIES-F",
+        "weight": 0.9
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-D",
+        "targetId": "SYN-COMMUNITIES-F",
+        "weight": 0.7
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-COMMUNITIES-C",
+        "targetId": "SYN-COMMUNITIES-D",
+        "weight": 0.2
+      }
+    ],
+    "exploredDepth": 3,
+    "nodes": [
+      {
+        "displayLabel": "Synthetic communities A",
+        "id": "SYN-COMMUNITIES-A",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 15,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic communities B",
+        "id": "SYN-COMMUNITIES-B",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 73,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic communities C",
+        "id": "SYN-COMMUNITIES-C",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 36,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic communities D",
+        "id": "SYN-COMMUNITIES-D",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 81,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic communities E",
+        "id": "SYN-COMMUNITIES-E",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 12,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic communities F",
+        "id": "SYN-COMMUNITIES-F",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "communities",
+          "synthetic": "true"
+        },
+        "riskScore": 49,
+        "type": 0
+      }
+    ],
+    "rootEntityId": "SYN-COMMUNITIES-A"
+  },
+  "influenceCap": 25,
+  "maxHops": 3
+}

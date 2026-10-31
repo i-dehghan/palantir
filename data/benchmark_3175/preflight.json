@@ -1,0 +1,17 @@
+{
+  "phase": "3.1.7.5",
+  "source": "D:\\project\\Dideban\\data\\dideban_synthetic_3173.db",
+  "operationalCopy": "D:\\project\\Dideban\\data\\benchmark_3175\\operational_benchmark.db",
+  "identityDatabase": "D:\\project\\Dideban\\data\\benchmark_3175\\identity_benchmark.db",
+  "securityAuditDatabase": "D:\\project\\Dideban\\data\\benchmark_3175\\security_audit_benchmark.db",
+  "countsBefore": {
+    "DiscrepancyLogs": 0,
+    "SyntheticGroundTruth": 30000,
+    "bank_transactions": 10000,
+    "epl_declarations": 10000,
+    "ntsw_orders": 10000,
+    "telecom_cdrs": 10000
+  },
+  "backendExecuted": false,
+  "status": "STAGED_NOT_EVALUATED"
+}

@@ -1,0 +1,28 @@
+{
+  "synthetic": true,
+  "phase": "3.1.7.3",
+  "seed": 3173,
+  "countPerDomain": 10000,
+  "database": "data\\dideban_synthetic_3173.db",
+  "scenarioCounts": {
+    "CUSTOMS": {
+      "moderate": 2500,
+      "high": 2500,
+      "network": 2500,
+      "normal": 2500
+    },
+    "BANKING": {
+      "moderate": 2500,
+      "high": 2500,
+      "network": 2500,
+      "normal": 2500
+    },
+    "TELECOM": {
+      "moderate": 2500,
+      "high": 2500,
+      "network": 2500,
+      "normal": 2500
+    }
+  },
+  "note": "Labels are synthetic ground truth, not criminal findings or calibrated probabilities."
+}

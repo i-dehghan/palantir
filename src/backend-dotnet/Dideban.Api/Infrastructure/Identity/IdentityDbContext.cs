@@ -5,6 +5,7 @@ namespace Dideban.Api.Infrastructure.Identity;
 
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : DbContext(options)
 {
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
     public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     public DbSet<ApplicationRole> Roles => Set<ApplicationRole>();
     public DbSet<ApplicationPermission> Permissions => Set<ApplicationPermission>();
@@ -14,6 +15,16 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<RefreshSession>(entity =>
+        {
+            entity.ToTable("IdentityRefreshSessions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.HasIndex(x => x.UserId);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<ApplicationUser>(entity =>
         {

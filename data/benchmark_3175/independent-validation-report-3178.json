@@ -1,0 +1,132 @@
+{
+  "phase": "3.1.7.8",
+  "status": "INDEPENDENT_SYNTHETIC_OOD_DIAGNOSTIC",
+  "readOnly": true,
+  "seed": 3178,
+  "trainingData": "original synthetic fixture, all labeled records",
+  "oodData": "new RNG population with overlapping shifted feature distributions",
+  "domains": {
+    "CUSTOMS": {
+      "trainRows": 10000,
+      "independentSyntheticRows": 4000,
+      "features": [
+        "declaration_gap",
+        "hs_mismatch"
+      ],
+      "oodMetrics": {
+        "rocAuc": 0.853179,
+        "prAuc": 0.846988,
+        "brier": 0.214096,
+        "precision": 0.823375,
+        "recall": 0.627,
+        "f1": 0.711893
+      },
+      "scenarioBalance": {
+        "normal": 1000,
+        "moderate": 1000,
+        "high": 1000,
+        "network": 1000
+      },
+      "oodFeatureMeans": [
+        0.1624,
+        0.2772
+      ],
+      "evaluationType": "SYNTHETIC_SHIFTED_DISTRIBUTION_NOT_REAL_WORLD"
+    },
+    "BANKING": {
+      "trainRows": 10000,
+      "independentSyntheticRows": 4000,
+      "features": [
+        "log_amount",
+        "source_degree",
+        "destination_degree"
+      ],
+      "oodMetrics": {
+        "rocAuc": 0.953336,
+        "prAuc": 0.955357,
+        "brier": 0.312072,
+        "precision": 1.0,
+        "recall": 0.2105,
+        "f1": 0.34779
+      },
+      "scenarioBalance": {
+        "normal": 1000,
+        "moderate": 1000,
+        "high": 1000,
+        "network": 1000
+      },
+      "oodFeatureMeans": [
+        14.3043,
+        4.4625,
+        4.4062
+      ],
+      "evaluationType": "SYNTHETIC_SHIFTED_DISTRIBUTION_NOT_REAL_WORLD"
+    },
+    "TELECOM": {
+      "trainRows": 10000,
+      "independentSyntheticRows": 4000,
+      "features": [
+        "log_duration",
+        "caller_degree",
+        "receiver_degree"
+      ],
+      "oodMetrics": {
+        "rocAuc": 0.929117,
+        "prAuc": 0.932166,
+        "brier": 0.204547,
+        "precision": 0.973849,
+        "recall": 0.4655,
+        "f1": 0.629905
+      },
+      "scenarioBalance": {
+        "normal": 1000,
+        "moderate": 1000,
+        "high": 1000,
+        "network": 1000
+      },
+      "oodFeatureMeans": [
+        5.7478,
+        4.53,
+        3.9215
+      ],
+      "evaluationType": "SYNTHETIC_SHIFTED_DISTRIBUTION_NOT_REAL_WORLD"
+    }
+  },
+  "graphLeakageDiagnostics": {
+    "BANKING": {
+      "rows": 10000,
+      "trainRows": 7000,
+      "testRows": 3000,
+      "nationalIdOverlap": 0,
+      "sharedGraphEndpoints": 333,
+      "trainEndpoints": 7053,
+      "testEndpoints": 3613,
+      "graphComponentCount": 5001,
+      "largestComponentNodes": 333,
+      "largestComponentFractionOfNodes": 0.032227,
+      "componentHoldoutEvaluated": false,
+      "note": "Endpoint overlap is diagnostic. Connected-component isolation is not implemented in this run."
+    },
+    "TELECOM": {
+      "rows": 10000,
+      "trainRows": 7000,
+      "testRows": 3000,
+      "nationalIdOverlap": 0,
+      "sharedGraphEndpoints": 333,
+      "trainEndpoints": 8873,
+      "testEndpoints": 4293,
+      "graphComponentCount": 5001,
+      "largestComponentNodes": 2833,
+      "largestComponentFractionOfNodes": 0.220759,
+      "componentHoldoutEvaluated": false,
+      "note": "Endpoint overlap is diagnostic. Connected-component isolation is not implemented in this run."
+    }
+  },
+  "limitations": [
+    "OOD labels are still assigned by a synthetic design, not observed outcomes.",
+    "Graph degree features in training are transductive, computed from the full fixture.",
+    "Graph connected-component holdout has NOT been performed.",
+    "A model trained on all original records is used solely for independent synthetic OOD testing.",
+    "No operational scoring model or database was changed."
+  ]
+}

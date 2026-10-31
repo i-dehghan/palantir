@@ -1,0 +1,104 @@
+{
+  "decay": 0.5,
+  "graph": {
+    "edges": [
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CHAIN-A",
+        "targetId": "SYN-CHAIN-B",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CHAIN-B",
+        "targetId": "SYN-CHAIN-C",
+        "weight": 0.8
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CHAIN-C",
+        "targetId": "SYN-CHAIN-D",
+        "weight": 0.65
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CHAIN-D",
+        "targetId": "SYN-CHAIN-E",
+        "weight": 0.5
+      }
+    ],
+    "exploredDepth": 3,
+    "nodes": [
+      {
+        "displayLabel": "Synthetic chain A",
+        "id": "SYN-CHAIN-A",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "chain",
+          "synthetic": "true"
+        },
+        "riskScore": 92,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic chain B",
+        "id": "SYN-CHAIN-B",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "chain",
+          "synthetic": "true"
+        },
+        "riskScore": 14,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic chain C",
+        "id": "SYN-CHAIN-C",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "chain",
+          "synthetic": "true"
+        },
+        "riskScore": 25,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic chain D",
+        "id": "SYN-CHAIN-D",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "chain",
+          "synthetic": "true"
+        },
+        "riskScore": 12,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic chain E",
+        "id": "SYN-CHAIN-E",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "chain",
+          "synthetic": "true"
+        },
+        "riskScore": 6,
+        "type": 0
+      }
+    ],
+    "rootEntityId": "SYN-CHAIN-A"
+  },
+  "influenceCap": 25,
+  "maxHops": 3
+}

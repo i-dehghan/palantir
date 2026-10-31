@@ -1,0 +1,93 @@
+{
+  "decay": 0.5,
+  "graph": {
+    "edges": [
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CYCLE-A",
+        "targetId": "SYN-CYCLE-B",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CYCLE-B",
+        "targetId": "SYN-CYCLE-C",
+        "weight": 0.8
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CYCLE-C",
+        "targetId": "SYN-CYCLE-A",
+        "weight": 0.6
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-CYCLE-C",
+        "targetId": "SYN-CYCLE-D",
+        "weight": 0.4
+      }
+    ],
+    "exploredDepth": 3,
+    "nodes": [
+      {
+        "displayLabel": "Synthetic cycle A",
+        "id": "SYN-CYCLE-A",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "cycle",
+          "synthetic": "true"
+        },
+        "riskScore": 80,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic cycle B",
+        "id": "SYN-CYCLE-B",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "cycle",
+          "synthetic": "true"
+        },
+        "riskScore": 10,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic cycle C",
+        "id": "SYN-CYCLE-C",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "cycle",
+          "synthetic": "true"
+        },
+        "riskScore": 30,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic cycle D",
+        "id": "SYN-CYCLE-D",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "cycle",
+          "synthetic": "true"
+        },
+        "riskScore": 5,
+        "type": 0
+      }
+    ],
+    "rootEntityId": "SYN-CYCLE-A"
+  },
+  "influenceCap": 25,
+  "maxHops": 3
+}

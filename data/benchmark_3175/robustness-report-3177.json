@@ -1,0 +1,109 @@
+{
+  "phase": "3.1.7.7",
+  "status": "SYNTHETIC_ROBUSTNESS_DIAGNOSTICS",
+  "readOnly": true,
+  "seed": 3177,
+  "results": {
+    "CUSTOMS": {
+      "featureNames": [
+        "declaration_gap",
+        "hs_mismatch"
+      ],
+      "trainRows": 7000,
+      "testRows": 3000,
+      "trainGroups": 350,
+      "testGroups": 150,
+      "groupOverlap": 0,
+      "cleanGroupHoldout": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 1.6e-05,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "measurementNoiseStress": {
+        "rocAuc": 0.999324,
+        "prAuc": 0.99936,
+        "brier": 0.007279,
+        "precision": 0.990157,
+        "recall": 0.992763,
+        "f1": 0.991459
+      },
+      "predictionFlipRateUnderNoise": 0.008667,
+      "nearThresholdCount": 0,
+      "nearThresholdErrorCount": 0,
+      "note": "Group holdout uses synthetic national IDs; graph endpoint isolation is not guaranteed."
+    },
+    "BANKING": {
+      "featureNames": [
+        "log_amount",
+        "source_degree",
+        "destination_degree"
+      ],
+      "trainRows": 7000,
+      "testRows": 3000,
+      "trainGroups": 350,
+      "testGroups": 150,
+      "groupOverlap": 0,
+      "cleanGroupHoldout": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 1e-06,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "measurementNoiseStress": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 0.000174,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "predictionFlipRateUnderNoise": 0.0,
+      "nearThresholdCount": 0,
+      "nearThresholdErrorCount": 0,
+      "note": "Group holdout uses synthetic national IDs; graph endpoint isolation is not guaranteed."
+    },
+    "TELECOM": {
+      "featureNames": [
+        "log_duration",
+        "caller_degree",
+        "receiver_degree"
+      ],
+      "trainRows": 7000,
+      "testRows": 3000,
+      "trainGroups": 350,
+      "testGroups": 150,
+      "groupOverlap": 0,
+      "cleanGroupHoldout": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 1e-06,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "measurementNoiseStress": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 0.001394,
+        "precision": 1.0,
+        "recall": 0.996711,
+        "f1": 0.998353
+      },
+      "predictionFlipRateUnderNoise": 0.001667,
+      "nearThresholdCount": 0,
+      "nearThresholdErrorCount": 0,
+      "note": "Group holdout uses synthetic national IDs; graph endpoint isolation is not guaranteed."
+    }
+  },
+  "limitations": [
+    "This is NOT independent out-of-distribution validation: perturbations reuse original labels.",
+    "Synthetic labels and features are rule-generated; high scores do not establish real-world accuracy.",
+    "Graph-node overlap across groups may remain; evaluate connected components separately.",
+    "No operational model or database is changed."
+  ]
+}

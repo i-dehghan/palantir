@@ -1,0 +1,56 @@
+{
+  "decay": 0.5,
+  "graph": {
+    "edges": [],
+    "exploredDepth": 3,
+    "nodes": [
+      {
+        "displayLabel": "Synthetic isolated A",
+        "id": "SYN-ISOLATED-A",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "isolated",
+          "synthetic": "true"
+        },
+        "riskScore": 8,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic isolated B",
+        "id": "SYN-ISOLATED-B",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "isolated",
+          "synthetic": "true"
+        },
+        "riskScore": 32,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic isolated C",
+        "id": "SYN-ISOLATED-C",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "isolated",
+          "synthetic": "true"
+        },
+        "riskScore": 61,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic isolated D",
+        "id": "SYN-ISOLATED-D",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "isolated",
+          "synthetic": "true"
+        },
+        "riskScore": 91,
+        "type": 0
+      }
+    ],
+    "rootEntityId": "SYN-ISOLATED-A"
+  },
+  "influenceCap": 25,
+  "maxHops": 3
+}

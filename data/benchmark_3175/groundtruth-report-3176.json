@@ -1,0 +1,151 @@
+{
+  "phase": "3.1.7.6",
+  "readOnly": true,
+  "metricsType": "BACKEND_LOG_DETECTION_VS_SYNTHETIC_GROUND_TRUTH",
+  "positiveScenarios": [
+    "high",
+    "network"
+  ],
+  "negativeScenarios": [
+    "normal",
+    "moderate"
+  ],
+  "interpretation": "Missing discrepancy log is treated as non-detection, not a risk score of zero.",
+  "limitations": [
+    "Backend LIMIT 700 without ORDER BY makes evaluation sample-dependent.",
+    "Precision/recall describe synthetic scenario retrieval, not crime detection.",
+    "Ranking AUC cannot be calculated on full population without per-record backend scores.",
+    "Graph propagation is not evaluated."
+  ],
+  "domains": {
+    "CUSTOMS": {
+      "groundTruthRows": 10000,
+      "rawLogRows": 700,
+      "matchedUniqueLogRows": 700,
+      "unknownLogRows": 0,
+      "duplicateLogRows": 0,
+      "confusionMatrix": {
+        "TP": 350,
+        "FP": 350,
+        "FN": 4650,
+        "TN": 4650
+      },
+      "precision": 0.5,
+      "recall": 0.07,
+      "f1": 0.122807,
+      "scenarioBreakdown": {
+        "normal": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 95.8514
+        },
+        "moderate": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 95.6914
+        },
+        "high": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 96.24
+        },
+        "network": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 88.0
+        }
+      },
+      "riskScoreRankingStatus": "NOT_EVALUATED_FULL_POPULATION"
+    },
+    "BANKING": {
+      "groundTruthRows": 10000,
+      "rawLogRows": 233,
+      "matchedUniqueLogRows": 233,
+      "unknownLogRows": 0,
+      "duplicateLogRows": 0,
+      "confusionMatrix": {
+        "TP": 117,
+        "FP": 116,
+        "FN": 4883,
+        "TN": 4884
+      },
+      "precision": 0.502146,
+      "recall": 0.0234,
+      "f1": 0.044716,
+      "scenarioBreakdown": {
+        "normal": {
+          "total": 2500,
+          "detected": 58,
+          "detectionRate": 0.0232,
+          "meanRiskScoreAmongDetected": 89.0
+        },
+        "moderate": {
+          "total": 2500,
+          "detected": 58,
+          "detectionRate": 0.0232,
+          "meanRiskScoreAmongDetected": 89.0
+        },
+        "high": {
+          "total": 2500,
+          "detected": 58,
+          "detectionRate": 0.0232,
+          "meanRiskScoreAmongDetected": 89.0
+        },
+        "network": {
+          "total": 2500,
+          "detected": 59,
+          "detectionRate": 0.0236,
+          "meanRiskScoreAmongDetected": 89.0
+        }
+      },
+      "riskScoreRankingStatus": "NOT_EVALUATED_FULL_POPULATION"
+    },
+    "TELECOM": {
+      "groundTruthRows": 10000,
+      "rawLogRows": 350,
+      "matchedUniqueLogRows": 350,
+      "unknownLogRows": 0,
+      "duplicateLogRows": 0,
+      "confusionMatrix": {
+        "TP": 175,
+        "FP": 175,
+        "FN": 4825,
+        "TN": 4825
+      },
+      "precision": 0.5,
+      "recall": 0.035,
+      "f1": 0.065421,
+      "scenarioBreakdown": {
+        "normal": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 85.0
+        },
+        "moderate": {
+          "total": 2500,
+          "detected": 0,
+          "detectionRate": 0.0,
+          "meanRiskScoreAmongDetected": null
+        },
+        "high": {
+          "total": 2500,
+          "detected": 0,
+          "detectionRate": 0.0,
+          "meanRiskScoreAmongDetected": null
+        },
+        "network": {
+          "total": 2500,
+          "detected": 175,
+          "detectionRate": 0.07,
+          "meanRiskScoreAmongDetected": 86.8514
+        }
+      },
+      "riskScoreRankingStatus": "NOT_EVALUATED_FULL_POPULATION"
+    }
+  }
+}

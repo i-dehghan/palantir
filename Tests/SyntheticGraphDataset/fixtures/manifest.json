@@ -1,0 +1,61 @@
+{
+  "schema": "DIDEBAN GraphRiskAnalysisRequestDto",
+  "purpose": "development-only; not operational evidence",
+  "seed": "fixed-v1",
+  "scenarios": {
+    "isolated": {
+      "nodes": 4,
+      "edges": 0,
+      "sha256": "5e577ecc456f5b6a09fd0d744ec55e39f4e3e61a6d9c2e69d07f171d41338e5b",
+      "baselineRiskRange": [
+        8,
+        91
+      ]
+    },
+    "chain": {
+      "nodes": 5,
+      "edges": 4,
+      "sha256": "7c37a43d6d1fdfab71883e5c8e693fdc12f958989442fb39fadf038855944562",
+      "baselineRiskRange": [
+        6,
+        92
+      ]
+    },
+    "star": {
+      "nodes": 6,
+      "edges": 5,
+      "sha256": "83cdeec6dca92b5607e0eb4db9849c35886ff7c8179596fd2e8fa67e7e294c4f",
+      "baselineRiskRange": [
+        5,
+        85
+      ]
+    },
+    "communities": {
+      "nodes": 6,
+      "edges": 7,
+      "sha256": "750b9ae04780ce56cfddfea209f9253a79ff51aa8a8536082a569a5e88f93be9",
+      "baselineRiskRange": [
+        12,
+        81
+      ]
+    },
+    "cycle": {
+      "nodes": 4,
+      "edges": 4,
+      "sha256": "56a475b3fff132ea9e548877c115c1cb7a24f37e54c7d954dfacbb3f3e766e16",
+      "baselineRiskRange": [
+        5,
+        80
+      ]
+    },
+    "weighted_bridge": {
+      "nodes": 7,
+      "edges": 6,
+      "sha256": "a9ba0d0cd8d96587238844bf1f234413d88aa1797aef112b6b2f68b40950ec2e",
+      "baselineRiskRange": [
+        5,
+        94
+      ]
+    }
+  }
+}

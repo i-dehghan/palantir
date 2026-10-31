@@ -1,28 +1,13 @@
-# DIDEBAN — Phase 3.1.6.4.1: Graph Risk API Angular Adapter
+# DIDEBAN — Refresh Token patch (review before deployment)
 
-این بسته فقط یک فایل **جدید** اضافه می‌کند و هیچ فایل موجودی را جایگزین نمی‌کند:
+This patch adds an HttpOnly Secure SameSite=Strict refresh cookie, 7-day refresh sessions,
+rotation, reuse detection, logout revocation and Angular retry-on-401.
 
-`src/frontend-angular/src/app/core/services/graph-risk.service.ts`
-
-## قرارداد
-
-- `GraphRiskService.analyze(graph, settings?)` یک `Observable<GraphRiskAnalysisResponse>` برمی‌گرداند.
-- `baseline` شامل `priorityScore` و عوامل توضیحی است.
-- `propagation` شامل `baseScore`, `networkInfluence`, `combinedIndex` و `sources` است.
-- تنظیمات اختیاری با نام‌های `maxHops`, `decay`, `influenceCap` ارسال می‌شوند.
-- آدرس API مطابق سرویس‌های فعلی پروژه: `http://localhost:5191`.
-- سرویس وضعیت گراف را تغییر نمی‌دهد و هیچ درخواست خودکاری ایجاد نمی‌کند.
-
-## نصب
-
-فایل ZIP را در ریشه `D:\project\Dideban` استخراج کنید.
-
-## اعتبارسنجی
-
-```powershell
-cd D:\project\Dideban\src\frontend-angular
-npm ci
-npx ng build
-```
-
-این بسته تنها زیرفاز 3.1.6.4.1 است. اتصال به Sidebar و Heatmap در مراحل بعدی و پس از بررسی آخرین فایل‌های UI انجام می‌شود.
+## Important
+- Requires HTTPS for browser cookies (Secure); current HTTP localhost:5191 must be changed to HTTPS for end-to-end testing.
+- Apply IdentityDbContext EF migration using the project's configured Identity database, not the operational database.
+- No real build or integration test has been run in this environment.
+- After a page reload, the Angular guard currently requires a token; a bootstrap refresh on app startup remains necessary.
+- Concurrent refreshes from multiple tabs can trigger reuse revocation. Test and consider cross-tab coordination.
+- Verify CSRF/origin protections, reverse proxy and production cookie policy before deployment.
+- This is a development patch, not production approval.

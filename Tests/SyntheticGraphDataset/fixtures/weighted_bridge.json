@@ -1,0 +1,144 @@
+{
+  "decay": 0.5,
+  "graph": {
+    "edges": [
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-A",
+        "targetId": "SYN-WEIGHTED_BRIDGE-B",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-B",
+        "targetId": "SYN-WEIGHTED_BRIDGE-C",
+        "weight": 0.95
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-C",
+        "targetId": "SYN-WEIGHTED_BRIDGE-D",
+        "weight": 0.15
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-D",
+        "targetId": "SYN-WEIGHTED_BRIDGE-E",
+        "weight": 1
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-E",
+        "targetId": "SYN-WEIGHTED_BRIDGE-F",
+        "weight": 0.9
+      },
+      {
+        "metadata": {
+          "synthetic": "true"
+        },
+        "predicate": "SYNTHETIC_RELATION",
+        "sourceId": "SYN-WEIGHTED_BRIDGE-F",
+        "targetId": "SYN-WEIGHTED_BRIDGE-G",
+        "weight": 0.85
+      }
+    ],
+    "exploredDepth": 3,
+    "nodes": [
+      {
+        "displayLabel": "Synthetic weighted_bridge A",
+        "id": "SYN-WEIGHTED_BRIDGE-A",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 5,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge B",
+        "id": "SYN-WEIGHTED_BRIDGE-B",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 22,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge C",
+        "id": "SYN-WEIGHTED_BRIDGE-C",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 68,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge D",
+        "id": "SYN-WEIGHTED_BRIDGE-D",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 13,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge E",
+        "id": "SYN-WEIGHTED_BRIDGE-E",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 94,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge F",
+        "id": "SYN-WEIGHTED_BRIDGE-F",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 28,
+        "type": 0
+      },
+      {
+        "displayLabel": "Synthetic weighted_bridge G",
+        "id": "SYN-WEIGHTED_BRIDGE-G",
+        "properties": {
+          "provenance": "synthetic_fixture",
+          "scenario": "weighted_bridge",
+          "synthetic": "true"
+        },
+        "riskScore": 8,
+        "type": 0
+      }
+    ],
+    "rootEntityId": "SYN-WEIGHTED_BRIDGE-A"
+  },
+  "influenceCap": 25,
+  "maxHops": 3
+}

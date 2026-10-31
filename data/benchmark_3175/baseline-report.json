@@ -1,0 +1,98 @@
+{
+  "phase": "3.1.7.5",
+  "status": "BASELINE_EXECUTED",
+  "database": "D:\\project\\Dideban\\data\\benchmark_3175\\operational_benchmark.db",
+  "sha256Before": "FD14A8BAE1B38FE4251BF8AC14EE276557F840EA352EC16CAD68D41C95FFB48A",
+  "sha256After": "D6F598BDD993D7E9817EBB86F7EEFC727B4C92B426CFA8B784329C082A7CCBF4",
+  "serviceReportedCount": 1283,
+  "metricsType": "ACTUAL_BACKEND_BASELINE",
+  "distribution": [
+    {
+      "domain": "BANKING",
+      "score": 89,
+      "count": 233
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 84,
+      "count": 7
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 85,
+      "count": 3
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 86,
+      "count": 7
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 87,
+      "count": 2
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 88,
+      "count": 178
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 89,
+      "count": 3
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 90,
+      "count": 5
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 91,
+      "count": 13
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 92,
+      "count": 13
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 93,
+      "count": 7
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 94,
+      "count": 10
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 95,
+      "count": 20
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 96,
+      "count": 12
+    },
+    {
+      "domain": "CUSTOMS",
+      "score": 97,
+      "count": 420
+    },
+    {
+      "domain": "TELECOM",
+      "score": 85,
+      "count": 314
+    },
+    {
+      "domain": "TELECOM",
+      "score": 94,
+      "count": 36
+    }
+  ],
+  "groundTruthMatching": "NOT_EVALUATED",
+  "warning": "Original service uses LIMIT 700, index-dependent rules and hardcoded scores. This is not calibrated risk."
+}

@@ -183,6 +183,7 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
 builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
 builder.Services.AddScoped<IdentityAuthService>();
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<RefreshSessionService>();
 
 var signingKey = JwtTokenService.ReadKey(builder.Configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -1,0 +1,163 @@
+{
+  "phase": "3.1.7.9",
+  "status": "EXPERIMENTAL_LEAKAGE_FREE_SYNTHETIC_EVALUATION",
+  "readOnly": true,
+  "seed": 3179,
+  "minimumCalibrationPrecision": 0.8,
+  "domains": {
+    "CUSTOMS": {
+      "rows": 10000,
+      "trainRows": 6000,
+      "calibrationRows": 2000,
+      "testRows": 2000,
+      "trainPositiveRate": 0.5,
+      "calibrationPositiveRate": 0.5,
+      "testPositiveRate": 0.5,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": null,
+      "componentOrEntityGroups": 500,
+      "calibrationBrierByMethod": {
+        "uncalibrated": 1.8e-05,
+        "sigmoid": 1.3e-05,
+        "isotonic": 0.0
+      },
+      "selectedCalibration": "isotonic",
+      "selectedThreshold": 1.0,
+      "calibrationPrecisionConstraintFeasible": true,
+      "testAtSelectedThreshold": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 0.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusionMatrix": {
+          "TN": 1000,
+          "FP": 0,
+          "FN": 0,
+          "TP": 1000
+        }
+      },
+      "testAtDefaultThreshold": {
+        "rocAuc": 1.0,
+        "prAuc": 1.0,
+        "brier": 0.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "confusionMatrix": {
+          "TN": 1000,
+          "FP": 0,
+          "FN": 0,
+          "TP": 1000
+        }
+      },
+      "warning": "Calibration method chosen on the same calibration split used to fit calibrators; final test is independent."
+    },
+    "BANKING": {
+      "rows": 10000,
+      "trainRows": 5960,
+      "calibrationRows": 2000,
+      "testRows": 2040,
+      "trainPositiveRate": 0.5,
+      "calibrationPositiveRate": 0.5,
+      "testPositiveRate": 0.5,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": 0,
+      "componentOrEntityGroups": 252,
+      "calibrationBrierByMethod": {
+        "uncalibrated": 0.08406,
+        "sigmoid": 0.081151,
+        "isotonic": 0.065765
+      },
+      "selectedCalibration": "isotonic",
+      "selectedThreshold": 0.32926829,
+      "calibrationPrecisionConstraintFeasible": true,
+      "testAtSelectedThreshold": {
+        "rocAuc": 0.957109,
+        "prAuc": 0.951471,
+        "brier": 0.08459,
+        "precision": 0.919954,
+        "recall": 0.777451,
+        "f1": 0.842721,
+        "confusionMatrix": {
+          "TN": 951,
+          "FP": 69,
+          "FN": 227,
+          "TP": 793
+        }
+      },
+      "testAtDefaultThreshold": {
+        "rocAuc": 0.957109,
+        "prAuc": 0.951471,
+        "brier": 0.08459,
+        "precision": 0.997326,
+        "recall": 0.731373,
+        "f1": 0.843891,
+        "confusionMatrix": {
+          "TN": 1018,
+          "FP": 2,
+          "FN": 274,
+          "TP": 746
+        }
+      },
+      "warning": "Calibration method chosen on the same calibration split used to fit calibrators; final test is independent."
+    },
+    "TELECOM": {
+      "rows": 10000,
+      "trainRows": 5960,
+      "calibrationRows": 2000,
+      "testRows": 2040,
+      "trainPositiveRate": 0.5,
+      "calibrationPositiveRate": 0.5,
+      "testPositiveRate": 0.5,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": 0,
+      "componentOrEntityGroups": 252,
+      "calibrationBrierByMethod": {
+        "uncalibrated": 0.249916,
+        "sigmoid": 0.246815,
+        "isotonic": 0.142857
+      },
+      "selectedCalibration": "isotonic",
+      "selectedThreshold": 1.0,
+      "calibrationPrecisionConstraintFeasible": true,
+      "testAtSelectedThreshold": {
+        "rocAuc": 0.695588,
+        "prAuc": 0.695588,
+        "brier": 0.196128,
+        "precision": 1.0,
+        "recall": 0.391176,
+        "f1": 0.562368,
+        "confusionMatrix": {
+          "TN": 1020,
+          "FP": 0,
+          "FN": 621,
+          "TP": 399
+        }
+      },
+      "testAtDefaultThreshold": {
+        "rocAuc": 0.695588,
+        "prAuc": 0.695588,
+        "brier": 0.196128,
+        "precision": 1.0,
+        "recall": 0.391176,
+        "f1": 0.562368,
+        "confusionMatrix": {
+          "TN": 1020,
+          "FP": 0,
+          "FN": 621,
+          "TP": 399
+        }
+      },
+      "warning": "Calibration method chosen on the same calibration split used to fit calibrators; final test is independent."
+    }
+  },
+  "limitations": [
+    "Only synthetic labels and synthetic data were evaluated.",
+    "Split-specific graph degrees may not correspond to online production feature availability.",
+    "Calibration method selection is based on calibration data, never the test set.",
+    "Graph component sizes may cause severely imbalanced splits; invalid splits are rejected.",
+    "No real-world performance claim and no operational model or database changes."
+  ]
+}

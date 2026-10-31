@@ -1,0 +1,59 @@
+{
+  "disclaimer": "Static source inventory only. A literal assignment does not establish DB provenance or actual runtime execution.",
+  "findings": [
+    {
+      "file": "Services/EntityGraphService.cs",
+      "line": 29,
+      "field": "RiskScore",
+      "literal": 95.0,
+      "snippet": "RiskScore = 95",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    },
+    {
+      "file": "Services/EntityGraphService.cs",
+      "line": 112,
+      "field": "RiskScore",
+      "literal": 95.0,
+      "snippet": "RiskScore = 95,",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    },
+    {
+      "file": "Services/ForensicReportService.cs",
+      "line": 52,
+      "field": "GlobalRiskScore",
+      "literal": 97.0,
+      "snippet": "GlobalRiskScore = 97",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    },
+    {
+      "file": "Services/PalantirLinkTraversalEngine.cs",
+      "line": 58,
+      "field": "RiskScore",
+      "literal": 96.0,
+      "snippet": "RiskScore = 96,",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    },
+    {
+      "file": "Services/PalantirLinkTraversalEngine.cs",
+      "line": 91,
+      "field": "RiskScore",
+      "literal": 85.0,
+      "snippet": "RiskScore = 85,",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    },
+    {
+      "file": "Services/PalantirLinkTraversalEngine.cs",
+      "line": 108,
+      "field": "RiskScore",
+      "literal": 88.0,
+      "snippet": "RiskScore = 88,",
+      "classification": "literal_assignment_candidate",
+      "reviewRequired": true
+    }
+  ]
+}

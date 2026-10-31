@@ -1,0 +1,40 @@
+{
+  "phase": "3.1.7.9.1",
+  "source": "D:\\project\\Dideban\\data\\benchmark_3175\\operational_benchmark.db",
+  "output": "D:\\project\\Dideban\\data\\benchmark_3175\\graph_fixture_v2_31791.db",
+  "groupSize": 40,
+  "sourceReadOnly": true,
+  "domains": {
+    "BANKING": {
+      "rows": 10000,
+      "componentsByScenario": {
+        "normal": 63,
+        "moderate": 63,
+        "high": 63,
+        "network": 63
+      },
+      "positiveComponents": 126,
+      "negativeComponents": 126,
+      "changedColumns": [
+        "source_account",
+        "dest_account"
+      ]
+    },
+    "TELECOM": {
+      "rows": 10000,
+      "componentsByScenario": {
+        "normal": 63,
+        "moderate": 63,
+        "high": 63,
+        "network": 63
+      },
+      "positiveComponents": 126,
+      "negativeComponents": 126,
+      "changedColumns": [
+        "caller_msisdn",
+        "receiver_msisdn"
+      ]
+    }
+  },
+  "warning": "Synthetic component construction is not real-world generalization."
+}
