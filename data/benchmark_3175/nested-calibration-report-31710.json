@@ -1,0 +1,605 @@
+{
+  "phase": "3.1.7.10",
+  "status": "EXPERIMENTAL_SYNTHETIC_FOUR_WAY_HOLDOUT",
+  "readOnly": true,
+  "seed": 31710,
+  "minimumPolicyPrecision": 0.8,
+  "domains": {
+    "CUSTOMS": {
+      "rows": 10000,
+      "componentOrEntityGroups": 500,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": null,
+      "splits": {
+        "train": {
+          "rows": 6000,
+          "positives": 3000,
+          "positiveRate": 0.5
+        },
+        "calibratorFit": {
+          "rows": 1000,
+          "positives": 500,
+          "positiveRate": 0.5
+        },
+        "policySelection": {
+          "rows": 1000,
+          "positives": 500,
+          "positiveRate": 0.5
+        },
+        "test": {
+          "rows": 2000,
+          "positives": 1000,
+          "positiveRate": 0.5
+        }
+      },
+      "fullModel": {
+        "features": [
+          "declaration_gap",
+          "hs_mismatch"
+        ],
+        "selectedCalibration": "isotonic",
+        "policySelectionBrierByMethod": {
+          "uncalibrated": 1.4e-05,
+          "sigmoid": 3.5e-05,
+          "isotonic": 0.0
+        },
+        "selectedThreshold": 1.0,
+        "policyPrecisionConstraintFeasible": true,
+        "testAtSelectedThreshold": {
+          "rocAuc": 1.0,
+          "prAuc": 1.0,
+          "brier": 0.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "confusionMatrix": {
+            "TN": 1000,
+            "FP": 0,
+            "FN": 0,
+            "TP": 1000
+          }
+        },
+        "testAtDefaultThreshold": {
+          "rocAuc": 1.0,
+          "prAuc": 1.0,
+          "brier": 0.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "confusionMatrix": {
+            "TN": 1000,
+            "FP": 0,
+            "FN": 0,
+            "TP": 1000
+          }
+        },
+        "testAtConservativeThreshold": {
+          "rocAuc": 1.0,
+          "prAuc": 1.0,
+          "brier": 0.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "confusionMatrix": {
+            "TN": 1000,
+            "FP": 0,
+            "FN": 0,
+            "TP": 1000
+          }
+        }
+      }
+    },
+    "BANKING": {
+      "rows": 10000,
+      "componentOrEntityGroups": 252,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": 0,
+      "splits": {
+        "train": {
+          "rows": 5960,
+          "positives": 3000,
+          "positiveRate": 0.503356
+        },
+        "calibratorFit": {
+          "rows": 1000,
+          "positives": 480,
+          "positiveRate": 0.48
+        },
+        "policySelection": {
+          "rows": 1020,
+          "positives": 520,
+          "positiveRate": 0.509804
+        },
+        "test": {
+          "rows": 2020,
+          "positives": 1000,
+          "positiveRate": 0.49505
+        }
+      },
+      "fullModel": {
+        "features": [
+          "log_amount",
+          "source_degree",
+          "destination_degree"
+        ],
+        "selectedCalibration": "isotonic",
+        "policySelectionBrierByMethod": {
+          "uncalibrated": 0.082606,
+          "sigmoid": 0.082771,
+          "isotonic": 0.070476
+        },
+        "selectedThreshold": 0.52173913,
+        "policyPrecisionConstraintFeasible": true,
+        "testAtSelectedThreshold": {
+          "rocAuc": 0.943769,
+          "prAuc": 0.928623,
+          "brier": 0.088753,
+          "precision": 0.814233,
+          "recall": 0.881,
+          "f1": 0.846302,
+          "confusionMatrix": {
+            "TN": 819,
+            "FP": 201,
+            "FN": 119,
+            "TP": 881
+          }
+        },
+        "testAtDefaultThreshold": {
+          "rocAuc": 0.943769,
+          "prAuc": 0.928623,
+          "brier": 0.088753,
+          "precision": 0.814233,
+          "recall": 0.881,
+          "f1": 0.846302,
+          "confusionMatrix": {
+            "TN": 819,
+            "FP": 201,
+            "FN": 119,
+            "TP": 881
+          }
+        },
+        "testAtConservativeThreshold": {
+          "rocAuc": 0.943769,
+          "prAuc": 0.928623,
+          "brier": 0.088753,
+          "precision": 0.971223,
+          "recall": 0.81,
+          "f1": 0.883315,
+          "confusionMatrix": {
+            "TN": 996,
+            "FP": 24,
+            "FN": 190,
+            "TP": 810
+          }
+        }
+      }
+    },
+    "TELECOM": {
+      "rows": 10000,
+      "componentOrEntityGroups": 252,
+      "groupOverlap": 0,
+      "graphEndpointOverlap": 0,
+      "splits": {
+        "train": {
+          "rows": 5960,
+          "positives": 3000,
+          "positiveRate": 0.503356
+        },
+        "calibratorFit": {
+          "rows": 1000,
+          "positives": 480,
+          "positiveRate": 0.48
+        },
+        "policySelection": {
+          "rows": 1020,
+          "positives": 520,
+          "positiveRate": 0.509804
+        },
+        "test": {
+          "rows": 2020,
+          "positives": 1000,
+          "positiveRate": 0.49505
+        }
+      },
+      "fullModel": {
+        "features": [
+          "log_duration",
+          "caller_degree",
+          "receiver_degree"
+        ],
+        "selectedCalibration": "isotonic",
+        "policySelectionBrierByMethod": {
+          "uncalibrated": 0.265055,
+          "sigmoid": 0.246076,
+          "isotonic": 0.208693
+        },
+        "selectedThreshold": 0.33333333,
+        "policyPrecisionConstraintFeasible": true,
+        "testAtSelectedThreshold": {
+          "rocAuc": 0.677105,
+          "prAuc": 0.657557,
+          "brier": 0.216921,
+          "precision": 0.820896,
+          "recall": 0.44,
+          "f1": 0.572917,
+          "confusionMatrix": {
+            "TN": 924,
+            "FP": 96,
+            "FN": 560,
+            "TP": 440
+          }
+        },
+        "testAtDefaultThreshold": {
+          "rocAuc": 0.677105,
+          "prAuc": 0.657557,
+          "brier": 0.216921,
+          "precision": 0.825758,
+          "recall": 0.436,
+          "f1": 0.570681,
+          "confusionMatrix": {
+            "TN": 928,
+            "FP": 92,
+            "FN": 564,
+            "TP": 436
+          }
+        },
+        "testAtConservativeThreshold": {
+          "rocAuc": 0.677105,
+          "prAuc": 0.657557,
+          "brier": 0.216921,
+          "precision": 0.840108,
+          "recall": 0.31,
+          "f1": 0.452885,
+          "confusionMatrix": {
+            "TN": 961,
+            "FP": 59,
+            "FN": 690,
+            "TP": 310
+          }
+        }
+      },
+      "featureAblation": {
+        "without_log_duration": {
+          "features": [
+            "caller_degree",
+            "receiver_degree"
+          ],
+          "selectedCalibration": "sigmoid",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.264661,
+            "sigmoid": 0.250792,
+            "isotonic": 0.250792
+          },
+          "selectedThreshold": 1.0,
+          "policyPrecisionConstraintFeasible": false,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          }
+        },
+        "without_caller_degree": {
+          "features": [
+            "log_duration",
+            "receiver_degree"
+          ],
+          "selectedCalibration": "isotonic",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.250442,
+            "sigmoid": 0.250554,
+            "isotonic": 0.191788
+          },
+          "selectedThreshold": 0.33333333,
+          "policyPrecisionConstraintFeasible": true,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.852713,
+            "recall": 0.44,
+            "f1": 0.580475,
+            "confusionMatrix": {
+              "TN": 944,
+              "FP": 76,
+              "FN": 560,
+              "TP": 440
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.858268,
+            "recall": 0.436,
+            "f1": 0.578249,
+            "confusionMatrix": {
+              "TN": 948,
+              "FP": 72,
+              "FN": 564,
+              "TP": 436
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.888252,
+            "recall": 0.31,
+            "f1": 0.4596,
+            "confusionMatrix": {
+              "TN": 981,
+              "FP": 39,
+              "FN": 690,
+              "TP": 310
+            }
+          }
+        },
+        "without_receiver_degree": {
+          "features": [
+            "log_duration",
+            "caller_degree"
+          ],
+          "selectedCalibration": "isotonic",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.265055,
+            "sigmoid": 0.246076,
+            "isotonic": 0.208693
+          },
+          "selectedThreshold": 0.33333333,
+          "policyPrecisionConstraintFeasible": true,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.677105,
+            "prAuc": 0.657557,
+            "brier": 0.216921,
+            "precision": 0.820896,
+            "recall": 0.44,
+            "f1": 0.572917,
+            "confusionMatrix": {
+              "TN": 924,
+              "FP": 96,
+              "FN": 560,
+              "TP": 440
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.677105,
+            "prAuc": 0.657557,
+            "brier": 0.216921,
+            "precision": 0.825758,
+            "recall": 0.436,
+            "f1": 0.570681,
+            "confusionMatrix": {
+              "TN": 928,
+              "FP": 92,
+              "FN": 564,
+              "TP": 436
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.677105,
+            "prAuc": 0.657557,
+            "brier": 0.216921,
+            "precision": 0.840108,
+            "recall": 0.31,
+            "f1": 0.452885,
+            "confusionMatrix": {
+              "TN": 961,
+              "FP": 59,
+              "FN": 690,
+              "TP": 310
+            }
+          }
+        },
+        "only_log_duration": {
+          "features": [
+            "log_duration"
+          ],
+          "selectedCalibration": "isotonic",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.250442,
+            "sigmoid": 0.250554,
+            "isotonic": 0.191788
+          },
+          "selectedThreshold": 0.33333333,
+          "policyPrecisionConstraintFeasible": true,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.852713,
+            "recall": 0.44,
+            "f1": 0.580475,
+            "confusionMatrix": {
+              "TN": 944,
+              "FP": 76,
+              "FN": 560,
+              "TP": 440
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.858268,
+            "recall": 0.436,
+            "f1": 0.578249,
+            "confusionMatrix": {
+              "TN": 948,
+              "FP": 72,
+              "FN": 564,
+              "TP": 436
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.689232,
+            "prAuc": 0.685297,
+            "brier": 0.207918,
+            "precision": 0.888252,
+            "recall": 0.31,
+            "f1": 0.4596,
+            "confusionMatrix": {
+              "TN": 981,
+              "FP": 39,
+              "FN": 690,
+              "TP": 310
+            }
+          }
+        },
+        "only_caller_degree": {
+          "features": [
+            "caller_degree"
+          ],
+          "selectedCalibration": "sigmoid",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.264661,
+            "sigmoid": 0.250792,
+            "isotonic": 0.250792
+          },
+          "selectedThreshold": 1.0,
+          "policyPrecisionConstraintFeasible": false,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.490196,
+            "prAuc": 0.49505,
+            "brier": 0.250202,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          }
+        },
+        "only_receiver_degree": {
+          "features": [
+            "receiver_degree"
+          ],
+          "selectedCalibration": "uncalibrated",
+          "policySelectionBrierByMethod": {
+            "uncalibrated": 0.249945,
+            "sigmoid": 0.250792,
+            "isotonic": 0.250792
+          },
+          "selectedThreshold": 1.0,
+          "policyPrecisionConstraintFeasible": false,
+          "testAtSelectedThreshold": {
+            "rocAuc": 0.5,
+            "prAuc": 0.49505,
+            "brier": 0.250044,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          },
+          "testAtDefaultThreshold": {
+            "rocAuc": 0.5,
+            "prAuc": 0.49505,
+            "brier": 0.250044,
+            "precision": 0.49505,
+            "recall": 1.0,
+            "f1": 0.662252,
+            "confusionMatrix": {
+              "TN": 0,
+              "FP": 1020,
+              "FN": 0,
+              "TP": 1000
+            }
+          },
+          "testAtConservativeThreshold": {
+            "rocAuc": 0.5,
+            "prAuc": 0.49505,
+            "brier": 0.250044,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "confusionMatrix": {
+              "TN": 1020,
+              "FP": 0,
+              "FN": 1000,
+              "TP": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "All labels are synthetic, not observed misconduct.",
+    "GraphFixtureV2 topology was generated using synthetic scenarios.",
+    "Test features use within-test graph degrees, not production online history.",
+    "Ablation test results are diagnostics only; do not select features using them.",
+    "No operational model, service, or database was changed."
+  ]
+}

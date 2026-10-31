@@ -1,0 +1,145 @@
+{
+  "phase": "3.1.7.11",
+  "status": "EXPERIMENTAL_SYNTHETIC_TEMPORAL_HOLDOUT",
+  "readOnly": true,
+  "seed": 31711,
+  "minimumPolicyPrecision": 0.8,
+  "splitPolicy": "chronological timestamp-block, no shared timestamp across splits",
+  "featurePolicy": "strictly prior event timestamps, same-time batch exclusion",
+  "rows": 10000,
+  "splits": {
+    "train": {
+      "rows": 6038,
+      "positives": 3033,
+      "start": "2026-01-01T12:00:00",
+      "end": "2026-02-18T12:00:00"
+    },
+    "calibratorFit": {
+      "rows": 941,
+      "positives": 462,
+      "start": "2026-02-19T12:00:00",
+      "end": "2026-02-25T12:00:00"
+    },
+    "policySelection": {
+      "rows": 1049,
+      "positives": 521,
+      "start": "2026-02-26T12:00:00",
+      "end": "2026-03-06T12:00:00"
+    },
+    "test": {
+      "rows": 1972,
+      "positives": 984,
+      "start": "2026-03-07T12:00:00",
+      "end": "2026-03-21T12:00:00"
+    }
+  },
+  "graphEndpointOverlapBySplitPair": {
+    "train-calibratorFit": 251,
+    "train-policySelection": 250,
+    "train-test": 252,
+    "calibratorFit-policySelection": 249,
+    "calibratorFit-test": 251,
+    "policySelection-test": 250
+  },
+  "graphComponentDisjoint": false,
+  "features": [
+    "log_duration",
+    "log_caller_count_30d",
+    "caller_calls_1d",
+    "caller_calls_7d",
+    "caller_calls_30d",
+    "pair_calls_1d",
+    "pair_calls_7d",
+    "pair_calls_30d",
+    "distinct_peers_1d",
+    "distinct_peers_7d",
+    "distinct_peers_30d",
+    "log_mean_prior_duration_30d",
+    "log_distinct_peers_30d"
+  ],
+  "baselineDurationOnly": {
+    "selectedCalibration": "isotonic",
+    "policySelectionBrierByMethod": {
+      "uncalibrated": 0.25025,
+      "sigmoid": 0.250178,
+      "isotonic": 0.169565
+    },
+    "selectedThreshold": 0.86177518,
+    "policyPrecisionConstraintFeasible": true,
+    "testAtSelectedThreshold": {
+      "rocAuc": 0.755357,
+      "prAuc": 0.755603,
+      "brier": 0.164319,
+      "precision": 1.0,
+      "recall": 0.507114,
+      "f1": 0.67296,
+      "confusionMatrix": {
+        "TN": 988,
+        "FP": 0,
+        "FN": 485,
+        "TP": 499
+      }
+    },
+    "testAtDefaultThreshold": {
+      "rocAuc": 0.755357,
+      "prAuc": 0.755603,
+      "brier": 0.164319,
+      "precision": 1.0,
+      "recall": 0.510163,
+      "f1": 0.675639,
+      "confusionMatrix": {
+        "TN": 988,
+        "FP": 0,
+        "FN": 482,
+        "TP": 502
+      }
+    }
+  },
+  "engineeredTemporal": {
+    "selectedCalibration": "sigmoid",
+    "policySelectionBrierByMethod": {
+      "uncalibrated": 0.250577,
+      "sigmoid": 0.250429,
+      "isotonic": 0.251524
+    },
+    "selectedThreshold": 1.0,
+    "policyPrecisionConstraintFeasible": false,
+    "testAtSelectedThreshold": {
+      "rocAuc": 0.506315,
+      "prAuc": 0.562243,
+      "brier": 0.250132,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "confusionMatrix": {
+        "TN": 988,
+        "FP": 0,
+        "FN": 984,
+        "TP": 0
+      }
+    },
+    "testAtDefaultThreshold": {
+      "rocAuc": 0.506315,
+      "prAuc": 0.562243,
+      "brier": 0.250132,
+      "precision": 0.619512,
+      "recall": 0.25813,
+      "f1": 0.364419,
+      "confusionMatrix": {
+        "TN": 832,
+        "FP": 156,
+        "FN": 730,
+        "TP": 254
+      }
+    }
+  },
+  "limitations": [
+    "Only synthetic data and synthetic labels.",
+    "Temporal split is NOT guaranteed graph-component-disjoint.",
+    "GraphFixtureV2 topology was generated using synthetic scenarios.",
+    "History-based features use past events from all chronological partitions; this simulates a sequential stream, not isolated components.",
+    "Baseline vs engineered test metrics are diagnostic, not feature-selection criteria.",
+    "No independent OOD fixture and no real-world performance claim.",
+    "No operational database or service changed."
+  ]
+}
