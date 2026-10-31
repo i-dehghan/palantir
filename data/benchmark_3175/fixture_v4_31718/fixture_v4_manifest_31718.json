@@ -1,0 +1,60 @@
+{
+  "phase": "3.1.7.18",
+  "status": "SYNTHETIC_FIXTURE_ONLY",
+  "seed": 31718,
+  "syntheticOnly": true,
+  "dbSha256": "02e8da5933e5280c51abc103cec792db7c4997c61ebbee884882774f820182c3",
+  "schemaTable": "SyntheticTelecomV4",
+  "environmentRoles": {
+    "A": "train",
+    "B": "calibration",
+    "C": "policy_selection",
+    "D": "sealed_final_evaluation"
+  },
+  "preRegisteredMechanism": {
+    "stableSignal": "context_score",
+    "labelProbability": "sigmoid(-2.1 + 3.5 * context_score)",
+    "durationSeparationByEnvironment": {
+      "A": 1.0,
+      "B": 0.65,
+      "C": 0.25,
+      "D": -0.2
+    },
+    "topologyGeneratedBeforeLabels": true,
+    "separateRandomStreams": true
+  },
+  "audit": {
+    "A": {
+      "rows": 2500,
+      "uniquePairs": 642,
+      "repeatedPairs": 571,
+      "positiveRate": 0.4304,
+      "contextMean": 0.495882
+    },
+    "B": {
+      "rows": 2500,
+      "uniquePairs": 651,
+      "repeatedPairs": 594,
+      "positiveRate": 0.432,
+      "contextMean": 0.50674
+    },
+    "C": {
+      "rows": 2500,
+      "uniquePairs": 631,
+      "repeatedPairs": 565,
+      "positiveRate": 0.4276,
+      "contextMean": 0.489891
+    },
+    "D": {
+      "rows": 2500,
+      "uniquePairs": 630,
+      "repeatedPairs": 567
+    }
+  },
+  "limitations": [
+    "Labels are synthetic, not observed wrongdoing.",
+    "The stable signal is deliberately injected; performance on this fixture cannot validate real-world predictive value.",
+    "Environment D is sealed only by protocol; its mechanism is predeclared but its row-level outcomes must not be used for development.",
+    "No model training or operational changes in this phase."
+  ]
+}
