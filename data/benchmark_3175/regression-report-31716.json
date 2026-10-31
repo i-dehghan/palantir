@@ -1,0 +1,127 @@
+{
+  "phase": "3.1.7.16",
+  "status": "SYNTHETIC_DEVELOPMENT_ONLY",
+  "dbSha256": "b32da28c516e708cd06e85ce57b6d2e9960b8f5724074290bc7a46a5aee60aec",
+  "minimumPrecision": 0.8,
+  "sealedEnvironmentD": "NOT_QUERIED",
+  "seed": 31716,
+  "splitRows": {
+    "A": 2500,
+    "B": 2500,
+    "C": 2500
+  },
+  "candidateResults": {
+    "duration_only": {
+      "features": [
+        "log_duration"
+      ],
+      "calibration": "sigmoid_on_B",
+      "feasible": true,
+      "threshold": 0.6658645009,
+      "policyMetrics": {
+        "rocAuc": 0.604557,
+        "prAuc": 0.454943,
+        "brier": 0.225283,
+        "precision": 0.8,
+        "recall": 0.026726,
+        "f1": 0.051724,
+        "confusion": {
+          "TN": 1596,
+          "FP": 6,
+          "FN": 874,
+          "TP": 24
+        }
+      },
+      "rankingMetrics": {
+        "rocAuc": 0.604557,
+        "prAuc": 0.454943,
+        "brier": 0.225283
+      }
+    },
+    "duration_plus_frequency": {
+      "features": [
+        "log_duration",
+        "caller_7d",
+        "caller_30d"
+      ],
+      "calibration": "sigmoid_on_B",
+      "feasible": true,
+      "threshold": 0.8616416618,
+      "policyMetrics": {
+        "rocAuc": 0.601431,
+        "prAuc": 0.450244,
+        "brier": 0.225961,
+        "precision": 1.0,
+        "recall": 0.001114,
+        "f1": 0.002225,
+        "confusion": {
+          "TN": 1602,
+          "FP": 0,
+          "FN": 897,
+          "TP": 1
+        }
+      },
+      "rankingMetrics": {
+        "rocAuc": 0.601431,
+        "prAuc": 0.450244,
+        "brier": 0.225961
+      }
+    },
+    "duration_plus_pair_history": {
+      "features": [
+        "log_duration",
+        "caller_7d",
+        "caller_30d",
+        "pair_7d",
+        "pair_30d"
+      ],
+      "calibration": "sigmoid_on_B",
+      "feasible": true,
+      "threshold": 0.742527552,
+      "policyMetrics": {
+        "rocAuc": 0.599832,
+        "prAuc": 0.448672,
+        "brier": 0.226461,
+        "precision": 0.8,
+        "recall": 0.004454,
+        "f1": 0.008859,
+        "confusion": {
+          "TN": 1601,
+          "FP": 1,
+          "FN": 894,
+          "TP": 4
+        }
+      },
+      "rankingMetrics": {
+        "rocAuc": 0.599832,
+        "prAuc": 0.448672,
+        "brier": 0.226461
+      }
+    }
+  },
+  "selected": {
+    "candidate": "duration_only",
+    "threshold": 0.6658645009,
+    "policyMetrics": {
+      "rocAuc": 0.604557,
+      "prAuc": 0.454943,
+      "brier": 0.225283,
+      "precision": 0.8,
+      "recall": 0.026726,
+      "f1": 0.051724,
+      "confusion": {
+        "TN": 1596,
+        "FP": 6,
+        "FN": 874,
+        "TP": 24
+      }
+    }
+  },
+  "decision": "DEVELOPMENT_ONLY_NOT_DEPLOYABLE",
+  "limitations": [
+    "Labels and duration distributions are synthetic",
+    "C is used for selection and is not an unbiased final test",
+    "D is not queried; deployment remains NO-GO",
+    "Topology is independent of labels by construction"
+  ]
+}
