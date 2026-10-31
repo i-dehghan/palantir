@@ -1,0 +1,590 @@
+{
+  "phase": "3.1.7.17",
+  "status": "SYNTHETIC_READ_ONLY_DIAGNOSTICS",
+  "dbSha256": "b32da28c516e708cd06e85ce57b6d2e9960b8f5724074290bc7a46a5aee60aec",
+  "sealedEnvironmentD": "NOT_QUERIED",
+  "modelTraining": false,
+  "thresholdSelection": false,
+  "environments": {
+    "A": {
+      "rows": 2500,
+      "positiveRate": 0.344,
+      "features": {
+        "log_duration": {
+          "all": {
+            "count": 2500,
+            "mean": 5.445246,
+            "std": 1.157172,
+            "p10": 3.988984,
+            "p50": 5.446737,
+            "p90": 6.937702,
+            "zeroFraction": 0.0
+          },
+          "positive": {
+            "count": 860,
+            "mean": 6.107167,
+            "std": 1.069643,
+            "p10": 4.727388,
+            "p50": 6.09244,
+            "p90": 7.484985,
+            "zeroFraction": 0.0
+          },
+          "negative": {
+            "count": 1640,
+            "mean": 5.098141,
+            "std": 1.044518,
+            "p10": 3.78419,
+            "p50": 5.111988,
+            "p90": 6.420482,
+            "zeroFraction": 0.0
+          },
+          "univariateAuc": 0.750345,
+          "orientationInvariantAuc": 0.750345
+        },
+        "caller_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.465927,
+            "std": 0.468973,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.4616
+          },
+          "positive": {
+            "count": 860,
+            "mean": 0.477488,
+            "std": 0.478391,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.456977
+          },
+          "negative": {
+            "count": 1640,
+            "mean": 0.459864,
+            "std": 0.463843,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.464024
+          },
+          "univariateAuc": 0.508969,
+          "orientationInvariantAuc": 0.508969
+        },
+        "caller_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 1.226893,
+            "std": 0.570712,
+            "p10": 0.623832,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.1
+          },
+          "positive": {
+            "count": 860,
+            "mean": 1.221482,
+            "std": 0.578025,
+            "p10": 0.0,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.104651
+          },
+          "negative": {
+            "count": 1640,
+            "mean": 1.22973,
+            "std": 0.566818,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.097561
+          },
+          "univariateAuc": 0.496132,
+          "orientationInvariantAuc": 0.503868
+        },
+        "pair_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.173289,
+            "std": 0.32596,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.77
+          },
+          "positive": {
+            "count": 860,
+            "mean": 0.169288,
+            "std": 0.326651,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.777907
+          },
+          "negative": {
+            "count": 1640,
+            "mean": 0.175386,
+            "std": 0.325578,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.765854
+          },
+          "univariateAuc": 0.494645,
+          "orientationInvariantAuc": 0.505355
+        },
+        "pair_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.585502,
+            "std": 0.508615,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.3728
+          },
+          "positive": {
+            "count": 860,
+            "mean": 0.564639,
+            "std": 0.509535,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.390698
+          },
+          "negative": {
+            "count": 1640,
+            "mean": 0.596442,
+            "std": 0.50779,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.363415
+          },
+          "univariateAuc": 0.481373,
+          "orientationInvariantAuc": 0.518627
+        }
+      },
+      "pairHistoryNonzeroFraction": 0.6272
+    },
+    "B": {
+      "rows": 2500,
+      "positiveRate": 0.3584,
+      "features": {
+        "log_duration": {
+          "all": {
+            "count": 2500,
+            "mean": 5.341771,
+            "std": 1.103309,
+            "p10": 3.910003,
+            "p50": 5.342334,
+            "p90": 6.760646,
+            "zeroFraction": 0.0
+          },
+          "positive": {
+            "count": 896,
+            "mean": 5.78182,
+            "std": 1.064689,
+            "p10": 4.454347,
+            "p50": 5.769881,
+            "p90": 7.145584,
+            "zeroFraction": 0.0
+          },
+          "negative": {
+            "count": 1604,
+            "mean": 5.095958,
+            "std": 1.046646,
+            "p10": 3.744729,
+            "p50": 5.06575,
+            "p90": 6.480045,
+            "zeroFraction": 0.0
+          },
+          "univariateAuc": 0.675855,
+          "orientationInvariantAuc": 0.675855
+        },
+        "caller_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.455975,
+            "std": 0.453944,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.4596
+          },
+          "positive": {
+            "count": 896,
+            "mean": 0.458916,
+            "std": 0.453854,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.455357
+          },
+          "negative": {
+            "count": 1604,
+            "mean": 0.454333,
+            "std": 0.453985,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.46197
+          },
+          "univariateAuc": 0.502255,
+          "orientationInvariantAuc": 0.502255
+        },
+        "caller_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 1.223128,
+            "std": 0.561968,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.0972
+          },
+          "positive": {
+            "count": 896,
+            "mean": 1.220538,
+            "std": 0.565407,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.097098
+          },
+          "negative": {
+            "count": 1604,
+            "mean": 1.224575,
+            "std": 0.560033,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.097257
+          },
+          "univariateAuc": 0.49674,
+          "orientationInvariantAuc": 0.50326
+        },
+        "pair_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.178917,
+            "std": 0.329365,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.7632
+          },
+          "positive": {
+            "count": 896,
+            "mean": 0.169259,
+            "std": 0.321199,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.774554
+          },
+          "negative": {
+            "count": 1604,
+            "mean": 0.184312,
+            "std": 0.333718,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.756858
+          },
+          "univariateAuc": 0.490666,
+          "orientationInvariantAuc": 0.509334
+        },
+        "pair_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.590205,
+            "std": 0.524139,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.3812
+          },
+          "positive": {
+            "count": 896,
+            "mean": 0.574074,
+            "std": 0.528805,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.402902
+          },
+          "negative": {
+            "count": 1604,
+            "mean": 0.599216,
+            "std": 0.521297,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.369077
+          },
+          "univariateAuc": 0.487586,
+          "orientationInvariantAuc": 0.512414
+        }
+      },
+      "pairHistoryNonzeroFraction": 0.6188
+    },
+    "C": {
+      "rows": 2500,
+      "positiveRate": 0.3592,
+      "features": {
+        "log_duration": {
+          "all": {
+            "count": 2500,
+            "mean": 5.217547,
+            "std": 1.042096,
+            "p10": 3.871201,
+            "p50": 5.214936,
+            "p90": 6.562575,
+            "zeroFraction": 0.0
+          },
+          "positive": {
+            "count": 898,
+            "mean": 5.470994,
+            "std": 1.009389,
+            "p10": 4.174387,
+            "p50": 5.459586,
+            "p90": 6.788972,
+            "zeroFraction": 0.0
+          },
+          "negative": {
+            "count": 1602,
+            "mean": 5.075478,
+            "std": 1.033144,
+            "p10": 3.7612,
+            "p50": 5.078289,
+            "p90": 6.394927,
+            "zeroFraction": 0.0
+          },
+          "univariateAuc": 0.604557,
+          "orientationInvariantAuc": 0.604557
+        },
+        "caller_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.450178,
+            "std": 0.459236,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.4704
+          },
+          "positive": {
+            "count": 898,
+            "mean": 0.429844,
+            "std": 0.452976,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.489978
+          },
+          "negative": {
+            "count": 1602,
+            "mean": 0.461576,
+            "std": 0.462317,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.098612,
+            "zeroFraction": 0.459426
+          },
+          "univariateAuc": 0.482388,
+          "orientationInvariantAuc": 0.517612
+        },
+        "caller_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 1.229639,
+            "std": 0.562458,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.94591,
+            "zeroFraction": 0.0968
+          },
+          "positive": {
+            "count": 898,
+            "mean": 1.231892,
+            "std": 0.57185,
+            "p10": 0.0,
+            "p50": 1.386294,
+            "p90": 1.791759,
+            "zeroFraction": 0.104677
+          },
+          "negative": {
+            "count": 1602,
+            "mean": 1.228376,
+            "std": 0.557119,
+            "p10": 0.693147,
+            "p50": 1.386294,
+            "p90": 1.94591,
+            "zeroFraction": 0.092385
+          },
+          "univariateAuc": 0.50728,
+          "orientationInvariantAuc": 0.50728
+        },
+        "pair_7d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.18044,
+            "std": 0.332723,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.7628
+          },
+          "positive": {
+            "count": 898,
+            "mean": 0.1795,
+            "std": 0.332101,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.76392
+          },
+          "negative": {
+            "count": 1602,
+            "mean": 0.180967,
+            "std": 0.333069,
+            "p10": 0.0,
+            "p50": 0.0,
+            "p90": 0.693147,
+            "zeroFraction": 0.762172
+          },
+          "univariateAuc": 0.49903,
+          "orientationInvariantAuc": 0.50097
+        },
+        "pair_30d": {
+          "all": {
+            "count": 2500,
+            "mean": 0.59359,
+            "std": 0.511649,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.3684
+          },
+          "positive": {
+            "count": 898,
+            "mean": 0.609557,
+            "std": 0.512452,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.359688
+          },
+          "negative": {
+            "count": 1602,
+            "mean": 0.584639,
+            "std": 0.51098,
+            "p10": 0.0,
+            "p50": 0.693147,
+            "p90": 1.386294,
+            "zeroFraction": 0.373283
+          },
+          "univariateAuc": 0.515832,
+          "orientationInvariantAuc": 0.515832
+        }
+      },
+      "pairHistoryNonzeroFraction": 0.6316
+    }
+  },
+  "candidateComparison": {
+    "duration_only": {
+      "features": [
+        "log_duration"
+      ],
+      "rankingMetricsC": {
+        "rocAuc": 0.604557,
+        "prAuc": 0.454943,
+        "brier": 0.225283
+      },
+      "policyMetricsC": {
+        "rocAuc": 0.604557,
+        "prAuc": 0.454943,
+        "brier": 0.225283,
+        "precision": 0.8,
+        "recall": 0.026726,
+        "f1": 0.051724,
+        "confusion": {
+          "TN": 1596,
+          "FP": 6,
+          "FN": 874,
+          "TP": 24
+        }
+      },
+      "feasibleOnC": true,
+      "predictedPositiveCountC": 30
+    },
+    "duration_plus_frequency": {
+      "features": [
+        "log_duration",
+        "caller_7d",
+        "caller_30d"
+      ],
+      "rankingMetricsC": {
+        "rocAuc": 0.601431,
+        "prAuc": 0.450244,
+        "brier": 0.225961
+      },
+      "policyMetricsC": {
+        "rocAuc": 0.601431,
+        "prAuc": 0.450244,
+        "brier": 0.225961,
+        "precision": 1.0,
+        "recall": 0.001114,
+        "f1": 0.002225,
+        "confusion": {
+          "TN": 1602,
+          "FP": 0,
+          "FN": 897,
+          "TP": 1
+        }
+      },
+      "feasibleOnC": true,
+      "predictedPositiveCountC": 1
+    },
+    "duration_plus_pair_history": {
+      "features": [
+        "log_duration",
+        "caller_7d",
+        "caller_30d",
+        "pair_7d",
+        "pair_30d"
+      ],
+      "rankingMetricsC": {
+        "rocAuc": 0.599832,
+        "prAuc": 0.448672,
+        "brier": 0.226461
+      },
+      "policyMetricsC": {
+        "rocAuc": 0.599832,
+        "prAuc": 0.448672,
+        "brier": 0.226461,
+        "precision": 0.8,
+        "recall": 0.004454,
+        "f1": 0.008859,
+        "confusion": {
+          "TN": 1601,
+          "FP": 1,
+          "FN": 894,
+          "TP": 4
+        }
+      },
+      "feasibleOnC": true,
+      "predictedPositiveCountC": 5
+    }
+  },
+  "decision": "NO_GO",
+  "limitations": [
+    "A/B/C feature-label association is descriptive, not causal",
+    "Calibration reliability curves cannot be reconstructed from aggregate regression report; row-level saved probabilities are unavailable",
+    "C was used to choose candidate and threshold, so C policy metrics are selection-biased",
+    "Synthetic labels are not observed misconduct",
+    "No access to environment D, no retraining, no operational changes"
+  ]
+}
