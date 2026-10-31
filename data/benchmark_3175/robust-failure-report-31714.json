@@ -1,0 +1,154 @@
+{
+  "phase": "3.1.7.14",
+  "status": "AGGREGATE_SYNTHETIC_FAILURE_AUDIT",
+  "readOnly": true,
+  "minimumPrecision": 0.8,
+  "sourceTemporalTest": {
+    "rocAuc": 0.755357,
+    "prAuc": 0.755603,
+    "brier": 0.164319,
+    "precision": 1.0,
+    "recall": 0.507114,
+    "f1": 0.67296
+  },
+  "frozenModel": {
+    "feature": "log1p(duration_seconds)",
+    "calibration": "isotonic",
+    "threshold": 0.86177518
+  },
+  "oodCases": {
+    "overlap": {
+      "sampleCount": 10000,
+      "positivePrevalence": 0.5,
+      "metricsAtFrozenThreshold": {
+        "rocAuc": 0.555032,
+        "prAuc": 0.538894,
+        "brier": 0.272609,
+        "precision": 0.703396,
+        "recall": 0.1864,
+        "f1": 0.294704
+      },
+      "deltaVsTemporalTest": {
+        "rocAuc": -0.200325,
+        "prAuc": -0.216709,
+        "brier": 0.10829,
+        "precision": -0.296604,
+        "recall": -0.320714,
+        "f1": -0.378256
+      },
+      "confusionMatrix": {
+        "TN": 4607,
+        "FP": 393,
+        "FN": 4068,
+        "TP": 932
+      },
+      "falseNegativeRate": 0.8136,
+      "falsePositiveRate": 0.0786,
+      "precisionConstraintMet": false,
+      "durationLogMeanByLabel": {
+        "negative": 5.168814,
+        "positive": 5.973221
+      }
+    },
+    "inversion": {
+      "sampleCount": 10000,
+      "positivePrevalence": 0.5,
+      "metricsAtFrozenThreshold": {
+        "rocAuc": 0.43231,
+        "prAuc": 0.488055,
+        "brier": 0.347295,
+        "precision": 0.177277,
+        "recall": 0.0362,
+        "f1": 0.060123
+      },
+      "deltaVsTemporalTest": {
+        "rocAuc": -0.323047,
+        "prAuc": -0.267548,
+        "brier": 0.182976,
+        "precision": -0.822723,
+        "recall": -0.470914,
+        "f1": -0.612837
+      },
+      "confusionMatrix": {
+        "TN": 4160,
+        "FP": 840,
+        "FN": 4819,
+        "TP": 181
+      },
+      "falseNegativeRate": 0.9638,
+      "falsePositiveRate": 0.168,
+      "precisionConstraintMet": false,
+      "durationLogMeanByLabel": {
+        "negative": 6.071641,
+        "positive": 4.794983
+      }
+    }
+  },
+  "featureAudit": {
+    "allZeroFeaturesBySummary": [
+      "caller_calls_1d",
+      "pair_calls_1d",
+      "pair_calls_7d",
+      "pair_calls_30d",
+      "distinct_peers_1d"
+    ],
+    "identicalDistributionSummariesNotProvenRowDuplicates": [
+      [
+        "log_caller_count_30d",
+        "log_distinct_peers_30d"
+      ],
+      [
+        "caller_calls_7d",
+        "distinct_peers_7d"
+      ],
+      [
+        "caller_calls_30d",
+        "distinct_peers_30d"
+      ]
+    ],
+    "largeTestVsTrainStandardizedMeanShifts": [
+      {
+        "feature": "caller_calls_30d",
+        "standardizedMeanShift": 0.843638
+      },
+      {
+        "feature": "distinct_peers_30d",
+        "standardizedMeanShift": 0.843638
+      },
+      {
+        "feature": "log_caller_count_30d",
+        "standardizedMeanShift": 0.724959
+      },
+      {
+        "feature": "log_distinct_peers_30d",
+        "standardizedMeanShift": 0.724959
+      }
+    ],
+    "policyFeasibleCandidates": [
+      "duration_only",
+      "duration_plus_frequency",
+      "duration_plus_pairs",
+      "duration_plus_diversity",
+      "duration_plus_mean"
+    ],
+    "policySelectedCandidate": "duration_only"
+  },
+  "decision": {
+    "operationalDeployment": "NO_GO",
+    "reason": "Frozen model fails minimum precision in predeclared synthetic OOD cases",
+    "noRetrainingOrThresholdSelection": true,
+    "nextExperiment": "Create a NEW pre-registered synthetic multi-environment fixture with non-label-derived topology, nonzero repeated-pair activity, and an untouched final environment; develop only on separate environments."
+  },
+  "limitations": [
+    "Aggregate reports cannot establish row-wise duplicate features or individual errors.",
+    "Synthetic scenario labels are not evidence of real misconduct.",
+    "OOD scenarios are designed stress tests, not representative field prevalence.",
+    "Differences in prevalence and label mechanisms limit direct cross-environment comparisons.",
+    "No test/OOD-driven tuning, no production deployment, no raw personal records accessed."
+  ],
+  "sourceSha256": {
+    "temporal": "99d8bc7784390d836ac428d1767ac90fa69996fe72ad87165ede0c97b5d6a7b3",
+    "diagnostics": "360614f64b2f17e2cda00bc5eee0f4b7000a40d9ab0bc99557610d74d5008722",
+    "ood": "7feabf069733394dd724bc36a49976c9c7228cf532251a542e93f1536ed8eacf"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "phase": "3.1.7.15",
+  "status": "SYNTHETIC_FIXTURE_ONLY",
+  "seed": 31715,
+  "syntheticOnly": true,
+  "dbSha256": "b32da28c516e708cd06e85ce57b6d2e9960b8f5724074290bc7a46a5aee60aec",
+  "schemaTable": "SyntheticTelecomV3",
+  "environmentRoles": {
+    "A": "train",
+    "B": "calibration",
+    "C": "policy_selection",
+    "D": "sealed_final_evaluation"
+  },
+  "graphGeneration": "separate seeded RNG; graph and endpoints generated before labels",
+  "labels": "independent Bernoulli draws, duration depends on label and environment",
+  "limitations": [
+    "Synthetic labels are not observed misconduct.",
+    "Topology is independent of labels by construction, not a proof of real-world representativeness.",
+    "Environment D is sealed by protocol, not cryptographically access-controlled.",
+    "No model training or final-environment evaluation in this phase.",
+    "Endpoint prefixes prevent cross-environment identity overlap by design."
+  ],
+  "topology": {
+    "A": {
+      "nodeCount": 180,
+      "edgePoolSize": 540,
+      "uniqueEdgePoolSize": 515
+    },
+    "B": {
+      "nodeCount": 180,
+      "edgePoolSize": 540,
+      "uniqueEdgePoolSize": 516
+    },
+    "C": {
+      "nodeCount": 180,
+      "edgePoolSize": 540,
+      "uniqueEdgePoolSize": 512
+    },
+    "D": {
+      "nodeCount": 180,
+      "edgePoolSize": 540,
+      "uniqueEdgePoolSize": 513
+    }
+  },
+  "audit": {
+    "A": {
+      "rows": 2500,
+      "positives": 860,
+      "positiveRate": 0.344,
+      "firstTimestamp": "2026-01-01T00:00:00",
+      "lastTimestamp": "2026-05-05T18:00:00",
+      "uniquePairs": 511,
+      "repeatedPairs": 488,
+      "repeatedPairEvents": 2477,
+      "uniqueEndpoints": 180
+    },
+    "B": {
+      "rows": 2500,
+      "positives": 896,
+      "positiveRate": 0.3584,
+      "firstTimestamp": "2026-02-15T00:00:00",
+      "lastTimestamp": "2026-06-19T18:00:00",
+      "uniquePairs": 512,
+      "repeatedPairs": 486,
+      "repeatedPairEvents": 2474,
+      "uniqueEndpoints": 180
+    },
+    "C": {
+      "rows": 2500,
+      "positives": 898,
+      "positiveRate": 0.3592,
+      "firstTimestamp": "2026-04-01T00:00:00",
+      "lastTimestamp": "2026-08-03T18:00:00",
+      "uniquePairs": 502,
+      "repeatedPairs": 488,
+      "repeatedPairEvents": 2486,
+      "uniqueEndpoints": 180
+    },
+    "D": {
+      "rows": 2500,
+      "positives": 893,
+      "positiveRate": 0.3572,
+      "firstTimestamp": "2026-05-16T00:00:00",
+      "lastTimestamp": "2026-09-17T18:00:00",
+      "uniquePairs": 508,
+      "repeatedPairs": 487,
+      "repeatedPairEvents": 2479,
+      "uniqueEndpoints": 180
+    }
+  }
+}
